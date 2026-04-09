@@ -18,6 +18,8 @@ const steps = [
  * Renders the instructions panel and the FishTales form.
  */
 export default function FishTales() {
+    const geminiApiKey = process.env.GEMINI_API_KEY ?? "";
+
     return (
         <main className="app-container">
             <div className="app-content">
@@ -42,7 +44,7 @@ export default function FishTales() {
                 />
 
                 {/* Form panel for submitting FishTales data */}
-                <FishTalesForm />
+                <FishTalesForm defaultApiKey={geminiApiKey} />
             </div>
         </main>
     );

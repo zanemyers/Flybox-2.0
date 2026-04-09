@@ -11,6 +11,9 @@ export default function ThemeToggle() {
         const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
         const isDark = saved ? saved === "dark" : prefersDark;
         setDark(isDark);
+        const theme = isDark ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", theme);
+        document.documentElement.style.colorScheme = theme;
     }, []);
 
     const toggle = () => {

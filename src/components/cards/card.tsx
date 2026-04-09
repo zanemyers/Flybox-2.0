@@ -3,28 +3,15 @@ import type { CardProps } from "@/lib/base/types/componentTypes"
 
 export default function Card(props: CardProps) {
     return (
-        <div className="w-full md:w-[49.5%] mb-4 text-center">
+        <div className="flex-1 min-w-[280px] text-center">
             <div className="card-light">
-                <div className="card-body">
-                    {/* Icon */}
-                    <div className="mb-4 text-6xl">
-                        {props.icon}
-                    </div>
-
-                    {/* Title */}
+                <div className="card-body flex flex-col items-center">
+                    <div className="card-icon">{props.icon}</div>
                     <h4>{props.title}</h4>
-
-                    {/* Description */}
-                    <p className="mb-4 text-lg text-base-content/80">
-                        {props.description}
-                    </p>
-
-                    {/* Button */}
-                    <div className="flex justify-center">
-                        <Link href={props.link} className="primary-button ">
-                            {props.buttonText}
-                        </Link>
-                    </div>
+                    <p className="text-lg text-base-content/80 flex-1">{props.description}</p>
+                    <Link href={props.link} className="primary-button mt-2">
+                        {props.buttonText}
+                    </Link>
                 </div>
             </div>
         </div>

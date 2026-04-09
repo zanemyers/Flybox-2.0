@@ -73,5 +73,7 @@ export interface BaseFormProps {
     buttonText: string;
     errors?: (string | undefined)[];
     children: React.ReactNode;
+    className?: string;
+    noPanel?: boolean;
 }
 

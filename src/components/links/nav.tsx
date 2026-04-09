@@ -7,8 +7,10 @@ export default function NavLink(props: NavLinkProps) {
         <li key={props.label}>
             <Link
                 href={props.href}
-                className={`hover:text-primary ${
-                    props.active ? "text-primary font-bold" : "font-medium"
+                className={`font-medium transition-colors hover:text-primary ${
+                    props.active
+                        ? "text-primary underline underline-offset-4 decoration-2"
+                        : ""
                 }`}
             >
                 {props.label}

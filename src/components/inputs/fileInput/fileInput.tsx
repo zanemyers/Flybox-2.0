@@ -12,7 +12,7 @@ export default function FileInput(props: FileProps) {
         <div className={props.className}>
             <p className="input-label">{props.label}</p>
             <DropZone
-                className={`card-light min-h-30 ${isDragging ? "bg-base-300" : ""}`}
+                className={`min-h-30 flex items-center justify-center rounded-box border-2 border-dashed border-base-300 transition-colors ${isDragging ? "bg-base-200 border-primary" : "bg-base-100"}`}
                 getDropOperation={(types) =>
                     ExcelTypes.some(t => types.has(t)) ? "copy" : "cancel"
                 }

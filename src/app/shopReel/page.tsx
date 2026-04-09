@@ -16,6 +16,8 @@ const steps = [
  * Renders the instructions panel and the ShopReel form.
  */
 export default function ShopReel() {
+    const serpApiKey = process.env.SERP_API_KEY ?? "";
+
     return (
         <main className="app-container">
             <div className="app-content">
@@ -36,7 +38,7 @@ export default function ShopReel() {
                     }
                 />
 
-                <ShopReelForm />
+                <ShopReelForm defaultApiKey={serpApiKey} />
             </div>
         </main>
     );

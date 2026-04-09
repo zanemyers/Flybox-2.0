@@ -122,11 +122,11 @@ interface ErrorState {
  * Extends BaseForm to handle uploading a starter file, filtering reports,
  * and configuring advanced API settings for Gemini.
  */
-export default function FishTalesForm() {
+export default function FishTalesForm({ defaultApiKey = "" }: { defaultApiKey?: string }) {
     const { jobId, submit } = useJobForm("fishTales");
 
     const [form, setForm] = useState<FormState>({
-        apiKey: "",
+        apiKey: defaultApiKey,
         maxAge: 100,
         filterByRivers: false,
         riverList: "",
@@ -197,101 +197,105 @@ export default function FishTalesForm() {
                 if (payload) submit(payload);
             }}
         >
-            <TextInput
-                type="password"
-                label="Gemini API Key"
-                placeholder="API Key"
-                value={form.apiKey}
-                onChange={(v) => updateForm("apiKey", v)}
-                error={errors.apiKeyError}
-            />
-
-            <TextInput
-                type="number"
-                label="Max Report Age"
-                placeholder="e.g. 100"
-                value={form.maxAge}
-                onChange={(v) => updateForm("maxAge", Number(v))}
-                error={errors.maxAgeError}
-            />
-
-            <CheckBoxInput
-                label="Filter by Rivers"
-                checked={form.filterByRivers}
-                onChange={(v) => updateForm("filterByRivers", v)}
-            />
-
-            {form.filterByRivers && (
+            <div className="space-y-4">
                 <TextInput
-                    type="text"
-                    label="River Names"
-                    placeholder="e.g. Madison, Snake, Yellowstone"
-                    value={form.riverList}
-                    onChange={(v) => updateForm("riverList", v)}
-                    error={errors.riverListError}
+                    type="password"
+                    label="Gemini API Key"
+                    placeholder="API Key"
+                    value={form.apiKey}
+                    onChange={(v) => updateForm("apiKey", v)}
+                    error={errors.apiKeyError}
                 />
-            )}
 
-            <FileInput
-                label="Import Starter File"
-                fileName={form.file?.name ?? null}
-                onSelect={(file) => updateForm("file", file)}
-            />
-
-            <details className="form-control">
-                <summary className="font-medium cursor-pointer">
-                    Advanced Settings
-                </summary>
+                <TextInput
+                    type="number"
+                    label="Max Report Age"
+                    placeholder="e.g. 100"
+                    value={form.maxAge}
+                    onChange={(v) => updateForm("maxAge", Number(v))}
+                    error={errors.maxAgeError}
+                />
 
                 <CheckBoxInput
-                    label="Include Site List"
-                    checked={form.includeSiteList}
-                    onChange={(v) => updateForm("includeSiteList", v)}
+                    label="Filter by Rivers"
+                    checked={form.filterByRivers}
+                    onChange={(v) => updateForm("filterByRivers", v)}
                 />
 
-                <TextInput
-                    type="number"
-                    label="Token Limit"
-                    placeholder="e.g. 50,000"
-                    value={form.tokenLimit}
-                    onChange={(v) => updateForm("tokenLimit", Number(v))}
-                    error={errors.tokenLimitError}
+                {form.filterByRivers && (
+                    <TextInput
+                        type="text"
+                        label="River Names"
+                        placeholder="e.g. Madison, Snake, Yellowstone"
+                        value={form.riverList}
+                        onChange={(v) => updateForm("riverList", v)}
+                        error={errors.riverListError}
+                    />
+                )}
+
+                <FileInput
+                    label="Import Starter File"
+                    fileName={form.file?.name ?? null}
+                    onSelect={(file) => updateForm("file", file)}
                 />
 
-                <TextInput
-                    type="number"
-                    label="Crawl Depth"
-                    placeholder="e.g. 25"
-                    value={form.crawlDepth}
-                    onChange={(v) => updateForm("crawlDepth", Number(v))}
-                    error={errors.crawlDepthError}
-                />
+                <details>
+                    <summary className="font-medium cursor-pointer select-none">
+                        Advanced Settings
+                    </summary>
 
-                <TextInput
-                    type="text"
-                    label="Gemini Model"
-                    placeholder="e.g. gemini-1.5-pro or gemini-2.5-flash"
-                    value={form.model}
-                    onChange={(v) => updateForm("model", v)}
-                    error={errors.modelError}
-                />
+                    <div className="space-y-4 mt-4">
+                        <CheckBoxInput
+                            label="Include Site List"
+                            checked={form.includeSiteList}
+                            onChange={(v) => updateForm("includeSiteList", v)}
+                        />
 
-                <TextAreaInput
-                    label="Summary Prompt"
-                    placeholder="Enter summary prompt here..."
-                    rows={10}
-                    value={form.summaryPrompt}
-                    onChange={(v) => updateForm("summaryPrompt", v)}
-                />
+                        <TextInput
+                            type="number"
+                            label="Token Limit"
+                            placeholder="e.g. 50,000"
+                            value={form.tokenLimit}
+                            onChange={(v) => updateForm("tokenLimit", Number(v))}
+                            error={errors.tokenLimitError}
+                        />
 
-                <TextAreaInput
-                    label="Merge Prompt"
-                    placeholder="Enter merge prompt here..."
-                    rows={4}
-                    value={form.mergePrompt}
-                    onChange={(v) => updateForm("mergePrompt", v)}
-                />
-            </details>
+                        <TextInput
+                            type="number"
+                            label="Crawl Depth"
+                            placeholder="e.g. 25"
+                            value={form.crawlDepth}
+                            onChange={(v) => updateForm("crawlDepth", Number(v))}
+                            error={errors.crawlDepthError}
+                        />
+
+                        <TextInput
+                            type="text"
+                            label="Gemini Model"
+                            placeholder="e.g. gemini-1.5-pro or gemini-2.5-flash"
+                            value={form.model}
+                            onChange={(v) => updateForm("model", v)}
+                            error={errors.modelError}
+                        />
+
+                        <TextAreaInput
+                            label="Summary Prompt"
+                            placeholder="Enter summary prompt here..."
+                            rows={10}
+                            value={form.summaryPrompt}
+                            onChange={(v) => updateForm("summaryPrompt", v)}
+                        />
+
+                        <TextAreaInput
+                            label="Merge Prompt"
+                            placeholder="Enter merge prompt here..."
+                            rows={4}
+                            value={form.mergePrompt}
+                            onChange={(v) => updateForm("mergePrompt", v)}
+                        />
+                    </div>
+                </details>
+            </div>
         </BaseForm>
     );
 }

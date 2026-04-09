@@ -80,7 +80,7 @@ export default function About() {
                     What Flybox Offers
                 </h2>
 
-                <div className="flex flex-wrap justify-between">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* ShopReel: Scrapes business data from Google Maps and websites */}
                     <Card
                         icon="🎣"

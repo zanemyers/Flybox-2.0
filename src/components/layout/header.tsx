@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import NavigationBar from "@/components/layout/navbar"; // your nav component
+import NavigationBar from "@/components/layout/navbar";
+import ThemeToggle from "@/components/layout/themeToggle";
 import tackleBox from "@/app/tackle_box.png"
 
 /**
@@ -11,9 +12,9 @@ import tackleBox from "@/app/tackle_box.png"
  */
 export default function Header() {
     return (
-        <header className="w-full pt-6 bg-base-100">
+        <header className="w-full pt-6 bg-base-100 relative">
             {/* Logo and site title */}
-            <Link href="/" className="flex items-center justify-center mb-4 sm:flex-row sm:gap-3">
+            <Link href="/" className="flex items-center justify-center gap-3 mb-4">
                 <Image
                     src={tackleBox}
                     alt="Tackle Box"
@@ -22,6 +23,10 @@ export default function Header() {
                 />
                 <h1 className="text-6xl text-primary font-light">Flybox</h1>
             </Link>
+
+            <div className="absolute top-4 right-4">
+                <ThemeToggle />
+            </div>
 
             {/* Navigation bar */}
             <NavigationBar />

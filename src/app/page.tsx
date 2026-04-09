@@ -16,7 +16,7 @@ export default function Home() {
 
         {/* Tools Section: Quick access cards for Flybox tools */}
         <section id="tools">
-          <div className="flex flex-wrap justify-between">
+          <div className="flex flex-wrap gap-4">
             {/* ShopReel: Scraper for finding local fly-fishing shops */}
             <Card
                 icon="🎣"

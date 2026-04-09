@@ -87,6 +87,7 @@ export interface TabProps {
     label: string;
     children: React.ReactNode;
     defaultChecked?: boolean;
+    onChange?: () => void;
 }
 
 /** Represents a single step in the instruction panel */

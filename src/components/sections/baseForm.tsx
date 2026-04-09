@@ -6,7 +6,7 @@ export default function BaseForm(props: BaseFormProps) {
     return (
         <div className="app-panel">
             <form
-                className="card-base"
+                className={props.className ?? "card h-full"}
                 onSubmit={(e) => {
                     e.preventDefault();
                     props.onSubmit();
@@ -14,7 +14,11 @@ export default function BaseForm(props: BaseFormProps) {
             >
                 {/* Main content grows */}
                 <div className="card-body">
-                    {props.children}
+                    {props.noPanel ? props.children : (
+                        <div className="bg-base-200 rounded-box p-6 border border-base-300">
+                            {props.children}
+                        </div>
+                    )}
                 </div>
 
                 {/* Errors + button at the bottom */}
