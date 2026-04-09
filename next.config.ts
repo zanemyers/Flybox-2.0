@@ -1,7 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  serverExternalPackages: [
+    "playwright",
+    "playwright-extra",
+    "puppeteer-extra-plugin-stealth",
+    "serpapi",
+    "@google/genai",
+    "exceljs",
+  ],
 };
 
 export default nextConfig;
