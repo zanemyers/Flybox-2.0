@@ -9,16 +9,7 @@ import { normalizeUrl } from "@/lib/base/scrapingUtils";
 import type { Page } from "playwright"
 
 import { getEmail, hasOnlineShop, getSocialMedia, publishesFishingReport, buildCacheFileRows, buildShopRows } from "./shopUtils";
-import {BasicShop, ShopDetails} from "@/lib/base/types/taskTypes";
-
-interface Params {
-    apiKey: string;
-    file: File | null;
-    maxResults: number;
-    query: string;
-    lat: string;
-    lng: string;
-}
+import {BasicShop, Shop, ShopDetails, ShopReelPayload} from "@/lib/base/types/taskTypes";
 
 /**
  * ShopReel class handles scraping shops from Google Maps via SerpAPI,
@@ -27,8 +18,8 @@ interface Params {
  * Extends BaseApp to integrate with the job system (progress tracking,
  * cancellation, messages, and file attachments).
  */
-export class ShopReel extends BaseTask {
-    private searchParams: Params;
+export default class ShopReel extends BaseTask {
+    private searchParams: ShopReelPayload;
     private shopWriter: ExcelFileHandler = new ExcelFileHandler(); // Excel writer for results
     private websiteCache = new Map<string, ShopDetails>();  // Cache for previously scraped website details
     private browser: StealthBrowser = new StealthBrowser({headless: process.env.RUN_HEADLESS !== "false"});
@@ -37,7 +28,7 @@ export class ShopReel extends BaseTask {
      * @param jobId - Job ID for tracking progress and files
      * @param searchParams - Parameters for the shop search
      */
-    constructor(jobId: string, searchParams: Params) {
+    constructor(jobId: string, searchParams: ShopReelPayload) {
         super(jobId);
         this.searchParams = searchParams;
     }

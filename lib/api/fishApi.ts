@@ -25,7 +25,7 @@ export class FishTalesAPI extends BaseAPI {
                 maxAge: Number(formData.get("maxAge")),
                 filterByRivers: formData.get("filterByRivers") === "true",
                 riverList: String(formData.get("riverList")).split(","),
-                file: formData.get("file") as File | null,
+                file: formData.get("file") as File,
                 includeSiteList: formData.get("includeSiteList") === "true",
                 tokenLimit: Number(formData.get("tokenLimit")),
                 crawlDepth: Number(formData.get("crawlDepth")),
@@ -48,8 +48,8 @@ export class FishTalesAPI extends BaseAPI {
     /**
      * Returns a list of files available for download for a given FishTales job.
      *
-     * @param {object} job - The job object containing file buffers (primaryFile, secondaryFile, etc.)
-     * @returns {Array<{name: string, buffer: string}>} Array of downloadable files
+     * @param job - The job object containing file buffers (primaryFile, secondaryFile, etc.)
+     * @returns Array of downloadable files
      */
     getFiles(job: Job): ApiFile[] {
         const files = [];

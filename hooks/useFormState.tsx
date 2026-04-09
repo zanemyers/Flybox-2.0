@@ -8,7 +8,7 @@ export function useFormState<T extends object>(initial: T) {
         setForm((prev) => ({ ...prev, [key]: value }));
     };
 
-    // reset the state to it's original form
+    // reset the state to its original form
     const reset = () => setForm(initial);
 
     return { form, update, setForm, reset };

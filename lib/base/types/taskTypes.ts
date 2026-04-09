@@ -67,25 +67,33 @@ export interface Shop {
     Socials: string[];
 }
 
-// Types for SiteScout
-export interface ScoutFiles {
-    shopReelFile: ArrayBuffer;
-    fishTalesFile: ArrayBuffer;
+// Types for API Endpoints
+export interface ShopReelPayload {
+    apiKey: string | null,
+    query: string | null,
+    lat: number | null,
+    lng: number | null,
+    maxResults: number | null,
+    file?: File | null;
 }
 
-// Types for API Endpoints
 export interface FishTalesPayload {
     apiKey: string;
     maxAge: number;
     filterByRivers: boolean;
     riverList: string[];
-    file?: File | null;
+    file: File;
     includeSiteList: boolean;
     tokenLimit: number;
     crawlDepth: number;
     model: string;
     summaryPrompt: string;
     mergePrompt: string;
+}
+
+export interface SiteScoutPayload {
+    shopReelFile: File;
+    fishTalesFile: File;
 }
 
 export interface ApiFile {

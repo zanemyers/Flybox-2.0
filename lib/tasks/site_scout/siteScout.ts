@@ -2,7 +2,7 @@ import BaseTask from "@/lib/base/baseTask";
 import { ERRORS, JobStatus } from "@/lib/base/constants";
 import { ExcelFileHandler } from "@/lib/base/fileUtils";
 import { sameDomain } from "@/lib/base/scrapingUtils";
-import type { ScoutFiles } from "@/lib/base/types/taskTypes";
+import { SiteScoutPayload } from "@/lib/base/types/taskTypes";
 
 /**
  * SiteScout class merges URLs between a ShopReel report file and a
@@ -11,8 +11,8 @@ import type { ScoutFiles } from "@/lib/base/types/taskTypes";
  * Extends BaseApp to integrate with the job system (progress tracking,
  * cancellation, messages, and file attachments).
  */
-export class SiteScout extends BaseTask {
-    private readonly files: ScoutFiles;
+export default class SiteScout extends BaseTask {
+    private readonly files: SiteScoutPayload;
     private shopReelHandler: ExcelFileHandler = new ExcelFileHandler();
     private fishTalesHandler: ExcelFileHandler = new ExcelFileHandler();
     private updatedFile: ExcelFileHandler = new ExcelFileHandler();
@@ -22,7 +22,7 @@ export class SiteScout extends BaseTask {
      * @param jobId - Optional Job ID for tracking progress and associated files.
      * @param files - An object containing the two Excel files:
      */
-    constructor(jobId: string, files: ScoutFiles) {
+    constructor(jobId: string, files: SiteScoutPayload) {
         super(jobId);
         this.files = files;
     }
@@ -37,8 +37,8 @@ export class SiteScout extends BaseTask {
 
         try {
             // Load the Excel file buffers into their respective handlers
-            await this.shopReelHandler.loadBuffer(this.files["shopReelFile"]);
-            await this.fishTalesHandler.loadBuffer(this.files["fishTalesFile"]);
+            await this.shopReelHandler.loadBuffer(await this.files.shopReelFile.arrayBuffer());
+            await this.fishTalesHandler.loadBuffer(await this.files.fishTalesFile.arrayBuffer());
 
             await this.throwIfJobCanceled();
 
