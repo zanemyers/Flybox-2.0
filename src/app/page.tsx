@@ -1,68 +1,57 @@
-import Card from "@/components/cards/card"
-import SlimCard from "@/components/cards/slim";
+import Link from "next/link";
+import FlyboxForm from "@/client/components/flyboxForm";
+
+const steps = [
+    { icon: "🔑", text: <p>Enter your <strong>SerpAPI</strong> and <strong>Gemini API</strong> keys — don&apos;t have them? See the <a className="link-hash" href="/docs">Docs</a></p> },
+    { icon: "🔎", text: <p>Enter a <strong>search term</strong> and pick a <strong>location</strong> on the map</p> },
+    { icon: "▶️", text: <p>Click <strong>Run Flybox</strong> — sit back while the pipeline runs</p> },
+    { icon: "📥", text: <p>Your <strong>report summary</strong> and <strong>shop directory</strong> will automatically download when the pipeline finishes</p> },
+];
 
 export default function Home() {
-  return (
-      <div className="w-[85%] mx-auto">
-        {/* Hero Section: Main headline and introductory text */}
-        <section className="position-relative text-center py-12 my-2">
-          <div className="container position-relative text-primary">
-            <h2 className="mb-2">Discover Fly Fishing Shops & Reports</h2>
-            <p className="text-lg">
-              Access up-to-date data and insights to enhance your fly-fishing adventures.
-            </p>
-          </div>
-        </section>
+    const serpApiKey = process.env.SERP_API_KEY ?? "";
+    const geminiApiKey = process.env.GEMINI_API_KEY ?? "";
 
-        {/* Tools Section: Quick access cards for Flybox tools */}
-        <section id="tools">
-          <div className="flex flex-wrap gap-4">
-            {/* ShopReel: Scraper for finding local fly-fishing shops */}
-            <Card
-                icon="🎣"
-                title="ShopReel"
-                description="Find fly-fishing shops near you!"
-                link="/shopReel"
-                buttonText="Cast for Details"
-            />
-            {/* FishTales: Aggregates latest fly-fishing reports */}
-            <Card
-                icon="🐟"
-                title="FishTales"
-                description="Get the latest fly-fishing reports for your area"
-                link="/fishTales"
-                buttonText="Catch the Latest"
-            />
-          </div>
+    return (
+        <main className="app-container">
+            <div className="app-content">
+                <div className="app-panel">
+                    <div className="card-light text-primary">
+                        <div className="card-body">
+                            <h3>🛠️ What This Tool Does</h3>
+                            <div>
+                                <p>
+                                    Get a <strong>fly-fishing report summary</strong> and <strong>shop directory</strong> for
+                                    any location — automatically. Flybox finds local shops, identifies which ones publish
+                                    fishing reports, and summarizes them with <strong>Google Gemini</strong>.
+                                </p>
+                                <p className="pt-2 text-sm text-base-content/70">
+                                    ⚠️ Heavy usage may incur costs — use your own API keys to stay in control of your limits.
+                                </p>
+                            </div>
 
-          {/* SiteScout: Discover new fly-fishing sites */}
-          <SlimCard
-              icon="🗺"
-              title="SiteScout"
-              description="Discover new fly-fishing sites."
-              link="/siteScout"
-              buttonText="Check your sites"
-          />
-          {/* Docs: Access Flybox documentation */}
-          <SlimCard
-              icon="📚"
-              title="Docs"
-              description="Learn how to use Flybox tools."
-              link="/docs"
-              buttonText="Read"
-          />
-        </section>
+                            <h4 className="pt-3">📋 How to Use It</h4>
+                            <div>
+                                {steps.map((step, i) => (
+                                    <div key={`step-${i}`} className="icon-list">
+                                        <span className="icon-list__icon">{step.icon}</span>
+                                        {step.text}
+                                    </div>
+                                ))}
+                                <p className="ps-2 pt-1 text-sm text-base-content/80">
+                                    For more detailed instructions, see the <Link className="link-hash" href="/docs?tab=Flybox">Flybox documentation</Link>.
+                                </p>
+                            </div>
 
-        {/* Value Proposition Section: Explains Flybox benefits */}
-        <section className="text-primary text-center my-2 py-12">
-          <div className="container">
-            <h3 className="mb-2">Connect Shops & Reports Effortlessly</h3>
-            <p>
-              Flybox simplifies your fly-fishing planning by combining shop locations and the latest
-              reports in one place.
-            </p>
-          </div>
-        </section>
-      </div>
-  );
+                            <div className="flex pt-3 text-xs text-base-content/70">
+                                <span className="shrink-0 mr-1">🔒 <strong>Privacy Notice:</strong></span>
+                                <span>Your API keys are never stored. Output files are retained temporarily to facilitate downloads.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <FlyboxForm defaultSerpApiKey={serpApiKey} defaultGeminiApiKey={geminiApiKey} />
+            </div>
+        </main>
+    );
 }

@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "WebFetch(domain:ai.google.dev)",
+      "Bash(mv lib:*)",
+      "Bash(mv app/shopReel _deprecated/app/shopReel)",
+      "Bash(mv app/fishTales _deprecated/app/fishTales)",
+      "Bash(mv app/siteScout _deprecated/app/siteScout)",
+      "Bash(mv app/api/shopReel _deprecated/app/api/shopReel)",
+      "Bash(xargs sed:*)"
     ]
   }
 }

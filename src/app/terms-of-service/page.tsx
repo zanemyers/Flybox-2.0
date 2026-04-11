@@ -1,16 +1,16 @@
 export default function TermsOfService() {
     return (
         <div className="flex justify-center px-4 py-10">
-            <div className="card w-full max-w-4xl bg-base-200 border border-base-300 shadow-xl">
+            <div className="w-full max-w-4xl card-light">
                 <div className="card-body">
                     <article className="prose max-w-none">
                         <h3>Terms of Service</h3>
 
                         <p>
-                            <strong>Last updated:</strong> {new Date().toLocaleDateString()}
+                            <strong>Last updated:</strong> April 11, 2026
                         </p>
 
-                        <br/>
+                        <br />
 
                         <p>
                             Welcome to Flybox. By accessing or using this website, you agree to
@@ -23,12 +23,11 @@ export default function TermsOfService() {
                         <h5 className="footer-title">Description of the Service</h5>
                         <p>
                             Flybox is a web-based service that collects and aggregates publicly
-                            available information about fly-fishing-related businesses.
+                            available information about fly-fishing-related businesses and fishing reports,
+                            and summarizes them using AI.
                         </p>
 
-                        <p>
-                            This includes:
-                        </p>
+                        <p>This includes:</p>
 
                         <ul>
                             <li>
@@ -39,11 +38,23 @@ export default function TermsOfService() {
                                 Publicly available information from business websites, including
                                 contact details and fishing reports.
                             </li>
+                            <li>
+                                AI-generated summaries of fishing report content produced via Google Gemini.
+                            </li>
                         </ul>
 
                         <p className="pt-1">
                             Flybox does not guarantee the accuracy, completeness, or timeliness
                             of any information displayed.
+                        </p>
+
+                        <br />
+
+                        <h5 className="footer-title">API Keys and Third-Party Costs</h5>
+                        <p>
+                            Flybox encourages users to provide their own API keys for SerpAPI and Google Gemini
+                            to stay in control of their usage limits and any associated costs. Flybox is not
+                            responsible for any charges incurred through your use of third-party APIs.
                         </p>
 
                         <br />
@@ -54,9 +65,7 @@ export default function TermsOfService() {
                             with all applicable laws and regulations.
                         </p>
 
-                        <p>
-                            You may not use this service to:
-                        </p>
+                        <p>You may not use this service to:</p>
 
                         <ul>
                             <li>Violate any applicable laws or regulations.</li>
@@ -68,9 +77,9 @@ export default function TermsOfService() {
 
                         <h5 className="footer-title">Data Sources and Third-Party Services</h5>
                         <p>
-                            Flybox relies on third-party data providers and publicly accessible
-                            websites. We are not affiliated with Google, SerpAPI, or any listed
-                            businesses.
+                            Flybox relies on third-party data providers including SerpAPI and Google Gemini,
+                            as well as publicly accessible websites. We are not affiliated with Google, SerpAPI,
+                            or any listed businesses.
                         </p>
 
                         <p className="pt-1">
@@ -84,9 +93,6 @@ export default function TermsOfService() {
                         <p>
                             The Flybox website, design, and original content are the
                             intellectual property of Flybox unless otherwise stated.
-                        </p>
-
-                        <p className="pt-1">
                             Aggregated business information remains the property of the
                             original source or business owner.
                         </p>
@@ -95,12 +101,8 @@ export default function TermsOfService() {
 
                         <h5 className="footer-title">Limitation of Liability</h5>
                         <p>
-                            Flybox is provided “as is” and “as available” without warranties of
-                            any kind.
-                        </p>
-
-                        <p className="pt-1">
-                            In no event shall Flybox be liable for any direct, indirect,
+                            Flybox is provided "as is" and "as available" without warranties of
+                            any kind. In no event shall Flybox be liable for any direct, indirect,
                             incidental, or consequential damages arising from the use or
                             inability to use the service.
                         </p>
@@ -111,9 +113,6 @@ export default function TermsOfService() {
                         <p>
                             We reserve the right to modify these Terms of Service at any time.
                             Changes will be effective immediately upon posting.
-                        </p>
-
-                        <p className="pt-1">
                             Your continued use of Flybox after changes are posted constitutes
                             acceptance of the updated terms.
                         </p>
@@ -122,8 +121,8 @@ export default function TermsOfService() {
 
                         <h5 className="footer-title">Contact</h5>
                         <p>
-                            If you have questions about these Terms of Service, please contact
-                            us through the Flybox website.
+                            If you have questions about these Terms of Service, please open an issue on our{" "}
+                            <a className="link-external" href="https://github.com/zanemyers/Flybox-2.0/issues">GitHub repository</a>.
                         </p>
                     </article>
                 </div>

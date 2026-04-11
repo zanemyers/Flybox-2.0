@@ -38,7 +38,7 @@ npx ts-node scripts/db_cleanup.ts  # Clean up old jobs
 
 All three tools share the same flow:
 
-1. **Client form** → submits via `useJobForm` hook → POST to `/api/{tool}`
+1. **Client form** → submits via `useForm` hook → POST to `/api/{tool}`
 2. **API handler** creates a `Job` in PostgreSQL, kicks off an async task, returns job ID
 3. **Client polls** `/api/{tool}/{jobId}/updates` — `progressPanel` component shows messages and download buttons
 4. **Cancel** — POST to `/api/{tool}/{jobId}/cancel` sets a cancellation flag; tasks check `BaseTask.isCanceled()` between steps
@@ -63,7 +63,7 @@ lib/
     fish_tales/fishTales.ts  # FishTales extends BaseTask — crawler + Gemini summarization
     site_scout/siteScout.ts  # SiteScout extends BaseTask — URL comparison and merge
 hooks/
-  useJobForm.tsx        # Handles form submit, job creation, localStorage persistence
+  useForm.tsx        # Handles form submit, job creation, localStorage persistence
   useFormState.tsx      # Tool-specific form state
   useLocalStorage.tsx   # Persists job ID across page reloads
 components/

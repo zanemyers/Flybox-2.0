@@ -1,40 +1,35 @@
-import { prisma } from "@/lib/db";
-import { JobStatus, JobType } from "@/lib/base/constants";
+import { prisma } from "@/server/db";
+import { JobStatus } from "@/server/constants";
 
 async function cleanupOldJobs() {
     try {
         console.log("Starting cleanup...");
 
-        // Step 1: Delete all FAILED or CANCELED jobs
-        console.log(`Removing failed or canceled jobs...`);
+        // Delete all FAILED or CANCELED jobs
+        console.log("Removing failed or canceled jobs...");
         await prisma.job.deleteMany({
             where: {
                 status: { in: [JobStatus.FAILED, JobStatus.CANCELED] },
             },
         });
 
-        // Step 2: Keep 5 most recent COMPLETED jobs per JobType, delete the rest
-        for (const type of Object.values(JobType)) {
-            // Find IDs of the 5 most recent COMPLETED jobs
-            const recentCompleted = await prisma.job.findMany({
-                where: { type, status: JobStatus.COMPLETED },
-                orderBy: { createdAt: "desc" },
-                take: 5,
-                select: { id: true },
-            });
+        // Keep 5 most recent COMPLETED jobs, delete the rest
+        const recentCompleted = await prisma.job.findMany({
+            where: { status: JobStatus.COMPLETED },
+            orderBy: { createdAt: "desc" },
+            take: 5,
+            select: { id: true },
+        });
 
-            const keepIds = recentCompleted.map((job) => job.id);
+        const keepIds = recentCompleted.map((job) => job.id);
 
-            // Delete older completed jobs for this type
-            console.log(`Removing completed ${type} jobs...`);
-            await prisma.job.deleteMany({
-                where: {
-                    type,
-                    status: JobStatus.COMPLETED,
-                    id: { notIn: keepIds },
-                },
-            });
-        }
+        console.log("Removing old completed jobs...");
+        await prisma.job.deleteMany({
+            where: {
+                status: JobStatus.COMPLETED,
+                id: { notIn: keepIds },
+            },
+        });
 
         console.log("Finished!");
     } catch (err) {
