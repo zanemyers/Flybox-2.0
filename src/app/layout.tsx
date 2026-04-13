@@ -37,10 +37,8 @@ const socialLinks = [
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
     return (
         <html lang="en" suppressHydrationWarning>
-            <head>
-                <Script id="theme-init" strategy="beforeInteractive">{`(function(){var t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.colorScheme=t;})();`}</Script>
-            </head>
             <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-base-100 text-base-content`}>
+                <Script id="theme-init" strategy="beforeInteractive">{`(function(){var t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.colorScheme=t;})();`}</Script>
                 <div className="flex flex-col min-h-screen bg-base-100">
                     <Header />
                     <main className="grow px-4">{children}</main>

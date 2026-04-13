@@ -51,7 +51,6 @@ body {
   .app-panel        { @apply pb-6 w-full lg:flex-1; }
   .card-base        { @apply card h-full border border-base-300; }
   .card-light       { @apply card h-full bg-base-200 border border-base-300 shadow-sm; }
-  .card-header      { @apply card-title flex flex-col pt-6 justify-center; }
   .card-icon        { @apply text-6xl; }
   .icon-list        { @apply flex flex-row py-0.5; }
   .icon-list__icon  { @apply ms-3 me-2; }

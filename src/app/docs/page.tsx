@@ -1,6 +1,7 @@
 'use client'
 
 import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import type { ReactNode } from "react";
 import FlyboxDoc from "@/app/docs/tabs/flybox";
 import SerpApiDoc from "@/app/docs/tabs/serpApi";
@@ -15,22 +16,30 @@ function Tab({ label, defaultChecked, children }: { label: string; defaultChecke
     );
 }
 
-export default function Docs() {
+function DocTabs() {
     const activeTab = useSearchParams().get("tab") ?? "Flybox";
 
     return (
-        <div className="w-3/4 mx-auto my-8 py-8 rounded-4xl">
-            <div className="tabs tabs-lift tabs-md lg:tabs-lg">
-                <Tab label="Flybox" defaultChecked={activeTab === "Flybox"}>
-                    <FlyboxDoc />
-                </Tab>
-                <Tab label="SerpAPI" defaultChecked={activeTab === "SerpAPI"}>
-                    <SerpApiDoc />
-                </Tab>
-                <Tab label="Gemini API" defaultChecked={activeTab === "Gemini API"}>
-                    <GeminiApiDoc />
-                </Tab>
-            </div>
+        <div className="tabs tabs-lift tabs-md lg:tabs-lg">
+            <Tab label="Flybox" defaultChecked={activeTab === "Flybox"}>
+                <FlyboxDoc />
+            </Tab>
+            <Tab label="SerpAPI" defaultChecked={activeTab === "SerpAPI"}>
+                <SerpApiDoc />
+            </Tab>
+            <Tab label="Gemini API" defaultChecked={activeTab === "Gemini API"}>
+                <GeminiApiDoc />
+            </Tab>
         </div>
-    )
+    );
+}
+
+export default function Docs() {
+    return (
+        <div className="w-3/4 mx-auto my-8 py-8 rounded-4xl">
+            <Suspense>
+                <DocTabs />
+            </Suspense>
+        </div>
+    );
 }

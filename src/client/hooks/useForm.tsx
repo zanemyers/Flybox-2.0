@@ -15,7 +15,13 @@ export function useForm<T extends object>(route: string) {
         const formData = new FormData();
 
         Object.entries(payload).forEach(([key, value]) => {
-            formData.append(key, value instanceof File ? value : String(value ?? ""));
+            if (value instanceof File) {
+                formData.append(key, value);
+            } else if (Array.isArray(value)) {
+                formData.append(key, JSON.stringify(value));
+            } else {
+                formData.append(key, String(value ?? ""));
+            }
         });
 
         const res = await fetch(`/api/${route}`, { method: "POST", body: formData });

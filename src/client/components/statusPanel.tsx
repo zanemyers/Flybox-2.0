@@ -15,12 +15,16 @@ interface JobUpdate {
 
 type Status = "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "FAILED";
 
+const MAX_FAILURES = 5;
+
 export default function StatusPanel({ route, jobId, onClose }: { route: string; jobId: string; onClose: () => void }) {
     const [status, setStatus] = useState<Status>("IN_PROGRESS");
     const [files, setFiles] = useState<FileData[]>([]);
+    const [pollError, setPollError] = useState<string | null>(null);
     const progressAreaRef = useRef<HTMLPreElement>(null);
     const fileUrlsRef = useRef<Map<string, string>>(new Map());
     const downloadedFilesRef = useRef<Set<string>>(new Set());
+    const failureCountRef = useRef(0);
 
     useEffect(() => {
         const saved = localStorage.getItem(`${route}-files`);
@@ -37,16 +41,31 @@ export default function StatusPanel({ route, jobId, onClose }: { route: string; 
 
     useEffect(() => {
         const intervalId = setInterval(async () => {
-            const res = await fetch(`/api/${route}/${jobId}/updates`);
-            const data = (await res.json()) as JobUpdate;
+            try {
+                const res = await fetch(`/api/${route}/${jobId}/updates`);
+                if (!res.ok) throw new Error(`Server returned ${res.status}`);
+                const data = (await res.json()) as JobUpdate;
 
-            if (progressAreaRef.current) progressAreaRef.current.textContent = data.message;
+                failureCountRef.current = 0;
+                setPollError(null);
+                if (progressAreaRef.current) {
+                progressAreaRef.current.textContent = data.message;
+                progressAreaRef.current.scrollTop = progressAreaRef.current.scrollHeight;
+            }
+                setStatus(data.status);
+                handleIncomingFiles(data.files);
 
-            setStatus(data.status);
-            handleIncomingFiles(data.files);
-
-            if (data.status !== "IN_PROGRESS") clearInterval(intervalId);
-        }, 1000);
+                if (data.status !== "IN_PROGRESS") clearInterval(intervalId);
+            } catch (err) {
+                failureCountRef.current += 1;
+                if (failureCountRef.current >= MAX_FAILURES) {
+                    clearInterval(intervalId);
+                    setPollError("Lost connection to the server. The job may still be running.");
+                } else {
+                    setPollError(`Connection issue — retrying… (${failureCountRef.current}/${MAX_FAILURES})`);
+                }
+            }
+        }, 5000);
 
         return () => clearInterval(intervalId);
     }, [route, jobId]);
@@ -88,28 +107,39 @@ export default function StatusPanel({ route, jobId, onClose }: { route: string; 
     };
 
     const handleCancel = async () => {
+        if (!window.confirm("Cancel this job? This cannot be undone.")) return;
         await fetch(`/api/${route}/${jobId}/cancel`, { method: "POST" });
     };
 
+    useEffect(() => {
+        return () => {
+            fileUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+            fileUrlsRef.current.clear();
+        };
+    }, []);
+
     const onClosePanel = () => {
-        fileUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-        fileUrlsRef.current.clear();
         localStorage.removeItem(`${route}-files`);
         onClose();
     };
 
     const isRunning = status === "IN_PROGRESS";
+    const isFailed = status === "FAILED" || status === "CANCELLED";
+
+    const badgeClass = isRunning ? "badge-info" : isFailed ? "badge-error" : "badge-success";
+    const title = isRunning ? "Running Search…" : isFailed ? "Job Failed" : "Job Complete";
 
     return (
         <div className="app-panel">
             <div className="card-base">
                 <div className="card-body flex flex-col gap-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="card-title">{isRunning ? "Running Search…" : "Job Complete"}</h2>
-                        <span className={`badge ${isRunning ? "badge-info" : "badge-success"}`}>{status}</span>
+                        <h2 className="card-title">{title}</h2>
+                        <span className={`badge ${badgeClass}`}>{status}</span>
                     </div>
 
                     <pre ref={progressAreaRef} className="text-sm bg-base-200 rounded p-3 max-h-64 overflow-y-auto" />
+                    {pollError && <p className="text-sm text-warning">• {pollError}</p>}
 
                     {files.some((f) => f.buffer) && (
                         <div>

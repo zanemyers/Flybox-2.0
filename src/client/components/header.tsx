@@ -24,9 +24,7 @@ export default function Header() {
     const [dark, setDark] = useState(false);
 
     useEffect(() => {
-        const matches = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        setDark(matches);
-        applyTheme(matches);
+        setDark(document.documentElement.getAttribute("data-theme") === "dark");
     }, []);
 
     const toggleTheme = () => {

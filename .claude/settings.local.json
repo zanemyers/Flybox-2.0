@@ -8,7 +8,10 @@
       "Bash(mv app/fishTales _deprecated/app/fishTales)",
       "Bash(mv app/siteScout _deprecated/app/siteScout)",
       "Bash(mv app/api/shopReel _deprecated/app/api/shopReel)",
-      "Bash(xargs sed:*)"
+      "Bash(xargs sed:*)",
+      "Bash(xargs cat:*)",
+      "Bash(npm install:*)",
+      "Bash(npm uninstall:*)"
     ]
   }
 }
