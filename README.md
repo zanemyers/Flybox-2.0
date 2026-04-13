@@ -1,4 +1,4 @@
-# <img src="app/favicon.ico" alt="Flybox Logo" width="30" style="vertical-align: middle;"/> Flybox
+# <img src="src/app/favicon.ico" alt="Flybox Logo" width="30" style="vertical-align: middle;"/> Flybox
 
 Tools built for **[Rescue River](https://rescueriver.com/)** to find fly-fishing shops, scrape their sites for fishing reports, and summarize them with Google Gemini. Live site: **https://flybox.zm1.org**
 
