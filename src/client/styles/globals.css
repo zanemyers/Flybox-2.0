@@ -3,18 +3,22 @@
 
 /* Brand colors in OKLCH so opacity modifiers (/70, /80 etc.) work correctly */
 :root,
-[data-theme=light] {
-  --color-primary: oklch(43% 0.1 210);          /* dark teal — readable on white */
-  --color-primary-content: oklch(97% 0.01 210); /* near-white — btn-primary label */
-  --color-secondary: oklch(53% 0.14 108);       /* olive — readable on white */
+[data-theme="light"] {
+  --color-primary: oklch(43% 0.1 210); /* dark teal — readable on white */
+  --color-primary-content: oklch(
+    97% 0.01 210
+  ); /* near-white — btn-primary label */
+  --color-secondary: oklch(53% 0.14 108); /* olive — readable on white */
   --color-secondary-content: oklch(97% 0.01 108);
   --color-code: oklch(57% 0.28 337);
 }
 
-[data-theme=dark] {
-  --color-primary: oklch(72% 0.1 214);          /* light teal — readable on dark bg */
+[data-theme="dark"] {
+  --color-primary: oklch(72% 0.1 214); /* light teal — readable on dark bg */
   --color-primary-content: oklch(20% 0.05 214); /* dark — btn-primary label */
-  --color-secondary: oklch(75% 0.16 108);       /* light olive — readable on dark bg */
+  --color-secondary: oklch(
+    75% 0.16 108
+  ); /* light olive — readable on dark bg */
   --color-secondary-content: oklch(20% 0.05 108);
   --color-code: oklch(75% 0.2 337);
 }
@@ -29,16 +33,36 @@ body {
 }
 
 @layer base {
-  hr  { @apply text-base-content/20 my-6; }
-  h1  { @apply text-4xl font-bold; }
-  h2  { @apply text-3xl font-semibold; }
-  h3  { @apply text-2xl font-semibold; }
-  h4  { @apply text-xl font-semibold; }
-  h5  { @apply text-lg font-medium; }
-  h6  { @apply text-base font-medium; }
-  ol  { @apply list-decimal ms-3; }
-  ul  { @apply list-disc ms-3; }
-  code { @apply font-sans text-(--color-code); }
+  hr {
+    @apply text-base-content/20 my-6;
+  }
+  h1 {
+    @apply text-4xl font-bold;
+  }
+  h2 {
+    @apply text-3xl font-semibold;
+  }
+  h3 {
+    @apply text-2xl font-semibold;
+  }
+  h4 {
+    @apply text-xl font-semibold;
+  }
+  h5 {
+    @apply text-lg font-medium;
+  }
+  h6 {
+    @apply text-base font-medium;
+  }
+  ol {
+    @apply list-decimal ms-3;
+  }
+  ul {
+    @apply list-disc ms-3;
+  }
+  code {
+    @apply font-sans text-(--color-code);
+  }
 }
 
 @layer components {
@@ -46,21 +70,43 @@ body {
   .link-external {
     @apply underline text-primary hover:text-secondary;
   }
-  .app-container    { @apply py-12 my-12 w-[85%] mx-auto; }
-  .app-content      { @apply flex flex-col lg:flex-row lg:gap-8; }
-  .app-panel        { @apply pb-6 w-full lg:flex-1; }
-  .card-base        { @apply card h-full border border-base-300; }
-  .card-light       { @apply card h-full bg-base-200 border border-base-300 shadow-sm; }
-  .card-icon        { @apply text-6xl; }
-  .icon-list        { @apply flex flex-row py-0.5; }
-  .icon-list__icon  { @apply ms-3 me-2; }
+  .app-container {
+    @apply py-12 my-12 w-[85%] mx-auto;
+  }
+  .app-content {
+    @apply flex flex-col lg:flex-row lg:gap-8;
+  }
+  .app-panel {
+    @apply pb-6 w-full lg:flex-1;
+  }
+  .card-base {
+    @apply card h-full border border-base-300;
+  }
+  .card-light {
+    @apply card h-full bg-base-200 border border-base-300 shadow-sm;
+  }
+  .card-icon {
+    @apply text-6xl;
+  }
+  .icon-list {
+    @apply flex flex-row py-0.5;
+  }
+  .icon-list__icon {
+    @apply ms-3 me-2;
+  }
   /* text-white removed — DaisyUI's primary-content now controls label colour */
-  .primary-button   { @apply btn btn-primary rounded-box shadow-md hover:shadow-none; }
-  .secondary-button { @apply btn btn-secondary btn-outline rounded-box; }
-  .input-label      { @apply text-sm font-semibold mb-1; }
+  .primary-button {
+    @apply btn btn-primary rounded-box shadow-md hover:shadow-none;
+  }
+  .secondary-button {
+    @apply btn btn-secondary btn-outline rounded-box;
+  }
+  .input-label {
+    @apply text-sm font-semibold mb-1;
+  }
 }
 
 /* Remove card border in dark mode (data-theme variant, not media-query dark:) */
-[data-theme=dark] .card-light {
+[data-theme="dark"] .card-light {
   border: none;
 }

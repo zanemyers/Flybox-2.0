@@ -1,17 +1,6 @@
--- CreateSchema
-CREATE SCHEMA IF NOT EXISTS "public";
-
--- CreateEnum
-CREATE TYPE "JobStatus" AS ENUM ('IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'FAILED');
-
--- CreateEnum
-CREATE TYPE "JobType" AS ENUM ('SHOP_REEL', 'FISH_TALES', 'SITE_SCOUT');
-
 -- CreateTable
 CREATE TABLE "Job" (
     "id" TEXT NOT NULL,
-    "type" "JobType" NOT NULL,
-    "status" "JobStatus" NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "primaryFile" BYTEA,
     "secondaryFile" BYTEA,
@@ -31,4 +20,3 @@ CREATE TABLE "JobMessage" (
 
 -- AddForeignKey
 ALTER TABLE "JobMessage" ADD CONSTRAINT "JobMessage_jobId_fkey" FOREIGN KEY ("jobId") REFERENCES "Job"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-

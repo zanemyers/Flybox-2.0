@@ -11,9 +11,10 @@
   },
   "dependencies": {
     "@google/genai": "^1.49.0",
-    "@prisma/adapter-neon": "^7.7.0",
+    "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.7.0",
     "@supercharge/promise-pool": "^3.3.0",
+    "cheerio": "^1.2.0",
     "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",
     "next": "^16.2.3",

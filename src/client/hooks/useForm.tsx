@@ -1,42 +1,45 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export function useForm<T extends object>(route: string) {
-    const storageKey = `${route}-jobId`;
-    const [jobId, setJobId] = useState<string | null>(null);
+  const storageKey = `${route}-jobId`;
+  const [jobId, setJobId] = useState<string | null>(null);
 
-    useEffect(() => {
-        const stored = localStorage.getItem(storageKey)?.trim() || null;
-        setJobId(stored);
-    }, [storageKey]);
+  useEffect(() => {
+    const stored = localStorage.getItem(storageKey)?.trim() || null;
+    setJobId(stored);
+  }, [storageKey]);
 
-    const submit = async (payload: T | File) => {
-        const formData = new FormData();
+  const submit = async (payload: T | File) => {
+    const formData = new FormData();
 
-        Object.entries(payload).forEach(([key, value]) => {
-            if (value instanceof File) {
-                formData.append(key, value);
-            } else if (Array.isArray(value)) {
-                formData.append(key, JSON.stringify(value));
-            } else {
-                formData.append(key, String(value ?? ""));
-            }
-        });
+    Object.entries(payload).forEach(([key, value]) => {
+      if (value instanceof File) {
+        formData.append(key, value);
+      } else if (Array.isArray(value)) {
+        formData.append(key, JSON.stringify(value));
+      } else {
+        formData.append(key, String(value ?? ""));
+      }
+    });
 
-        const res = await fetch(`/api/${route}`, { method: "POST", body: formData });
-        if (!res.ok) throw new Error("Submit failed");
+    const res = await fetch(`/api/${route}`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!res.ok) throw new Error("Submit failed");
 
-        const data = (await res.json()) as { jobId: string };
-        localStorage.setItem(storageKey, data.jobId);
-        setJobId(data.jobId);
-        return data.jobId;
-    };
+    const data = (await res.json()) as { jobId: string };
+    localStorage.setItem(storageKey, data.jobId);
+    setJobId(data.jobId);
+    return data.jobId;
+  };
 
-    const reset = () => {
-        localStorage.removeItem(storageKey);
-        setJobId(null);
-    };
+  const reset = () => {
+    localStorage.removeItem(storageKey);
+    setJobId(null);
+  };
 
-    return { jobId, submit, reset };
+  return { jobId, submit, reset };
 }

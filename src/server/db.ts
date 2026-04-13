@@ -1,8 +1,12 @@
 import "dotenv/config";
-import { PrismaNeon } from "@prisma/adapter-neon";
-import { PrismaClient, type Job, type JobMessage } from "../../generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import {
+  type Job,
+  type JobMessage,
+  PrismaClient,
+} from "../../generated/prisma/client";
 
-const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
-export { prisma, type Job, type JobMessage };
+export { type Job, type JobMessage, prisma };
