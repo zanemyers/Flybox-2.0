@@ -38,8 +38,7 @@ const cards = [
   {
     icon: "🎣",
     title: "Flybox",
-    description:
-      "Flybox finds local fly-fishing shops, identifies which ones publish fishing reports, and summarizes them with Google Gemini.",
+    description: "Flybox finds local fly-fishing shops, identifies which ones publish fishing reports, and summarizes them with Google Gemini.",
     link: "/docs?tab=Flybox",
   },
   {
@@ -51,8 +50,7 @@ const cards = [
   {
     icon: "✨",
     title: "Gemini API",
-    description:
-      "Google Gemini reads and summarizes fishing reports from shop websites into a structured, easy-to-read format.",
+    description: "Google Gemini reads and summarizes fishing reports from shop websites into a structured, easy-to-read format.",
     link: "/docs?tab=Gemini API",
   },
 ];
@@ -69,11 +67,7 @@ function Feature({ heading, children, img, alt, reverse = false }: FeatureProps)
   return (
     <section className={`flex flex-col items-center py-8 ${reverse ? "md:flex-row-reverse" : "md:flex-row"}`}>
       <div className="w-full mb-3 in-data-[theme=dark]:bg-base-100">
-        <Image
-          src={img}
-          alt={alt}
-          className="max-w-full h-auto in-data-[theme=dark]:invert in-data-[theme=dark]:mix-blend-screen"
-        />
+        <Image src={img} alt={alt} className="max-w-full h-auto in-data-[theme=dark]:invert in-data-[theme=dark]:mix-blend-screen" />
         <a
           href="https://www.freepik.com"
           target="_blank"
@@ -107,16 +101,13 @@ export default function About() {
       <Feature img={idea} alt="Idea Illustration" heading="Where the Idea Came From">
         <p>
           Flybox started as an idea by one of <RescueRiver />
-          's founders, both to help with marketing—so they could know which flies to make, what colors to use, and where
-          to promote certain flies—and as a tool for fly-fishing enthusiasts.
+          's founders, both to help with marketing—so they could know which flies to make, what colors to use, and where to promote certain flies—and as a tool
+          for fly-fishing enthusiasts.
         </p>
       </Feature>
 
       <Feature img={important} alt="Important Illustration" heading="Why It Matters" reverse={true}>
-        <p>
-          Fly-fishing information is often scattered, incomplete, or outdated. Flybox consolidates up-to-date
-          information, helping users:
-        </p>
+        <p>Fly-fishing information is often scattered, incomplete, or outdated. Flybox consolidates up-to-date information, helping users:</p>
         <ul>
           <li>Locate shops quickly and accurately.</li>
           <li>Access AI-powered summaries of the latest fishing activity.</li>
@@ -127,9 +118,8 @@ export default function About() {
       <Feature img={serve} alt="Serve Illustration" heading="Who We Serve">
         <p>
           First and foremost, Flybox supports <RescueRiver />
-          's mission to bring hope and healing to survivors of trafficking and exploitation. By organizing fly-fishing
-          data, we help them choose which flies to produce, which colors to prioritize, and where to promote them—while
-          giving fly-fishing enthusiasts a single place to stay informed and engaged.
+          's mission to bring hope and healing to survivors of trafficking and exploitation. By organizing fly-fishing data, we help them choose which flies to
+          produce, which colors to prioritize, and where to promote them—while giving fly-fishing enthusiasts a single place to stay informed and engaged.
         </p>
       </Feature>
 

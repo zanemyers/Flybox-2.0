@@ -151,12 +151,7 @@ export default function StatusPanel({ route, jobId, onClose }: { route: string; 
                 {files.map(
                   (file) =>
                     file.buffer && (
-                      <a
-                        key={file.name}
-                        href={getFileUrl(file)}
-                        download={file.name}
-                        className="link link-primary block text-sm"
-                      >
+                      <a key={file.name} href={getFileUrl(file)} download={file.name} className="link link-primary block text-sm">
                         {file.name}
                       </a>
                     ),
@@ -166,11 +161,7 @@ export default function StatusPanel({ route, jobId, onClose }: { route: string; 
           )}
 
           <div className="card-actions justify-end">
-            <button
-              type="button"
-              className={`btn w-full ${isRunning ? "btn-error" : "btn-secondary"}`}
-              onClick={isRunning ? handleCancel : onClosePanel}
-            >
+            <button type="button" className={`btn w-full ${isRunning ? "btn-error" : "btn-secondary"}`} onClick={isRunning ? handleCancel : onClosePanel}>
               {isRunning ? "Cancel" : "Close"}
             </button>
           </div>

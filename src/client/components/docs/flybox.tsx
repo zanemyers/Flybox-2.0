@@ -40,8 +40,7 @@ const input: ListItems[] = [
     noteLabel: "Default",
     note: (
       <p>
-        Yellowstone National Park (<strong>Latitude:</strong> <code>44.427963</code>, <strong>Longitude:</strong>{" "}
-        <code>-110.588455</code>)
+        Yellowstone National Park (<strong>Latitude:</strong> <code>44.427963</code>, <strong>Longitude:</strong> <code>-110.588455</code>)
       </p>
     ),
   },
@@ -85,7 +84,14 @@ function TocLink({ label, children }: { label: string; children?: ReactNode }) {
   const target = label.toLowerCase().replace(/\s+/g, "-");
   return (
     <li className="underline text-primary hover:text-secondary">
-      <Link className="link-hash" href={`#${target}`} onClick={(e) => { e.preventDefault(); scrollTo(target); }}>
+      <Link
+        className="link-hash"
+        href={`#${target}`}
+        onClick={(e) => {
+          e.preventDefault();
+          scrollTo(target);
+        }}
+      >
         {label}
       </Link>
       {children}
@@ -98,8 +104,8 @@ export default function FlyboxDoc() {
     <>
       <h1 className="text-4xl font-semibold pb-3">🎣 Flybox Documentation</h1>
       <p>
-        Flybox finds fly-fishing shops using <strong>Google Maps</strong> via <strong>SerpAPI</strong>, scrapes their
-        websites for fishing reports, and summarizes them with <strong>Google Gemini</strong>.
+        Flybox finds fly-fishing shops using <strong>Google Maps</strong> via <strong>SerpAPI</strong>, scrapes their websites for fishing reports, and
+        summarizes them with <strong>Google Gemini</strong>.
       </p>
       <hr />
       <div>
@@ -126,8 +132,7 @@ export default function FlyboxDoc() {
         overview="Enter your API keys, a search term, and a location. Advanced settings let you filter by rivers, adjust report age, and customize the summary prompt."
         conclusion={
           <p>
-            Click <strong>Run Flybox</strong>. Progress updates will appear on the page and files will automatically
-            download when done.
+            Click <strong>Run Flybox</strong>. Progress updates will appear on the page and files will automatically download when done.
           </p>
         }
       >

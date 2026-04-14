@@ -39,12 +39,7 @@ export default function Header() {
         <Image src={tackleBox} alt="Tackle Box" width={64} height={64} />
         <h1 className="text-6xl text-primary font-light">Flybox</h1>
       </Link>
-      <button
-        type="button"
-        onClick={toggleTheme}
-        className="btn btn-ghost btn-sm btn-circle absolute top-4 right-4"
-        aria-label="Toggle theme"
-      >
+      <button type="button" onClick={toggleTheme} className="btn btn-ghost btn-sm btn-circle absolute top-4 right-4" aria-label="Toggle theme">
         {dark ? <FaSun className="w-4 h-4" /> : <FaMoon className="w-4 h-4" />}
       </button>
       <nav className="w-[95%] bg-base-200 shadow mx-auto py-2 px-6">

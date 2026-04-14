@@ -18,15 +18,7 @@ const markerIcon = L.icon({
 
 const round6 = (n: number) => Math.round(n * 1e6) / 1e6;
 
-export default function MapInput({
-  latitude,
-  longitude,
-  onChange,
-}: {
-  latitude: number;
-  longitude: number;
-  onChange: (lat: number, lng: number) => void;
-}) {
+export default function MapInput({ latitude, longitude, onChange }: { latitude: number; longitude: number; onChange: (lat: number, lng: number) => void }) {
   const [show, setShow] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [position, setPosition] = useState<[number, number]>([latitude, longitude]);
@@ -35,9 +27,7 @@ export default function MapInput({
 
   const handleSearch = async () => {
     if (!search.trim()) return;
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&format=json&limit=1`,
-    );
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&format=json&limit=1`);
     const data = (await res.json()) as { lat: string; lon: string }[];
     if (data.length > 0) {
       const lat = Number(data[0].lat);
@@ -146,10 +136,7 @@ export default function MapInput({
             ]}
             maxBoundsViscosity={1.0}
           >
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution="Map data © OpenStreetMap contributors"
-            />
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="Map data © OpenStreetMap contributors" />
             <Marker
               position={position}
               icon={markerIcon}

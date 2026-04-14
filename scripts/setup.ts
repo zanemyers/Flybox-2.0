@@ -29,9 +29,7 @@ function parseEnvFile(content: string): PreservedEnv {
 }
 
 // Load preserved values if the file exists
-const preserved: PreservedEnv = fs.existsSync(envPath)
-  ? parseEnvFile(fs.readFileSync(envPath, "utf8"))
-  : { SERP_API_KEY: "", GEMINI_API_KEY: "" };
+const preserved: PreservedEnv = fs.existsSync(envPath) ? parseEnvFile(fs.readFileSync(envPath, "utf8")) : { SERP_API_KEY: "", GEMINI_API_KEY: "" };
 
 // Build new .env content
 const envContent = `# Local Environment Config

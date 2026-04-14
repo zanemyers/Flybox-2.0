@@ -1,5 +1,18 @@
 import ExcelJS from "exceljs";
-import type { SiteInfo } from "@/server/shopPhase";
+
+export interface SiteInfo {
+  name: string;
+  website: string;
+  address: string;
+  phone: string;
+  stars: string;
+  reviews: string;
+  category: string;
+  email: string;
+  sellsOnline: boolean | string;
+  fishingReport: boolean | string;
+  socialMedia: string[];
+}
 
 export class ExcelFileHandler {
   private workbook: ExcelJS.Workbook;
@@ -8,19 +21,7 @@ export class ExcelFileHandler {
   constructor() {
     this.workbook = new ExcelJS.Workbook();
     this.sheet = this.workbook.addWorksheet("Shops");
-    this.sheet.addRow([
-      "Name",
-      "Website",
-      "Address",
-      "Phone",
-      "Stars",
-      "Reviews",
-      "Category",
-      "Email",
-      "Sells Online",
-      "Fishing Report",
-      "Social Media",
-    ]);
+    this.sheet.addRow(["Name", "Website", "Address", "Phone", "Stars", "Reviews", "Category", "Email", "Sells Online", "Fishing Report", "Social Media"]);
     this.sheet.getRow(1).font = { bold: true };
   }
 

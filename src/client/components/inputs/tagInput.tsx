@@ -53,10 +53,7 @@ export default function TagInput({
         onClick={(e) => (e.currentTarget.querySelector("input") as HTMLInputElement)?.focus()}
       >
         {values.map((v) => (
-          <span
-            key={v}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary text-sm font-medium"
-          >
+          <span key={v} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary text-sm font-medium">
             {v}
             <button type="button" onClick={() => remove(v)} className="leading-none opacity-60 hover:opacity-100">
               ×

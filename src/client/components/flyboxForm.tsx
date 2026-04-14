@@ -46,13 +46,7 @@ interface FormState {
   summaryPrompt: string;
 }
 
-export default function FlyboxForm({
-  defaultSerpApiKey = "",
-  defaultGeminiApiKey = "",
-}: {
-  defaultSerpApiKey?: string;
-  defaultGeminiApiKey?: string;
-}) {
+export default function FlyboxForm({ defaultSerpApiKey = "", defaultGeminiApiKey = "" }: { defaultSerpApiKey?: string; defaultGeminiApiKey?: string }) {
   const { jobId, submit, reset } = useForm("flybox");
 
   const [form, setForm] = useState<FormState>({
@@ -80,8 +74,7 @@ export default function FlyboxForm({
     localStorage.setItem("flybox-form", JSON.stringify(rest));
   }, [form]);
 
-  const update = <K extends keyof FormState>(key: K, value: FormState[K]) =>
-    setForm((prev) => ({ ...prev, [key]: value }));
+  const update = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const resetForm = () => {
     if (!confirmReset) {
@@ -112,7 +105,16 @@ export default function FlyboxForm({
   };
 
   if (jobId) {
-    return <StatusPanel route="flybox" jobId={jobId} onClose={() => { reset(); setSubmitting(false); }} />;
+    return (
+      <StatusPanel
+        route="flybox"
+        jobId={jobId}
+        onClose={() => {
+          reset();
+          setSubmitting(false);
+        }}
+      />
+    );
   }
 
   return (
@@ -145,12 +147,7 @@ export default function FlyboxForm({
                 onChange={(v) => update("geminiApiKey", v)}
               />
             </div>
-            <TextInput
-              label="Search Term"
-              placeholder="e.g. Fly Fishing Shops"
-              value={form.searchTerm}
-              onChange={(v) => update("searchTerm", v)}
-            />
+            <TextInput label="Search Term" placeholder="e.g. Fly Fishing Shops" value={form.searchTerm} onChange={(v) => update("searchTerm", v)} />
             <MapInput
               latitude={form.latitude}
               longitude={form.longitude}
@@ -159,13 +156,7 @@ export default function FlyboxForm({
                 update("longitude", lng);
               }}
             />
-            <TagInput
-              label="Rivers"
-              values={form.rivers}
-              onChange={(v) => update("rivers", v)}
-              placeholder="e.g. Madison, Snake, Yellowstone"
-              optional
-            />
+            <TagInput label="Rivers" values={form.rivers} onChange={(v) => update("rivers", v)} placeholder="e.g. Madison, Snake, Yellowstone" optional />
             <TextareaInput
               label="Summary Prompt"
               value={form.summaryPrompt}
@@ -177,12 +168,7 @@ export default function FlyboxForm({
       </form>
 
       <div className="flex gap-2 mt-3">
-        <button
-          type="button"
-          onClick={resetForm}
-          onBlur={() => setConfirmReset(false)}
-          className={`btn ${confirmReset ? "btn-warning" : "btn-ghost"}`}
-        >
+        <button type="button" onClick={resetForm} onBlur={() => setConfirmReset(false)} className={`btn ${confirmReset ? "btn-warning" : "btn-ghost"}`}>
           {confirmReset ? "Confirm Reset" : "Reset"}
         </button>
         <button type="submit" form="flybox-form" disabled={submitting} className="btn btn-primary flex-1">

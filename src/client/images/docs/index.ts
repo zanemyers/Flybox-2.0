@@ -12,17 +12,4 @@ import serpDash from "@/client/images/docs/serp/dashboard.png";
 import serpHome from "@/client/images/docs/serp/home.png";
 import serpSub from "@/client/images/docs/serp/sub.png";
 
-export {
-  details,
-  fileImport,
-  gaiApi,
-  gaiHome,
-  gaiKey,
-  gaiLogin,
-  gaiTerms,
-  manualForm,
-  serpDash,
-  serpHome,
-  serpSub,
-  simpleDetails,
-};
+export { details, fileImport, gaiApi, gaiHome, gaiKey, gaiLogin, gaiTerms, manualForm, serpDash, serpHome, serpSub, simpleDetails };

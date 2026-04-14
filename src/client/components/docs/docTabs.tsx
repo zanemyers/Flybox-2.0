@@ -19,13 +19,7 @@ const TABS: TabDef[] = [
 function Tab({ label, defaultChecked, children }: { label: string; defaultChecked: boolean; children: ReactNode }) {
   return (
     <>
-      <input
-        type="radio"
-        name="my_tabs"
-        className="tab checked:bg-base-200"
-        aria-label={label}
-        defaultChecked={defaultChecked}
-      />
+      <input type="radio" name="my_tabs" className="tab checked:bg-base-200" aria-label={label} defaultChecked={defaultChecked} />
       <div className="tab-content bg-base-200 border-base-300 shadow-lg p-6 max-h-200 overflow-y-auto">{children}</div>
     </>
   );

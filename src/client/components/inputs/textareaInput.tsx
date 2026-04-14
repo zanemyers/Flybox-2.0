@@ -28,9 +28,7 @@ export default function TextareaInput({
         return;
       }
       if (e.key !== "Tab" || !modalRef.current) return;
-      const focusable = Array.from(
-        modalRef.current.querySelectorAll<HTMLElement>("button, textarea, [tabindex]:not([tabindex='-1'])"),
-      );
+      const focusable = Array.from(modalRef.current.querySelectorAll<HTMLElement>("button, textarea, [tabindex]:not([tabindex='-1'])"));
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (e.shiftKey ? document.activeElement === first : document.activeElement === last) {
@@ -60,12 +58,7 @@ export default function TextareaInput({
         </label>
         <div className="flex items-start gap-2 px-3 py-2 rounded-lg border border-base-content/20 bg-base-100/50">
           <p className="flex-1 text-sm text-base-content/60 font-mono line-clamp-2">{value}</p>
-          <button
-            type="button"
-            className="btn btn-ghost btn-xs btn-square shrink-0 mt-0.5"
-            aria-label={`Edit ${label}`}
-            onClick={open}
-          >
+          <button type="button" className="btn btn-ghost btn-xs btn-square shrink-0 mt-0.5" aria-label={`Edit ${label}`} onClick={open}>
             <FaPencilAlt size={12} />
           </button>
         </div>
@@ -76,10 +69,7 @@ export default function TextareaInput({
           {/* biome-ignore lint/a11y/noStaticElementInteractions: modal backdrop overlay */}
           {/* biome-ignore lint/a11y/useKeyWithClickEvents: Escape key handled by window keydown handler */}
           <div className="absolute inset-0 bg-black/50" onClick={() => setShow(false)} />
-          <div
-            ref={modalRef}
-            className="relative bg-base-100 rounded-box shadow-xl w-[90%] max-w-2xl p-6 flex flex-col gap-4"
-          >
+          <div ref={modalRef} className="relative bg-base-100 rounded-box shadow-xl w-[90%] max-w-2xl p-6 flex flex-col gap-4">
             <h3 className="text-lg font-semibold">Edit {label}</h3>
             <textarea
               ref={textareaRef}

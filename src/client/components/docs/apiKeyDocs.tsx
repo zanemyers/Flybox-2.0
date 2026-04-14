@@ -1,6 +1,5 @@
 import { DocSection, ListBlock } from "@/client/components/docs";
-import { gaiApi, gaiHome, gaiKey, gaiLogin, gaiTerms } from "@/client/images/docs";
-import { serpDash, serpHome, serpSub } from "@/client/images/docs";
+import { gaiApi, gaiHome, gaiKey, gaiLogin, gaiTerms, serpDash, serpHome, serpSub } from "@/client/images/docs";
 
 const serpSteps = [
   {
@@ -24,8 +23,7 @@ const serpSteps = [
   {
     main: (
       <p>
-        Your API key is automatically generated. Copy the section called <code>Your Private API Key</code> to use in
-        Flybox.
+        Your API key is automatically generated. Copy the section called <code>Your Private API Key</code> to use in Flybox.
       </p>
     ),
     img: serpDash,
@@ -74,8 +72,7 @@ export function SerpApiDoc() {
     <>
       <h1 className="text-4xl font-semibold pb-3">🔑 SerpAPI</h1>
       <p>
-        SerpAPI lets Flybox search <strong>Google Maps</strong> for fly-fishing shops. You'll need a free API key to run
-        Flybox.
+        SerpAPI lets Flybox search <strong>Google Maps</strong> for fly-fishing shops. You'll need a free API key to run Flybox.
       </p>
       <hr className="my-6" />
       <DocSection title="Get Your SerpAPI Key">
@@ -90,8 +87,7 @@ export function GeminiApiDoc() {
     <>
       <h1 className="text-4xl font-semibold pb-3">✨ Gemini API</h1>
       <p>
-        Flybox uses <strong>Google Gemini</strong> to summarize fishing reports. You'll need a free API key to run
-        Flybox.
+        Flybox uses <strong>Google Gemini</strong> to summarize fishing reports. You'll need a free API key to run Flybox.
       </p>
       <hr className="my-6" />
       <DocSection title="Get Your Gemini API Key">

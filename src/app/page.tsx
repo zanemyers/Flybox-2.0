@@ -4,8 +4,7 @@ import FlyboxForm from "@/client/components/flyboxForm";
 
 export const metadata: Metadata = {
   title: "Flybox — Fly Fishing Report Tool",
-  description:
-    "Find local fly fishing shops, scrape their fishing reports, and get an AI-powered summary for any location.",
+  description: "Find local fly fishing shops, scrape their fishing reports, and get an AI-powered summary for any location.",
 };
 
 const steps = [
@@ -67,9 +66,8 @@ export default function Home() {
               <div className="space-y-3">
                 <h3>🛠️ What This Tool Does</h3>
                 <p>
-                  Get a <strong>fly-fishing report summary</strong> and <strong>shop directory</strong> for any location
-                  — automatically. Flybox finds local shops, identifies which ones publish fishing reports, and
-                  summarizes them with <strong>Google Gemini</strong>.
+                  Get a <strong>fly-fishing report summary</strong> and <strong>shop directory</strong> for any location — automatically. Flybox finds local
+                  shops, identifies which ones publish fishing reports, and summarizes them with <strong>Google Gemini</strong>.
                 </p>
 
                 <h4>📋 How to Use It</h4>
