@@ -46,14 +46,10 @@ const socialLinks = [
   },
 ];
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-base-100 text-base-content`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-base-100 text-base-content`}>
         <Script
           id="theme-init"
           strategy="beforeInteractive"
@@ -64,9 +60,7 @@ export default function RootLayout({
           <footer className="bg-base-200 border-t border-base-300">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
               <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-                <p className="text-base-content/70 text-center md:text-left">
-                  Built with ❤️ for the Rescue River team.
-                </p>
+                <p className="text-base-content/70 text-center md:text-left">Built with ❤️ for the Rescue River team.</p>
                 <div className="flex gap-4 md:gap-6">
                   {socialLinks.map(({ name, href, icon: Icon }) => (
                     <a
@@ -83,9 +77,7 @@ export default function RootLayout({
                 </div>
               </div>
               <div className="mt-8 pt-8 border-t border-base-300 flex flex-col md:flex-row justify-between items-center gap-4">
-                <p className="text-base-content/70 text-sm">
-                  © 2025 Zane Myers. All rights reserved.
-                </p>
+                <p className="text-base-content/70 text-sm">© 2025 Zane Myers. All rights reserved.</p>
                 <div className="flex gap-6 text-sm">
                   {legalLinks.map(({ label, href }) => (
                     <Link

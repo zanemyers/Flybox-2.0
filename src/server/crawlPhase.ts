@@ -2,20 +2,23 @@ import { GoogleGenAI } from "@google/genai";
 import { PromisePool } from "@supercharge/promise-pool";
 import TinyQueue from "tinyqueue";
 import { needsPlaywright, type StealthBrowser } from "@/server/browser";
+import type { Anchor } from "@/server/scrapingUtils";
 import {
   extractAnchors,
   httpFetch,
+  isAllowedByRobots,
   loadHtml,
   normalizeUrl,
   sameDomain,
   scrapeVisibleText,
 } from "@/server/scrapingUtils";
-import type { Anchor, FlyboxPayload, SiteInfo } from "@/server/types/flybox";
+import type { FlyboxPayload, SiteInfo } from "@/server/shopPhase";
 
 const MAX_DEPTH = 20;
 const CRAWL_CONCURRENCY = 3;
 const TOKEN_CHAR_LIMIT = 200_000;
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_FALLBACK_MODEL = "gemini-2.0-flash";
 
 interface QueueItem {
   url: string;
@@ -31,10 +34,7 @@ function getPriority(anchor: Anchor): number {
   return 3;
 }
 
-async function crawlSite(
-  baseUrl: string,
-  browser: StealthBrowser,
-): Promise<string> {
+async function crawlSite(baseUrl: string, browser: StealthBrowser): Promise<string> {
   const visited = new Set<string>();
   const queue = new TinyQueue<QueueItem>(
     [{ url: normalizeUrl(baseUrl), depth: 0, priority: 0 }],
@@ -49,6 +49,7 @@ async function crawlSite(
     const { url, depth } = item;
 
     if (visited.has(url) || depth > MAX_DEPTH) continue;
+    if (!(await isAllowedByRobots(url))) continue;
     visited.add(url);
 
     let result = await httpFetch(url);
@@ -86,9 +87,7 @@ export async function runCrawlPhase(
   log: (msg: string) => Promise<void>,
   isCanceled: () => Promise<boolean>,
 ): Promise<string> {
-  await log(
-    `🕷️ Crawling ${reportShops.length} shop site(s) for fishing reports…`,
-  );
+  await log(`🕷️ Crawling ${reportShops.length} shop site(s) for fishing reports…`);
 
   const seen = new Set<string>();
   const uniqueSites = reportShops.filter((shop) => {
@@ -127,10 +126,42 @@ export async function runCrawlPhase(
     .slice(0, TOKEN_CHAR_LIMIT);
 
   const ai = new GoogleGenAI({ apiKey: payload.geminiApiKey });
-  const response = await ai.models.generateContent({
-    model: GEMINI_MODEL,
-    contents: `${payload.summaryPrompt}\n\n${combined}`,
-  });
+  const prompt = `${payload.summaryPrompt}\n\n${combined}`;
+
+  function parseRetryDelay(err: unknown): number | null {
+    const msg = String(err);
+    if (!msg.includes("429") && !msg.includes("RESOURCE_EXHAUSTED")) return null;
+    const match = msg.match(/"retryDelay"\s*:\s*"(\d+)s"/);
+    return match ? Number(match[1]) * 1000 : 60_000;
+  }
+
+  async function generateWithRetry(model: string, maxAttempts = 3): Promise<Awaited<ReturnType<typeof ai.models.generateContent>> | null> {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await ai.models.generateContent({ model, contents: prompt });
+      } catch (err) {
+        const retryMs = parseRetryDelay(err);
+        if (retryMs !== null && attempt < maxAttempts) {
+          const waitSec = Math.ceil(retryMs / 1000);
+          await log(`⏳ Gemini rate limit hit — retrying in ${waitSec}s (attempt ${attempt}/${maxAttempts})…`);
+          await new Promise((res) => setTimeout(res, retryMs));
+          continue;
+        }
+        const is503 = String(err).includes("503") || String(err).includes("UNAVAILABLE");
+        if (is503) return null;
+        throw err;
+      }
+    }
+    return null;
+  }
+
+  let response = await generateWithRetry(GEMINI_MODEL);
+
+  if (!response) {
+    await log(`⚠️ ${GEMINI_MODEL} unavailable — falling back to ${GEMINI_FALLBACK_MODEL}…`);
+    response = await generateWithRetry(GEMINI_FALLBACK_MODEL);
+    if (!response) throw new Error(`${GEMINI_FALLBACK_MODEL} is also unavailable after retries.`);
+  }
 
   await log("✅ Summary complete.");
   return response.text ?? "";

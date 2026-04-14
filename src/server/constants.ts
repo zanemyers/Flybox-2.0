@@ -9,14 +9,7 @@ export const BLOCKED_OR_FORBIDDEN = [
 
 export const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i;
 
-export const SHOP_KEYWORDS = [
-  "shop",
-  "store",
-  "buy",
-  "products",
-  "cart",
-  "checkout",
-];
+export const SHOP_KEYWORDS = ["shop", "store", "buy", "products", "cart", "checkout"];
 
 export const SOCIAL_MEDIA_MAP = [
   { domain: "facebook.com", name: "Facebook" },
@@ -32,8 +25,7 @@ export const SOCIAL_MEDIA_MAP = [
 ];
 
 export const MESSAGES = {
-  ERROR_BLOCKED_FORBIDDEN: (status: number) =>
-    `Blocked or Forbidden link (HTTP ${status})`,
+  ERROR_BLOCKED_FORBIDDEN: (status: number) => `Blocked or Forbidden link (HTTP ${status})`,
   ERROR_EMAIL: "Errored while checking for an email",
   ERROR_LOAD_FAILED: "Page load failed",
   ERROR_REPORT: "Errored while checking for reports",
@@ -44,7 +36,6 @@ export const MESSAGES = {
   NO_PHONE: "No Phone Number",
   NO_REVIEWS: "No Reviews",
   NO_STARS: "No Stars",
-  NO_WEB: "No Website",
 };
 
 export const FALLBACK_DETAILS = {
@@ -64,7 +55,7 @@ export const FALLBACK_DETAILS = {
     email: "",
     sellsOnline: false,
     fishingReport: false,
-    socialMedia: [""],
+    socialMedia: [],
   },
   TIMEOUT: {
     email: MESSAGES.ERROR_LOAD_FAILED,
@@ -74,9 +65,3 @@ export const FALLBACK_DETAILS = {
   },
 };
 
-export const JobStatus = {
-  IN_PROGRESS: "IN_PROGRESS",
-  COMPLETED: "COMPLETED",
-  CANCELED: "CANCELED",
-  FAILED: "FAILED",
-} as const;

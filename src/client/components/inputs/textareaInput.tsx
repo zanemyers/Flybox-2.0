@@ -29,17 +29,11 @@ export default function TextareaInput({
       }
       if (e.key !== "Tab" || !modalRef.current) return;
       const focusable = Array.from(
-        modalRef.current.querySelectorAll<HTMLElement>(
-          "button, textarea, [tabindex]:not([tabindex='-1'])",
-        ),
+        modalRef.current.querySelectorAll<HTMLElement>("button, textarea, [tabindex]:not([tabindex='-1'])"),
       );
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
-      if (
-        e.shiftKey
-          ? document.activeElement === first
-          : document.activeElement === last
-      ) {
+      if (e.shiftKey ? document.activeElement === first : document.activeElement === last) {
         e.preventDefault();
         (e.shiftKey ? last : first).focus();
       }
@@ -65,9 +59,7 @@ export default function TextareaInput({
           {label} <span className="text-error">*</span>
         </label>
         <div className="flex items-start gap-2 px-3 py-2 rounded-lg border border-base-content/20 bg-base-100/50">
-          <p className="flex-1 text-sm text-base-content/60 font-mono line-clamp-2">
-            {value}
-          </p>
+          <p className="flex-1 text-sm text-base-content/60 font-mono line-clamp-2">{value}</p>
           <button
             type="button"
             className="btn btn-ghost btn-xs btn-square shrink-0 mt-0.5"
@@ -83,10 +75,7 @@ export default function TextareaInput({
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* biome-ignore lint/a11y/noStaticElementInteractions: modal backdrop overlay */}
           {/* biome-ignore lint/a11y/useKeyWithClickEvents: Escape key handled by window keydown handler */}
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setShow(false)}
-          />
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShow(false)} />
           <div
             ref={modalRef}
             className="relative bg-base-100 rounded-box shadow-xl w-[90%] max-w-2xl p-6 flex flex-col gap-4"
@@ -101,27 +90,15 @@ export default function TextareaInput({
             />
             <div className="flex justify-between">
               {defaultValue && (
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setDraft(defaultValue)}
-                >
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDraft(defaultValue)}>
                   Reset to Default
                 </button>
               )}
               <div className="flex gap-2 ml-auto">
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={() => setShow(false)}
-                >
+                <button type="button" className="btn btn-ghost" onClick={() => setShow(false)}>
                   Cancel
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={save}
-                >
+                <button type="button" className="btn btn-primary" onClick={save}>
                   Save
                 </button>
               </div>

@@ -8,10 +8,39 @@ import {
   getSocialMedia,
   hasOnlineShop,
   httpFetch,
+  isAllowedByRobots,
   loadHtml,
   publishesFishingReport,
 } from "@/server/scrapingUtils";
-import type { BasicShop, FlyboxPayload, SiteInfo } from "@/server/types/flybox";
+export interface FlyboxPayload {
+  serpApiKey: string;
+  geminiApiKey: string;
+  searchTerm: string;
+  latitude: number;
+  longitude: number;
+  rivers: string[];
+  summaryPrompt: string;
+}
+
+export interface BasicShop {
+  name: string;
+  website: string;
+  address: string;
+  phone: string;
+  stars: string;
+  reviews: string;
+  category: string;
+}
+
+export interface ShopDetails {
+  email: string;
+  sellsOnline: boolean | string;
+  fishingReport: boolean | string;
+  socialMedia: string[];
+  contactLink?: string;
+}
+
+export type SiteInfo = BasicShop & ShopDetails;
 
 const MAX_RESULTS = 100;
 const PAGE_STARTS = [0, 20, 40, 60, 80];
@@ -23,13 +52,14 @@ async function fetchShopsPage(
   latitude: number,
   longitude: number,
   start: number,
+  log: (msg: string) => Promise<void>,
 ): Promise<BasicShop[]> {
   try {
     const data = await getJson({
       engine: "google_maps",
       api_key: serpApiKey,
       q: searchTerm,
-      ll: `@${latitude},${longitude},14z`,
+      ll: `@${latitude},${longitude},8z`,
       type: "search",
       start,
     });
@@ -41,13 +71,11 @@ async function fetchShopsPage(
       address: String(r.address ?? ""),
       phone: String(r.phone ?? ""),
       stars: r.rating !== undefined ? String(r.rating) : MESSAGES.NO_STARS,
-      reviews:
-        r.reviews !== undefined ? String(r.reviews) : MESSAGES.NO_REVIEWS,
-      category: Array.isArray(r.types)
-        ? r.types[0]
-        : String(r.type ?? MESSAGES.NO_CATEGORY),
+      reviews: r.reviews !== undefined ? String(r.reviews) : MESSAGES.NO_REVIEWS,
+      category: Array.isArray(r.types) ? r.types[0] : String(r.type ?? MESSAGES.NO_CATEGORY),
     }));
-  } catch {
+  } catch (err) {
+    await log(`  ⚠️ Failed to fetch results at offset ${start}: ${String(err)}`);
     return [];
   }
 }
@@ -61,6 +89,11 @@ async function scrapeShop(
     return { ...shop, ...FALLBACK_DETAILS.NONE };
   }
 
+  if (!(await isAllowedByRobots(shop.website))) {
+    await log(`  🤖 Skipping ${shop.name} — disallowed by robots.txt`);
+    return { ...shop, ...FALLBACK_DETAILS.NONE };
+  }
+
   let result = await httpFetch(shop.website);
 
   if (needsPlaywright(result)) {
@@ -69,8 +102,7 @@ async function scrapeShop(
   }
 
   if (!result.html) return { ...shop, ...FALLBACK_DETAILS.TIMEOUT };
-  if (result.blocked)
-    return { ...shop, ...FALLBACK_DETAILS.BLOCKED(result.status) };
+  if (result.blocked) return { ...shop, ...FALLBACK_DETAILS.BLOCKED(result.status) };
 
   try {
     const $ = loadHtml(result.html);
@@ -111,13 +143,7 @@ export async function runShopPhase(
 
   const pages = await Promise.all(
     PAGE_STARTS.map((start) =>
-      fetchShopsPage(
-        payload.serpApiKey,
-        payload.searchTerm,
-        payload.latitude,
-        payload.longitude,
-        start,
-      ),
+      fetchShopsPage(payload.serpApiKey, payload.searchTerm, payload.latitude, payload.longitude, start, log),
     ),
   );
 
@@ -136,9 +162,7 @@ export async function runShopPhase(
 
   await log(`📋 Found ${deduped.length} shops. Scraping websites…`);
 
-  const results: SiteInfo[] = deduped
-    .filter((s) => !s.website)
-    .map((s) => ({ ...s, ...FALLBACK_DETAILS.NONE }));
+  const results: SiteInfo[] = deduped.filter((s) => !s.website).map((s) => ({ ...s, ...FALLBACK_DETAILS.NONE }));
 
   const withWebsite = deduped.filter((s) => s.website);
   let scraped = 0;
@@ -149,8 +173,7 @@ export async function runShopPhase(
       if (await isCanceled()) return;
       results.push(await scrapeShop(shop, browser, log));
       scraped++;
-      if (scraped % 10 === 0)
-        await log(`  … scraped ${scraped}/${withWebsite.length}`);
+      if (scraped % 10 === 0) await log(`  … scraped ${scraped}/${withWebsite.length}`);
     });
 
   await log(

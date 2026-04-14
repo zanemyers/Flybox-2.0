@@ -1,16 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { PreservedEnv } from "@/server/types/taskTypes";
+interface PreservedEnv {
+  SERP_API_KEY: string;
+  GEMINI_API_KEY: string;
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const envPath = path.resolve(__dirname, "../.env");
 
-const keysToPreserve: (keyof PreservedEnv)[] = [
-  "SERP_API_KEY",
-  "GEMINI_API_KEY",
-];
+const keysToPreserve: (keyof PreservedEnv)[] = ["SERP_API_KEY", "GEMINI_API_KEY"];
 
 /**
  * Parse existing .env file for only the keys we care about.
@@ -19,10 +19,7 @@ function parseEnvFile(content: string): PreservedEnv {
   const env: PreservedEnv = { SERP_API_KEY: "", GEMINI_API_KEY: "" };
 
   content.split(/\r?\n/).forEach((line) => {
-    const [key, ...rest] = line.trim().split("=") as [
-      keyof PreservedEnv,
-      ...string[],
-    ];
+    const [key, ...rest] = line.trim().split("=") as [keyof PreservedEnv, ...string[]];
     if (key && keysToPreserve.includes(key)) {
       env[key] = rest.join("=").replace(/^'|'$/g, "");
     }

@@ -1,12 +1,12 @@
 import type { CheerioAPI } from "cheerio";
 import * as cheerio from "cheerio";
-import {
-  BLOCKED_OR_FORBIDDEN,
-  EMAIL_REGEX,
-  SHOP_KEYWORDS,
-  SOCIAL_MEDIA_MAP,
-} from "@/server/constants";
-import type { Anchor, FetchResult } from "@/server/types/flybox";
+import type { FetchResult } from "@/server/browser";
+import { BLOCKED_OR_FORBIDDEN, EMAIL_REGEX, SHOP_KEYWORDS, SOCIAL_MEDIA_MAP } from "@/server/constants";
+
+export interface Anchor {
+  href: string;
+  text: string;
+}
 
 const USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -36,6 +36,53 @@ function isJsRendered(html: string): boolean {
   return hasSpaRoot && bodyText.length < 200;
 }
 
+// ── robots.txt ───────────────────────────────────────────────────────────────
+
+const robotsCache = new Map<string, string>();
+
+async function fetchRobotsTxt(origin: string): Promise<string> {
+  if (robotsCache.has(origin)) return robotsCache.get(origin)!;
+  try {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 5_000);
+    const res = await fetch(`${origin}/robots.txt`, { signal: controller.signal });
+    const text = res.ok ? await res.text() : "";
+    robotsCache.set(origin, text);
+    return text;
+  } catch {
+    robotsCache.set(origin, "");
+    return "";
+  }
+}
+
+function parseDisallowed(robotsTxt: string): string[] {
+  const disallowed: string[] = [];
+  let inWildcardBlock = false;
+  for (const line of robotsTxt.split(/\r?\n/)) {
+    const trimmed = line.trim().toLowerCase();
+    if (trimmed.startsWith("user-agent:")) {
+      const agent = trimmed.replace("user-agent:", "").trim();
+      inWildcardBlock = agent === "*";
+    } else if (inWildcardBlock && trimmed.startsWith("disallow:")) {
+      const path = trimmed.replace("disallow:", "").trim();
+      if (path) disallowed.push(path);
+    }
+  }
+  return disallowed;
+}
+
+export async function isAllowedByRobots(url: string): Promise<boolean> {
+  try {
+    const { origin, pathname } = new URL(url);
+    const robotsTxt = await fetchRobotsTxt(origin);
+    if (!robotsTxt) return true;
+    const disallowed = parseDisallowed(robotsTxt);
+    return !disallowed.some((rule) => pathname.startsWith(rule));
+  } catch {
+    return true;
+  }
+}
+
 // ── URL helpers ──────────────────────────────────────────────────────────────
 
 export function normalizeUrl(url: string): string {
@@ -58,10 +105,7 @@ export function sameDomain(url1: string, url2: string): boolean {
 
 // ── HTTP fetcher ─────────────────────────────────────────────────────────────
 
-export async function httpFetch(
-  url: string,
-  retries = 2,
-): Promise<FetchResult> {
+export async function httpFetch(url: string, retries = 2): Promise<FetchResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10_000);
 
@@ -70,8 +114,7 @@ export async function httpFetch(
       signal: controller.signal,
       headers: {
         "User-Agent": randomUserAgent(),
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.5",
       },
       redirect: "follow",
@@ -79,9 +122,7 @@ export async function httpFetch(
     clearTimeout(timeout);
     const html = await res.text();
     const blocked =
-      res.status === 403 ||
-      res.status === 429 ||
-      BLOCKED_OR_FORBIDDEN.some((phrase) => html.includes(phrase));
+      res.status === 403 || res.status === 429 || BLOCKED_OR_FORBIDDEN.some((phrase) => html.includes(phrase));
     return {
       html,
       status: res.status,
@@ -136,8 +177,7 @@ export function hasOnlineShop($: CheerioAPI): boolean {
     .toArray()
     .map((el) => ($(el).attr("href") ?? "").toLowerCase());
   return (
-    SHOP_KEYWORDS.some((kw) => text.includes(kw)) ||
-    hrefs.some((href) => SHOP_KEYWORDS.some((kw) => href.includes(kw)))
+    SHOP_KEYWORDS.some((kw) => text.includes(kw)) || hrefs.some((href) => SHOP_KEYWORDS.some((kw) => href.includes(kw)))
   );
 }
 

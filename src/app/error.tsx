@@ -2,13 +2,7 @@
 
 import { useEffect } from "react";
 
-export default function ErrorPage({
-  error,
-  reset,
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
+export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error(error);
   }, [error]);
@@ -19,16 +13,9 @@ export default function ErrorPage({
         <b>500</b>
       </h1>
       <h1 className="text-primary">Something Went Wrong</h1>
-      <p className="lead">
-        An unexpected error occurred. Try refreshing the page or heading back
-        home.
-      </p>
+      <p className="lead">An unexpected error occurred. Try refreshing the page or heading back home.</p>
       <div className="flex justify-center gap-4 mt-6">
-        <button
-          type="button"
-          className="btn btn-primary btn-lg px-4"
-          onClick={reset}
-        >
+        <button type="button" className="btn btn-primary btn-lg px-4" onClick={reset}>
           Try Again
         </button>
       </div>

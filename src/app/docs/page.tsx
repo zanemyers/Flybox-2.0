@@ -1,54 +1,11 @@
-"use client";
-
-import { useSearchParams } from "next/navigation";
-import type { ReactNode } from "react";
+import type { Metadata } from "next";
 import { Suspense } from "react";
-import FlyboxDoc from "@/app/docs/tabs/flybox";
-import GeminiApiDoc from "@/app/docs/tabs/geminiApi";
-import SerpApiDoc from "@/app/docs/tabs/serpApi";
+import DocTabs from "@/client/components/docs/docTabs";
 
-function Tab({
-  label,
-  defaultChecked,
-  children,
-}: {
-  label: string;
-  defaultChecked: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <>
-      <input
-        type="radio"
-        name="my_tabs"
-        className="tab checked:bg-base-200"
-        aria-label={label}
-        defaultChecked={defaultChecked}
-      />
-      <div className="tab-content bg-base-200 border-base-300 shadow-lg p-6 max-h-200 overflow-y-auto">
-        {children}
-      </div>
-    </>
-  );
-}
-
-function DocTabs() {
-  const activeTab = useSearchParams().get("tab") ?? "Flybox";
-
-  return (
-    <div className="tabs tabs-lift tabs-md lg:tabs-lg">
-      <Tab label="Flybox" defaultChecked={activeTab === "Flybox"}>
-        <FlyboxDoc />
-      </Tab>
-      <Tab label="SerpAPI" defaultChecked={activeTab === "SerpAPI"}>
-        <SerpApiDoc />
-      </Tab>
-      <Tab label="Gemini API" defaultChecked={activeTab === "Gemini API"}>
-        <GeminiApiDoc />
-      </Tab>
-    </div>
-  );
-}
+export const metadata: Metadata = {
+  title: "Docs — Flybox",
+  description: "Documentation for Flybox, including setup guides for SerpAPI and Google Gemini.",
+};
 
 export default function Docs() {
   return (

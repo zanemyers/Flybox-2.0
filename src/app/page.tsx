@@ -13,8 +13,7 @@ const steps = [
     icon: "🔑",
     text: (
       <p>
-        Enter your <strong>SerpAPI</strong> and <strong>Gemini API</strong> keys
-        — don&apos;t have them? See the{" "}
+        Enter your <strong>SerpAPI</strong> and <strong>Gemini API</strong> keys — don&apos;t have them? See the{" "}
         <a className="link-hash" href="/docs">
           Docs
         </a>
@@ -25,8 +24,7 @@ const steps = [
     icon: "🔎",
     text: (
       <p>
-        Enter a <strong>search term</strong> and pick a{" "}
-        <strong>location</strong> on the map
+        Enter a <strong>search term</strong> and pick a <strong>location</strong> on the map
       </p>
     ),
   },
@@ -34,8 +32,7 @@ const steps = [
     icon: "🎣",
     text: (
       <p>
-        Optionally filter results by <strong>river name</strong> — add as many
-        as you like
+        Optionally filter results by <strong>river name</strong> — add as many as you like
       </p>
     ),
   },
@@ -51,8 +48,7 @@ const steps = [
     icon: "📥",
     text: (
       <p>
-        Your <strong>report summary</strong> and <strong>shop directory</strong>{" "}
-        will automatically download when ready
+        Your <strong>report summary</strong> and <strong>shop directory</strong> will automatically download when ready
       </p>
     ),
   },
@@ -71,11 +67,9 @@ export default function Home() {
               <div className="space-y-3">
                 <h3>🛠️ What This Tool Does</h3>
                 <p>
-                  Get a <strong>fly-fishing report summary</strong> and{" "}
-                  <strong>shop directory</strong> for any location —
-                  automatically. Flybox finds local shops, identifies which ones
-                  publish fishing reports, and summarizes them with{" "}
-                  <strong>Google Gemini</strong>.
+                  Get a <strong>fly-fishing report summary</strong> and <strong>shop directory</strong> for any location
+                  — automatically. Flybox finds local shops, identifies which ones publish fishing reports, and
+                  summarizes them with <strong>Google Gemini</strong>.
                 </p>
 
                 <h4>📋 How to Use It</h4>
@@ -98,25 +92,20 @@ export default function Home() {
             </div>
           </div>
         </div>
-        <FlyboxForm
-          defaultSerpApiKey={serpApiKey}
-          defaultGeminiApiKey={geminiApiKey}
-        />
+        <FlyboxForm defaultSerpApiKey={serpApiKey} defaultGeminiApiKey={geminiApiKey} />
       </div>
       <div className="mt-6 flex flex-col items-center gap-1 text-xs text-base-content/70">
         <p>
           <span className="mr-1">
             ⚠️ <strong>Warning:</strong>
           </span>
-          Heavy usage may incur costs — use your own API keys to stay in control
-          of your limits.
+          Heavy usage may incur costs — use your own API keys to stay in control of your limits.
         </p>
         <p>
           <span className="mr-1">
             🔒 <strong>Privacy Notice:</strong>
           </span>
-          Your API keys are never stored. Output files are retained temporarily
-          to facilitate downloads.
+          Your API keys are never stored. Output files are retained temporarily to facilitate downloads.
         </p>
       </div>
     </main>

@@ -1,7 +1,6 @@
-import { JobStatus } from "@/server/constants";
-import { prisma } from "@/server/db";
+import { JobStatus, prisma } from "@/server/db";
 import { runFlybox } from "@/server/flybox";
-import type { FlyboxPayload } from "@/server/types/flybox";
+import type { FlyboxPayload } from "@/server/shopPhase";
 
 export async function POST(request: Request) {
   try {

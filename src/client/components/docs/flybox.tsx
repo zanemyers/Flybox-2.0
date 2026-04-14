@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
+import type { ListItems, TocItem } from "@/client/components/docs";
 import { DocSection, ListBlock } from "@/client/components/docs";
 import { details, simpleDetails } from "@/client/images/docs";
-import type { ListItems, TocItem } from "@/server/types/componentTypes";
 
 const toc: TocItem[] = [
   {
@@ -39,8 +40,7 @@ const input: ListItems[] = [
     noteLabel: "Default",
     note: (
       <p>
-        Yellowstone National Park (<strong>Latitude:</strong>{" "}
-        <code>44.427963</code>, <strong>Longitude:</strong>{" "}
+        Yellowstone National Park (<strong>Latitude:</strong> <code>44.427963</code>, <strong>Longitude:</strong>{" "}
         <code>-110.588455</code>)
       </p>
     ),
@@ -79,72 +79,43 @@ const notes: ListItems[] = [
   },
 ];
 
+const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+function TocLink({ label, children }: { label: string; children?: ReactNode }) {
+  const target = label.toLowerCase().replace(/\s+/g, "-");
+  return (
+    <li className="underline text-primary hover:text-secondary">
+      <Link className="link-hash" href={`#${target}`} onClick={(e) => { e.preventDefault(); scrollTo(target); }}>
+        {label}
+      </Link>
+      {children}
+    </li>
+  );
+}
+
 export default function FlyboxDoc() {
   return (
     <>
       <h1 className="text-4xl font-semibold pb-3">🎣 Flybox Documentation</h1>
       <p>
-        Flybox finds fly-fishing shops using <strong>Google Maps</strong> via{" "}
-        <strong>SerpAPI</strong>, scrapes their websites for fishing reports,
-        and summarizes them with <strong>Google Gemini</strong>.
+        Flybox finds fly-fishing shops using <strong>Google Maps</strong> via <strong>SerpAPI</strong>, scrapes their
+        websites for fishing reports, and summarizes them with <strong>Google Gemini</strong>.
       </p>
       <hr />
       <div>
         <h3>Contents</h3>
         <ul>
-          {toc.map((item) => {
-            const target = item.label.toLowerCase().replace(/\s+/g, "-");
-            return (
-              <li
-                key={target}
-                className="underline text-primary hover:text-secondary"
-              >
-                <Link
-                  className="link-hash"
-                  href={`#${target}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    document
-                      .getElementById(target)
-                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }}
-                >
-                  {item.label}
-                </Link>
-                {item.children && (
-                  <ul>
-                    {item.children.map((child) => {
-                      const childTarget = child.label
-                        .toLowerCase()
-                        .replace(/\s+/g, "-");
-                      return (
-                        <li
-                          key={childTarget}
-                          className="underline text-primary hover:text-secondary"
-                        >
-                          <Link
-                            className="link-hash"
-                            href={`#${childTarget}`}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              document
-                                .getElementById(childTarget)
-                                ?.scrollIntoView({
-                                  behavior: "smooth",
-                                  block: "start",
-                                });
-                            }}
-                          >
-                            {child.label}
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </li>
-            );
-          })}
+          {toc.map((item) => (
+            <TocLink key={item.label} label={item.label}>
+              {item.children && (
+                <ul>
+                  {item.children.map((child) => (
+                    <TocLink key={child.label} label={child.label} />
+                  ))}
+                </ul>
+              )}
+            </TocLink>
+          ))}
         </ul>
       </div>
 
@@ -155,18 +126,13 @@ export default function FlyboxDoc() {
         overview="Enter your API keys, a search term, and a location. Advanced settings let you filter by rivers, adjust report age, and customize the summary prompt."
         conclusion={
           <p>
-            Click <strong>Run Flybox</strong>. Progress updates will appear on
-            the page and files will automatically download when done.
+            Click <strong>Run Flybox</strong>. Progress updates will appear on the page and files will automatically
+            download when done.
           </p>
         }
       >
         <ListBlock items={input} />
-
-        <DocSection
-          subSection={true}
-          title="Output Files"
-          overview="After running, Flybox produces:"
-        >
+        <DocSection subSection={true} title="Output Files" overview="After running, Flybox produces:">
           <ListBlock items={output} />
         </DocSection>
       </DocSection>

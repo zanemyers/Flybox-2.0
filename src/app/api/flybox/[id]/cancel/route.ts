@@ -1,10 +1,6 @@
-import { JobStatus } from "@/server/constants";
-import { prisma } from "@/server/db";
+import { JobStatus, prisma } from "@/server/db";
 
-export async function POST(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     await prisma.job.update({

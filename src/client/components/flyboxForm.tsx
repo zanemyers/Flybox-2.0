@@ -112,7 +112,7 @@ export default function FlyboxForm({
   };
 
   if (jobId) {
-    return <StatusPanel route="flybox" jobId={jobId} onClose={reset} />;
+    return <StatusPanel route="flybox" jobId={jobId} onClose={() => { reset(); setSubmitting(false); }} />;
   }
 
   return (
@@ -185,17 +185,8 @@ export default function FlyboxForm({
         >
           {confirmReset ? "Confirm Reset" : "Reset"}
         </button>
-        <button
-          type="submit"
-          form="flybox-form"
-          disabled={submitting}
-          className="btn btn-primary flex-1"
-        >
-          {submitting ? (
-            <span className="loading loading-spinner loading-sm" />
-          ) : (
-            "Run Flybox"
-          )}
+        <button type="submit" form="flybox-form" disabled={submitting} className="btn btn-primary flex-1">
+          {submitting ? <span className="loading loading-spinner loading-sm" /> : "Run Flybox"}
         </button>
       </div>
     </div>

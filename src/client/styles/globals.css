@@ -5,9 +5,7 @@
 :root,
 [data-theme="light"] {
   --color-primary: oklch(43% 0.1 210); /* dark teal — readable on white */
-  --color-primary-content: oklch(
-    97% 0.01 210
-  ); /* near-white — btn-primary label */
+  --color-primary-content: oklch(97% 0.01 210); /* near-white — btn-primary label */
   --color-secondary: oklch(53% 0.14 108); /* olive — readable on white */
   --color-secondary-content: oklch(97% 0.01 108);
   --color-code: oklch(57% 0.28 337);
@@ -16,9 +14,7 @@
 [data-theme="dark"] {
   --color-primary: oklch(72% 0.1 214); /* light teal — readable on dark bg */
   --color-primary-content: oklch(20% 0.05 214); /* dark — btn-primary label */
-  --color-secondary: oklch(
-    75% 0.16 108
-  ); /* light olive — readable on dark bg */
+  --color-secondary: oklch(75% 0.16 108); /* light olive — readable on dark bg */
   --color-secondary-content: oklch(20% 0.05 108);
   --color-code: oklch(75% 0.2 337);
 }

@@ -1,39 +1,54 @@
 "use client";
 
+import type { StaticImageData } from "next/image";
 import Image from "next/image";
-import type {
-  DocSectionProps,
-  ListBlockProps,
-} from "@/server/types/componentTypes";
+import type React from "react";
 
-export function DocSection({
-  title,
-  subSection,
-  overview,
-  children,
-  conclusion,
-}: DocSectionProps) {
+export interface TocItem {
+  label: string;
+  children?: TocItem[];
+}
+
+export interface DocSectionProps {
+  subSection?: boolean;
+  title: string;
+  overview?: string;
+  conclusion?: string | React.ReactNode;
+  children: React.ReactNode;
+}
+
+export interface ListItems {
+  label?: string;
+  main?: string | React.ReactNode;
+  noteLabel?: string;
+  note?: string | React.ReactNode;
+  img?: string | StaticImageData;
+  alt?: string;
+  children?: ListItems[];
+}
+
+export interface ListBlockProps {
+  items: ListItems[];
+  ordered?: boolean;
+  orderChild?: boolean;
+  extraClass?: string;
+}
+
+export function DocSection({ title, subSection, overview, children, conclusion }: DocSectionProps) {
   const id = title.toLowerCase().replaceAll(" ", "-");
   const HeaderTag = subSection ? "h5" : "h3";
 
   return (
     <section id={id} className="pb-6">
       <HeaderTag className={subSection ? "" : "py-2"}>{title}</HeaderTag>
-      {overview && (
-        <div className={subSection ? "pb-1" : "pb-6"}>{overview}</div>
-      )}
+      {overview && <div className={subSection ? "pb-1" : "pb-6"}>{overview}</div>}
       {children}
       {conclusion}
     </section>
   );
 }
 
-export function ListBlock({
-  ordered,
-  orderChild,
-  extraClass,
-  items,
-}: ListBlockProps) {
+export function ListBlock({ ordered, orderChild, extraClass, items }: ListBlockProps) {
   const ListTag = ordered ? "ol" : "ul";
 
   return (
@@ -58,9 +73,7 @@ export function ListBlock({
             </div>
           )}
 
-          {item.children && (
-            <ListBlock items={item.children} ordered={orderChild} />
-          )}
+          {item.children && <ListBlock items={item.children} ordered={orderChild} />}
 
           {item.img && item.alt && (
             <div className="flex justify-center pb-4">

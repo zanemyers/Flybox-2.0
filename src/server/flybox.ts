@@ -1,13 +1,11 @@
 import { StealthBrowser } from "@/server/browser";
-import { JobStatus } from "@/server/constants";
 import { runCrawlPhase } from "@/server/crawlPhase";
-import { prisma } from "@/server/db";
+import { JobStatus, prisma } from "@/server/db";
 import { ExcelFileHandler, TXTFileHandler } from "@/server/fileUtils";
+import type { FlyboxPayload } from "@/server/shopPhase";
 import { runShopPhase } from "@/server/shopPhase";
-import type { FlyboxPayload } from "@/server/types/flybox";
 
-const log = (jobId: string, message: string) =>
-  prisma.jobMessage.create({ data: { jobId, message } });
+const log = (jobId: string, message: string) => prisma.jobMessage.create({ data: { jobId, message } });
 
 const isCanceled = async (jobId: string) => {
   const job = await prisma.job.findUnique({
@@ -18,10 +16,10 @@ const isCanceled = async (jobId: string) => {
 };
 
 const setPrimaryFile = (jobId: string, data: Buffer) =>
-  prisma.job.update({ where: { id: jobId }, data: { primaryFile: data } });
+  prisma.job.update({ where: { id: jobId }, data: { primaryFile: new Uint8Array(data) } });
 
 const setSecondaryFile = (jobId: string, data: Buffer) =>
-  prisma.job.update({ where: { id: jobId }, data: { secondaryFile: data } });
+  prisma.job.update({ where: { id: jobId }, data: { secondaryFile: new Uint8Array(data) } });
 
 const complete = (jobId: string) =>
   prisma.job.update({
@@ -37,10 +35,7 @@ const fail = async (jobId: string, message?: string) => {
   });
 };
 
-export async function runFlybox(
-  jobId: string,
-  payload: FlyboxPayload,
-): Promise<void> {
+export async function runFlybox(jobId: string, payload: FlyboxPayload): Promise<void> {
   const browser = new StealthBrowser();
 
   try {
@@ -65,26 +60,14 @@ export async function runFlybox(
     if (payload.rivers.length > 0) {
       const riverTerms = payload.rivers.map((r) => r.toLowerCase().trim());
       reportShops = reportShops.filter((s) => {
-        const combined = (
-          s.name +
-          " " +
-          s.website +
-          " " +
-          s.address
-        ).toLowerCase();
+        const combined = `${s.name} ${s.website} ${s.address}`.toLowerCase();
         return riverTerms.some((r) => combined.includes(r));
       });
-      await log(
-        jobId,
-        `🏞️ Filtered to ${reportShops.length} shop(s) matching rivers: ${payload.rivers.join(", ")}`,
-      );
+      await log(jobId, `🏞️ Filtered to ${reportShops.length} shop(s) matching rivers: ${payload.rivers.join(", ")}`);
     }
 
     if (reportShops.length === 0) {
-      await log(
-        jobId,
-        "ℹ️ No shops with fishing reports found. Try a broader search.",
-      );
+      await log(jobId, "ℹ️ No shops with fishing reports found. Try a broader search.");
       await complete(jobId);
       return;
     }

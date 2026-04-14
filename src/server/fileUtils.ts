@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import type { SiteInfo } from "@/server/types/flybox";
+import type { SiteInfo } from "@/server/shopPhase";
 
 export class ExcelFileHandler {
   private workbook: ExcelJS.Workbook;

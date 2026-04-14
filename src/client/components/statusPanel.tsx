@@ -17,15 +17,7 @@ type Status = "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "FAILED";
 
 const MAX_FAILURES = 5;
 
-export default function StatusPanel({
-  route,
-  jobId,
-  onClose,
-}: {
-  route: string;
-  jobId: string;
-  onClose: () => void;
-}) {
+export default function StatusPanel({ route, jobId, onClose }: { route: string; jobId: string; onClose: () => void }) {
   const [status, setStatus] = useState<Status>("IN_PROGRESS");
   const [files, setFiles] = useState<FileData[]>([]);
   const [pollError, setPollError] = useState<string | null>(null);
@@ -37,9 +29,7 @@ export default function StatusPanel({
   const getFileUrl = useCallback((file: FileData) => {
     if (!file.buffer) return undefined;
     if (!fileUrlsRef.current.has(file.name)) {
-      const blob = new Blob([
-        Uint8Array.from(atob(file.buffer), (c) => c.charCodeAt(0)),
-      ]);
+      const blob = new Blob([Uint8Array.from(atob(file.buffer), (c) => c.charCodeAt(0))]);
       fileUrlsRef.current.set(file.name, URL.createObjectURL(blob));
     }
     return fileUrlsRef.current.get(file.name);
@@ -84,10 +74,7 @@ export default function StatusPanel({
 
   useEffect(() => {
     if (files.length) {
-      localStorage.setItem(
-        `${route}-files`,
-        JSON.stringify(files.map((f) => f.name)),
-      );
+      localStorage.setItem(`${route}-files`, JSON.stringify(files.map((f) => f.name)));
     }
   }, [files, route]);
 
@@ -102,8 +89,7 @@ export default function StatusPanel({
         setPollError(null);
         if (progressAreaRef.current) {
           progressAreaRef.current.textContent = data.message;
-          progressAreaRef.current.scrollTop =
-            progressAreaRef.current.scrollHeight;
+          progressAreaRef.current.scrollTop = progressAreaRef.current.scrollHeight;
         }
         setStatus(data.status);
         handleIncomingFiles(data.files);
@@ -113,13 +99,9 @@ export default function StatusPanel({
         failureCountRef.current += 1;
         if (failureCountRef.current >= MAX_FAILURES) {
           clearInterval(intervalId);
-          setPollError(
-            "Lost connection to the server. The job may still be running.",
-          );
+          setPollError("Lost connection to the server. The job may still be running.");
         } else {
-          setPollError(
-            `Connection issue — retrying… (${failureCountRef.current}/${MAX_FAILURES})`,
-          );
+          setPollError(`Connection issue — retrying… (${failureCountRef.current}/${MAX_FAILURES})`);
         }
       }
     }, 5000);
@@ -147,16 +129,8 @@ export default function StatusPanel({
   const isRunning = status === "IN_PROGRESS";
   const isFailed = status === "FAILED" || status === "CANCELLED";
 
-  const badgeClass = isRunning
-    ? "badge-info"
-    : isFailed
-      ? "badge-error"
-      : "badge-success";
-  const title = isRunning
-    ? "Running Search…"
-    : isFailed
-      ? "Job Failed"
-      : "Job Complete";
+  const badgeClass = isRunning ? "badge-info" : isFailed ? "badge-error" : "badge-success";
+  const title = isRunning ? "Running Search…" : isFailed ? "Job Failed" : "Job Complete";
 
   return (
     <div className="app-panel">
@@ -167,10 +141,7 @@ export default function StatusPanel({
             <span className={`badge ${badgeClass}`}>{status}</span>
           </div>
 
-          <pre
-            ref={progressAreaRef}
-            className="text-sm bg-base-200 rounded p-3 max-h-64 overflow-y-auto"
-          />
+          <pre ref={progressAreaRef} className="text-sm bg-base-200 rounded p-3 max-h-64 overflow-y-auto whitespace-pre-wrap break-words" />
           {pollError && <p className="text-sm text-warning">• {pollError}</p>}
 
           {files.some((f) => f.buffer) && (

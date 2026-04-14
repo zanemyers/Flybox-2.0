@@ -4,19 +4,12 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useEffect, useRef, useState } from "react";
 import { FaMapPin } from "react-icons/fa";
-import {
-  MapContainer,
-  Marker,
-  TileLayer,
-  useMap,
-  useMapEvents,
-} from "react-leaflet";
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import NumberInput from "@/client/components/inputs/numberInput";
 
 const markerIcon = L.icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  iconRetinaUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
   iconSize: [25, 41],
   iconAnchor: [12, 41],
@@ -36,10 +29,7 @@ export default function MapInput({
 }) {
   const [show, setShow] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [position, setPosition] = useState<[number, number]>([
-    latitude,
-    longitude,
-  ]);
+  const [position, setPosition] = useState<[number, number]>([latitude, longitude]);
   const [search, setSearch] = useState("");
   const [flyTo, setFlyTo] = useState<[number, number] | null>(null);
 
@@ -122,11 +112,7 @@ export default function MapInput({
         <div className="modal-box w-11/12 max-w-3xl p-0 overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-base-300">
             <h3 className="font-semibold text-lg">Select a Location</h3>
-            <button
-              type="button"
-              className="btn btn-sm btn-circle btn-ghost"
-              onClick={() => setShow(false)}
-            >
+            <button type="button" className="btn btn-sm btn-circle btn-ghost" onClick={() => setShow(false)}>
               ✕
             </button>
           </div>
@@ -145,11 +131,7 @@ export default function MapInput({
                 }
               }}
             />
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleSearch}
-            >
+            <button type="button" className="btn btn-primary" onClick={handleSearch}>
               Search
             </button>
           </div>

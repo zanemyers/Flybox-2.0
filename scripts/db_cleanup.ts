@@ -1,5 +1,4 @@
-import { JobStatus } from "@/server/constants";
-import { prisma } from "@/server/db";
+import { JobStatus, prisma } from "@/server/db";
 
 async function cleanupOldJobs() {
   try {
