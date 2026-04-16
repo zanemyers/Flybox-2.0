@@ -104,7 +104,7 @@ export default function StatusPanel({ route, jobId, onClose }: { route: string; 
           setPollError(`Connection issue — retrying… (${failureCountRef.current}/${MAX_FAILURES})`);
         }
       }
-    }, 5000);
+    }, 2000);
 
     return () => clearInterval(intervalId);
   }, [route, jobId, handleIncomingFiles]);

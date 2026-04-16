@@ -1,12 +1,9 @@
-import { JobStatus, prisma } from "@/server/db";
+import { JobHandler } from "@/server/handlers";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    await prisma.job.update({
-      where: { id },
-      data: { status: JobStatus.CANCELED },
-    });
+    await JobHandler.cancel(id);
     return Response.json({ ok: true });
   } catch (err) {
     console.error("Failed to cancel job:", err);

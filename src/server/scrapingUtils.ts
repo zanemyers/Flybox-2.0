@@ -1,4 +1,9 @@
 import type { CheerioAPI } from "cheerio";
+
+export function includesAny(target: string, terms: string[]): boolean {
+  const lower = target.toLowerCase();
+  return terms.some((t) => lower.includes(t));
+}
 import * as cheerio from "cheerio";
 import type { FetchResult } from "@/server/browser";
 import { needsPlaywright, type StealthBrowser } from "@/server/browser";
@@ -124,13 +129,6 @@ export async function httpFetch(url: string, retries = 2): Promise<FetchResult> 
 
 // ── Extraction helpers ───────────────────────────────────────────────────────
 
-export interface ShopDetails {
-  email: string;
-  sellsOnline: boolean;
-  fishingReport: boolean;
-  socialMedia: string[];
-}
-
 function getContactLink($: CheerioAPI, baseUrl: string): string | null {
   let result: string | null = null;
   $("a").each((_, el) => {
@@ -165,8 +163,8 @@ function extractEmail($: CheerioAPI): string {
 
 export interface ShopDetails {
   email: string;
-  sellsOnline: boolean;
-  fishingReport: boolean;
+  sellsOnline: string;
+  fishingReport: string;
   socialMedia: string[];
 }
 
@@ -204,7 +202,7 @@ export async function scrapeShopDetails($: CheerioAPI, baseUrl: string, browser:
     }
   }
 
-  return { email, sellsOnline, fishingReport, socialMedia: [...socialMedia] };
+  return { email, sellsOnline: sellsOnline ? "✅" : "❌", fishingReport: fishingReport ? "✅" : "❌", socialMedia: [...socialMedia] };
 }
 
 export function scrapeVisibleText($: CheerioAPI): string {

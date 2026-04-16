@@ -1,12 +1,11 @@
-import { JobStatus, prisma } from "@/server/db";
-import type { FlyboxPayload } from "@/server/flybox";
 import { runFlybox } from "@/server/flybox";
+import { type Payload, JobHandler } from "@/server/handlers";
 
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
 
-    const payload: FlyboxPayload = {
+    const payload: Payload = {
       serpApiKey: formData.get("serpApiKey") as string,
       geminiApiKey: formData.get("geminiApiKey") as string,
       searchTerm: formData.get("searchTerm") as string,
@@ -16,11 +15,8 @@ export async function POST(request: Request) {
       summaryPrompt: formData.get("summaryPrompt") as string,
     };
 
-    const job = await prisma.job.create({
-      data: { status: JobStatus.IN_PROGRESS },
-    });
-
-    runFlybox(job.id, payload).catch(() => {});
+    const job = await JobHandler.create(payload);
+    runFlybox(job).catch(() => {});
 
     return Response.json({ jobId: job.id });
   } catch (err) {
