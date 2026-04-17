@@ -35,7 +35,8 @@
     "tinyqueue": "^3.0.0",
     "@tailwindcss/postcss": "^4",
     "tailwindcss": "^4",
-    "prisma": "^7.7.0"
+    "prisma": "^7.7.0",
+    "daisyui": "^5.5.19"
   },
   "overrides": {
     "protobufjs": ">=7.5.5",
@@ -48,7 +49,6 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^4.1.4",
-    "daisyui": "^5.5.19",
     "tsx": "^4.21.0",
     "typescript": "^6",
     "vitest": "^4.1.4"
