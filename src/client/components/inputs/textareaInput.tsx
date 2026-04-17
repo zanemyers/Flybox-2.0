@@ -57,7 +57,7 @@ export default function TextareaInput({
           {label} <span className="text-error">*</span>
         </label>
         <div className="flex items-start gap-2 px-3 py-2 rounded-lg border border-base-content/20 bg-base-100/50">
-          <p className="flex-1 text-sm text-base-content/60 font-mono line-clamp-2">{value}</p>
+          <p className="flex-1 text-sm text-base-content/60 line-clamp-2">{value}</p>
           <button type="button" className="btn btn-ghost btn-xs btn-square shrink-0 mt-0.5" aria-label={`Edit ${label}`} onClick={open}>
             <FaPencilAlt size={12} />
           </button>
@@ -73,7 +73,7 @@ export default function TextareaInput({
             <h3 className="text-lg font-semibold">Edit {label}</h3>
             <textarea
               ref={textareaRef}
-              className="textarea textarea-bordered w-full font-mono text-sm"
+              className="textarea textarea-bordered w-full text-sm"
               rows={16}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
