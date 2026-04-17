@@ -1,5 +1,5 @@
+import { JobHandler, type Payload } from "@/server/handler";
 import { runFlybox } from "@/server/pipeline";
-import { type Payload, JobHandler } from "@/server/handler";
 
 export async function POST(request: Request) {
   try {

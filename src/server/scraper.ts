@@ -141,7 +141,7 @@ export async function isAllowedByRobots(url: string): Promise<RobotsResult> {
           if (p) disallow.push(p);
         } else if (t.startsWith("crawl-delay:")) {
           const n = parseFloat(val(t, "crawl-delay:"));
-          if (!isNaN(n)) crawlDelay = n;
+          if (!Number.isNaN(n)) crawlDelay = n;
         }
       }
     }
@@ -252,23 +252,25 @@ export async function scrapeShopDetails($: CheerioAPI, baseUrl: string, browser:
   const bodyText = $body.text();
 
   // Parse anchor URLs once; skip malformed
-  const anchorUrls = $("a[href]").toArray().flatMap((el) => {
-    const raw = $(el).attr("href") ?? "";
-    try { const { hostname, pathname } = new URL(raw, baseUrl); return [{ raw, hostname, pathname }]; }
-    catch { return []; }
-  });
+  const anchorUrls = $("a[href]")
+    .toArray()
+    .flatMap((el) => {
+      const raw = $(el).attr("href") ?? "";
+      try {
+        const { hostname, pathname } = new URL(raw, baseUrl);
+        return [{ raw, hostname, pathname }];
+      } catch {
+        return [];
+      }
+    });
 
   // E-commerce: platform script fingerprints are most reliable; fall back to path-prefix or button pattern matches
   const sellsOnline =
     includesAny(bodyHtml, ECOMMERCE_SCRIPTS) ||
-    anchorUrls.some(({ raw, pathname }) =>
-      includesAny(raw, ECOMMERCE_HREF_SUBSTRINGS) || ECOMMERCE_PATH_PREFIXES.some((p) => pathname.startsWith(p))
-    );
+    anchorUrls.some(({ raw, pathname }) => includesAny(raw, ECOMMERCE_HREF_SUBSTRINGS) || ECOMMERCE_PATH_PREFIXES.some((p) => pathname.startsWith(p)));
 
   // Fishing report: body text phrases or report-specific path segments
-  const fishingReport =
-    includesAny(bodyText, REPORT_TEXT_KEYWORDS) ||
-    anchorUrls.some(({ pathname }) => includesAny(pathname, REPORT_HREF_KEYWORDS));
+  const fishingReport = includesAny(bodyText, REPORT_TEXT_KEYWORDS) || anchorUrls.some(({ pathname }) => includesAny(pathname, REPORT_HREF_KEYWORDS));
 
   const socialMedia = new Set<string>();
   for (const { hostname, pathname } of anchorUrls) {
@@ -292,13 +294,15 @@ export function scrapeVisibleText($: CheerioAPI): string {
 }
 
 export function extractAnchors($: CheerioAPI, baseUrl: string): { href: string; text: string }[] {
-  return $("a[href]").toArray().flatMap((el) => {
-    const href = $(el).attr("href") ?? "";
-    try {
-      const resolved = new URL(href, baseUrl).href;
-      return resolved.startsWith("http") ? [{ href: resolved, text: $(el).text().trim() }] : [];
-    } catch {
-      return [];
-    }
-  });
+  return $("a[href]")
+    .toArray()
+    .flatMap((el) => {
+      const href = $(el).attr("href") ?? "";
+      try {
+        const resolved = new URL(href, baseUrl).href;
+        return resolved.startsWith("http") ? [{ href: resolved, text: $(el).text().trim() }] : [];
+      } catch {
+        return [];
+      }
+    });
 }

@@ -4,18 +4,14 @@ import { getJson } from "serpapi";
 import TinyQueue from "tinyqueue";
 import { StealthBrowser as Browser, needsPlaywright, type StealthBrowser } from "@/server/browser";
 import type { JobHandler, SiteInfo } from "@/server/handler";
-import {
-  extractAnchors,
-  httpFetch,
-  includesAny,
-  isAllowedByRobots,
-  normalizeUrl,
-  sameDomain,
-  scrapeShopDetails,
-  scrapeVisibleText,
-} from "@/server/scraper";
+import { extractAnchors, httpFetch, includesAny, isAllowedByRobots, normalizeUrl, sameDomain, scrapeShopDetails, scrapeVisibleText } from "@/server/scraper";
 
-const BLANK: Pick<SiteInfo, "email" | "sellsOnline" | "fishingReport" | "socialMedia"> = { email: "", sellsOnline: false, fishingReport: false, socialMedia: [] };
+const BLANK: Pick<SiteInfo, "email" | "sellsOnline" | "fishingReport" | "socialMedia"> = {
+  email: "",
+  sellsOnline: false,
+  fishingReport: false,
+  socialMedia: [],
+};
 
 // ── Shop phase ────────────────────────────────────────────────────────────────
 async function fetchShopsPage(job: JobHandler, start: number): Promise<SiteInfo[]> {
@@ -162,7 +158,7 @@ async function crawlSite(baseUrl: string, browser: StealthBrowser): Promise<stri
 
 function getRetryDelay(err: unknown): number | null {
   const msg = String(err);
-  if (msg.includes("503") || msg.includes("UNAVAILABLE")) return 10_000;
+  if (msg.includes("503") || msg.includes("UNAVAILABLE")) return 30_000;
   if (!msg.includes("429") && !msg.includes("RESOURCE_EXHAUSTED")) return null;
   const match = msg.match(/"retryDelay"\s*:\s*"(\d+)s"/);
   return match ? Number(match[1]) * 1000 : 120_000;
@@ -170,7 +166,7 @@ function getRetryDelay(err: unknown): number | null {
 
 async function summarize(prompt: string, job: JobHandler): Promise<string | null> {
   async function tryModel(model: string): Promise<string | null> {
-    for (let attempt = 1; attempt <= 4; attempt++) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const res = await Promise.race([
           job.ai.models.generateContent({ model, contents: prompt }),
@@ -180,8 +176,8 @@ async function summarize(prompt: string, job: JobHandler): Promise<string | null
       } catch (err) {
         const retryMs = getRetryDelay(err);
         if (retryMs === null) throw err;
-        if (attempt < 4) {
-          await job.log(`⏳ Gemini unavailable — retrying in ${Math.ceil(retryMs / 1000)}s (attempt ${attempt}/4)…`);
+        if (attempt < 2) {
+          await job.log(`⏳ Gemini unavailable — retrying in ${Math.ceil(retryMs / 1000)}s (attempt ${attempt}/2)…`);
           await new Promise((r) => setTimeout(r, retryMs));
         }
       }
@@ -199,9 +195,12 @@ async function reportPhase(reportShops: SiteInfo[], job: JobHandler, browser: St
   const uniqueSites = [
     ...new Map(
       reportShops.flatMap((s) => {
-        try { return [[new URL(s.website).hostname, s] as [string, SiteInfo]]; }
-        catch { return []; }
-      })
+        try {
+          return [[new URL(s.website).hostname, s] as [string, SiteInfo]];
+        } catch {
+          return [];
+        }
+      }),
     ).values(),
   ];
 

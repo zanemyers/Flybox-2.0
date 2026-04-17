@@ -10,7 +10,13 @@ export const metadata: Metadata = {
 export default function Docs() {
   return (
     <div className="w-3/4 mx-auto my-8 py-8 rounded-4xl">
-      <Suspense fallback={<div className="flex justify-center py-16"><span className="loading loading-spinner loading-lg" /></div>}>
+      <Suspense
+        fallback={
+          <div className="flex justify-center py-16">
+            <span className="loading loading-spinner loading-lg" />
+          </div>
+        }
+      >
         <DocTabs />
       </Suspense>
     </div>

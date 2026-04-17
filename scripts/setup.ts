@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
 interface PreservedEnv {
   DATABASE_URL: string;
   DIRECT_URL: string;
@@ -30,7 +31,9 @@ function parseEnvFile(content: string): PreservedEnv {
 const DEFAULT_DB_URL = "postgresql://flybox:flybox@localhost:5432/flybox";
 
 // Load preserved values if the file exists
-const preserved: PreservedEnv = fs.existsSync(envPath) ? parseEnvFile(fs.readFileSync(envPath, "utf8")) : { DATABASE_URL: "", DIRECT_URL: "", SERP_API_KEY: "", GEMINI_API_KEY: "" };
+const preserved: PreservedEnv = fs.existsSync(envPath)
+  ? parseEnvFile(fs.readFileSync(envPath, "utf8"))
+  : { DATABASE_URL: "", DIRECT_URL: "", SERP_API_KEY: "", GEMINI_API_KEY: "" };
 
 // Build new .env content
 const envContent = `# Local Environment Config

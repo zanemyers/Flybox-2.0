@@ -47,9 +47,7 @@ export class StealthBrowser {
       });
 
       // Block unnecessary resources to speed up page loads
-      await page.route("**/*", (route) =>
-        BLOCKED_RESOURCE_TYPES.includes(route.request().resourceType()) ? route.abort() : route.continue()
-      );
+      await page.route("**/*", (route) => (BLOCKED_RESOURCE_TYPES.includes(route.request().resourceType()) ? route.abort() : route.continue()));
 
       const response = await page.goto(url, {
         waitUntil: "domcontentloaded",
