@@ -54,9 +54,6 @@ const steps = [
 ];
 
 export default function Home() {
-  const serpApiKey = process.env.SERP_API_KEY ?? "";
-  const geminiApiKey = process.env.GEMINI_API_KEY ?? "";
-
   return (
     <main className="app-container">
       <div className="app-content">
@@ -90,7 +87,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-        <FlyboxForm defaultSerpApiKey={serpApiKey} defaultGeminiApiKey={geminiApiKey} />
+        <FlyboxForm />
       </div>
       <div className="mt-6 flex flex-col items-center gap-1 text-xs text-base-content/70">
         <p>

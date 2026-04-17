@@ -38,7 +38,9 @@ npx tsx scripts/db_cleanup.ts  # Delete old jobs from the database
 
 ## Deployment
 
-Deployed on Render using Docker. The `Dockerfile` is a 4-stage build (deps → prod-deps → builder → runner). The runner stage is based on `mcr.microsoft.com/playwright:v1.59.1-noble`, which has Chromium and all system dependencies pre-installed. `RUN_HEADLESS=true` is baked into the image.
+Currently deployed on Render using Docker. The `Dockerfile` is a 4-stage build (deps → prod-deps → builder → runner). The runner stage is based on `mcr.microsoft.com/playwright:v1.59.1-noble`, which has Chromium and all system dependencies pre-installed. `RUN_HEADLESS=true` is baked into the image.
+
+**Planned:** Switch to Render's native Node environment (no Docker) to reduce image size. Build command would be `npx prisma migrate deploy && npx playwright install chromium && npm run build`.
 
 For local full-stack testing, `docker-compose.yml` runs both the app and a Postgres container with a named volume (`db_data`). Compose credentials: `postgresql://flybox:flybox@localhost:5432/flybox`.
 
@@ -58,7 +60,7 @@ Five files, each with a single responsibility:
 - **`pipeline.ts`** — `runFlybox()` orchestrates the full job in two phases:
   - *Shop phase*: fetches 5 SerpAPI pages (offsets 0–80), dedupes, concurrently scrapes each shop (robots check → HTTP → Playwright fallback → `scrapeShopDetails`)
   - *Report phase*: filters shops where `fishingReport: true`, dedupes by hostname, crawls each site with a priority queue (BFS, depth-limited), feeds text to Gemini for summarization
-  - Gemini primary model: `gemini-2.5-flash`; fallback: `gemini-2.5-flash-lite`. All `generateContent` calls are wrapped in a 60s `Promise.race` timeout to guard against socket-hang bugs on the free tier.
+  - Gemini primary model: `gemini-2.5-flash`; fallback: `gemini-2.5-flash-lite`. All `generateContent` calls are wrapped in a 60s `Promise.race` timeout to guard against socket-hang bugs on the free tier. 503/UNAVAILABLE errors retry once after 30s before falling back to the lite model; 429/RESOURCE_EXHAUSTED errors use the `retryDelay` from the response (default 120s) with the same 2-attempt limit.
 - **`handler.ts`** — `JobHandler` wraps all DB operations (log, save, complete, fail, isCanceled). Also owns `Payload`/`SiteInfo` types, `ExcelFileHandler`, and `TXTFileHandler`. `SiteInfo.sellsOnline` and `fishingReport` are `boolean` — emoji conversion happens only at Excel output time.
 - **`scraper.ts`** — HTTP fetching with retries, robots.txt parsing (Allow/Disallow/Crawl-delay), email extraction (mailto → Cloudflare data-cfemail → JSON-LD → body regex → contact page fetch), shop detail detection (ecommerce fingerprints, fishing report path patterns, social media profile links), and URL utilities.
 - **`browser.ts`** — Playwright stealth browser wrapper. `needsPlaywright(result)` determines when HTTP fetch is insufficient (blocked, JS-rendered, or null).

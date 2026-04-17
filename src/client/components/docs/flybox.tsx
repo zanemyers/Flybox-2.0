@@ -68,6 +68,10 @@ const disclaimers: ListItems[] = [
     label: "Blocked pages",
     main: "Some websites may prevent Flybox from accessing them. Fallback data will be used in these cases.",
   },
+  {
+    label: "Gemini availability",
+    main: "Google Gemini may occasionally be unavailable. Flybox will retry automatically, but if it remains unavailable the raw crawled text will be returned instead of a summary.",
+  },
 ];
 
 const notes: ListItems[] = [

@@ -161,7 +161,7 @@ function getRetryDelay(err: unknown): number | null {
   if (msg.includes("503") || msg.includes("UNAVAILABLE")) return 30_000;
   if (!msg.includes("429") && !msg.includes("RESOURCE_EXHAUSTED")) return null;
   const match = msg.match(/"retryDelay"\s*:\s*"(\d+)s"/);
-  return match ? Number(match[1]) * 1000 : 120_000;
+  return match ? Number(match[1]) * 1000 : 30_000;
 }
 
 async function summarize(prompt: string, job: JobHandler): Promise<string | null> {
@@ -174,6 +174,7 @@ async function summarize(prompt: string, job: JobHandler): Promise<string | null
         ]);
         return res.text ?? "";
       } catch (err) {
+        await job.log(`⚠️ Gemini error (${model}, attempt ${attempt}/2): ${String(err)}`);
         const retryMs = getRetryDelay(err);
         if (retryMs === null) throw err;
         if (attempt < 2) {

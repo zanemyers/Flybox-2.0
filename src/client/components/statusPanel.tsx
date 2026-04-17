@@ -141,7 +141,7 @@ export default function StatusPanel({ route, jobId, onClose }: { route: string; 
             <span className={`badge ${badgeClass}`}>{status.replace("_", " ")}</span>
           </div>
 
-          <pre ref={progressAreaRef} className="text-sm font-sans bg-base-100 rounded p-3 max-h-64 overflow-y-auto whitespace-pre-wrap break-words" />
+          <pre ref={progressAreaRef} className="text-sm font-sans bg-base-200 rounded p-3 h-64 overflow-y-auto whitespace-pre-wrap break-words" />
           {pollError && <p className="text-sm text-warning">• {pollError}</p>}
 
           {files.some((f) => f.buffer) && (

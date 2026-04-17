@@ -46,12 +46,12 @@ interface FormState {
   summaryPrompt: string;
 }
 
-export default function FlyboxForm({ defaultSerpApiKey = "", defaultGeminiApiKey = "" }: { defaultSerpApiKey?: string; defaultGeminiApiKey?: string }) {
+export default function FlyboxForm() {
   const { jobId, submit, reset } = useForm("flybox");
 
   const [form, setForm] = useState<FormState>({
-    serpApiKey: defaultSerpApiKey,
-    geminiApiKey: defaultGeminiApiKey,
+    serpApiKey: "",
+    geminiApiKey: "",
     searchTerm: "Fly Fishing Shops",
     latitude: 44.427963,
     longitude: -110.588455,
