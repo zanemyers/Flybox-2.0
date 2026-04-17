@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { ListItems, TocItem } from "@/client/components/docs";
 import { DocSection, ListBlock } from "@/client/components/docs";
-import { details, simpleDetails } from "@/client/images/docs";
+import { details } from "@/client/images/docs";
 
 const toc: TocItem[] = [
   {
@@ -48,10 +48,8 @@ const input: ListItems[] = [
 
 const output: ListItems[] = [
   {
-    label: "simple_shop_details.xlsx",
-    main: "Created immediately. Contains basic shop info and can be reused.",
-    img: simpleDetails,
-    alt: "Simple Shop Details",
+    label: "report_summary.txt",
+    main: "AI-generated summary of fishing reports found across all shop websites.",
   },
   {
     label: "shop_details.xlsx",
@@ -129,7 +127,7 @@ export default function FlyboxDoc() {
 
       <DocSection
         title="Using the Flybox Form"
-        overview="Enter your API keys, a search term, and a location. Advanced settings let you filter by rivers, adjust report age, and customize the summary prompt."
+        overview="Enter your API keys, a search term, and a location. You can also filter by river names and customize the summary prompt."
         conclusion={
           <p>
             Click <strong>Run Flybox</strong>. Progress updates will appear on the page and files will automatically download when done.

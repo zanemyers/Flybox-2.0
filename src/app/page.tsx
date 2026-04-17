@@ -72,7 +72,7 @@ export default function Home() {
 
                 <h4>📋 How to Use It</h4>
                 <div>
-                  {steps.map((step, _i) => (
+                  {steps.map((step) => (
                     <div key={step.icon} className="icon-list">
                       <span className="icon-list__icon">{step.icon}</span>
                       {step.text}

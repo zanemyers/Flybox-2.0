@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import type React from "react";
-import { idea, important, serve } from "../../client/images/about";
+import { idea, important, serve } from "@/client/images/about";
 
 export const metadata: Metadata = {
   title: "About — Flybox",

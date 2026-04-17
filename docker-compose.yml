@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: flybox
+      POSTGRES_PASSWORD: flybox
+      POSTGRES_DB: flybox
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://flybox:flybox@db:5432/flybox
+      DIRECT_URL: postgresql://flybox:flybox@db:5432/flybox
+      SERP_API_KEY: ${SERP_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      RUN_HEADLESS: "true"
+    ports:
+      - "3000:3000"
+
+volumes:
+  db_data:

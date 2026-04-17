@@ -1,7 +1,7 @@
 generator client {
   provider      = "prisma-client"
   output        = "../generated/prisma"
-  binaryTargets = ["native", "darwin-arm64", "linux-arm64-openssl-3.0.x"]
+  binaryTargets = ["native", "darwin-arm64", "linux-arm64-openssl-3.0.x", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -14,7 +14,7 @@ model Job {
   createdAt     DateTime     @default(now())
   primaryFile   Bytes?
   secondaryFile Bytes?
-  JobMessage    JobMessage[]
+  jobMessages   JobMessage[]
 }
 
 enum JobStatus {

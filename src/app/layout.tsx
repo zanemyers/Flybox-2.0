@@ -77,7 +77,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 </div>
               </div>
               <div className="mt-8 pt-8 border-t border-base-300 flex flex-col md:flex-row justify-between items-center gap-4">
-                <p className="text-base-content/70 text-sm">© 2025 Zane Myers. All rights reserved.</p>
+                <p className="text-base-content/70 text-sm">© 2026 Zane Myers. All rights reserved.</p>
                 <div className="flex gap-6 text-sm">
                   {legalLinks.map(({ label, href }) => (
                     <Link key={label} href={href} className="text-base-content/70 hover:text-base-content transition-colors">

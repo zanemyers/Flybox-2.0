@@ -97,7 +97,7 @@ export default function FlyboxForm({ defaultSerpApiKey = "", defaultGeminiApiKey
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      await submit(form as unknown as FormState);
+      await submit(form);
     } catch {
       console.error("Submission failed.");
       setSubmitting(false);

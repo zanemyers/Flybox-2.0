@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 interface PreservedEnv {
+  DATABASE_URL: string;
+  DIRECT_URL: string;
   SERP_API_KEY: string;
   GEMINI_API_KEY: string;
 }
@@ -10,13 +12,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const envPath = path.resolve(__dirname, "../.env");
 
-const keysToPreserve: (keyof PreservedEnv)[] = ["SERP_API_KEY", "GEMINI_API_KEY"];
+const keysToPreserve: (keyof PreservedEnv)[] = ["DATABASE_URL", "DIRECT_URL", "SERP_API_KEY", "GEMINI_API_KEY"];
 
-/**
- * Parse existing .env file for only the keys we care about.
- */
 function parseEnvFile(content: string): PreservedEnv {
-  const env: PreservedEnv = { SERP_API_KEY: "", GEMINI_API_KEY: "" };
+  const env: PreservedEnv = { DATABASE_URL: "", DIRECT_URL: "", SERP_API_KEY: "", GEMINI_API_KEY: "" };
 
   content.split(/\r?\n/).forEach((line) => {
     const [key, ...rest] = line.trim().split("=") as [keyof PreservedEnv, ...string[]];
@@ -28,23 +27,23 @@ function parseEnvFile(content: string): PreservedEnv {
   return env;
 }
 
+const DEFAULT_DB_URL = "postgresql://flybox:flybox@localhost:5432/flybox";
+
 // Load preserved values if the file exists
-const preserved: PreservedEnv = fs.existsSync(envPath) ? parseEnvFile(fs.readFileSync(envPath, "utf8")) : { SERP_API_KEY: "", GEMINI_API_KEY: "" };
+const preserved: PreservedEnv = fs.existsSync(envPath) ? parseEnvFile(fs.readFileSync(envPath, "utf8")) : { DATABASE_URL: "", DIRECT_URL: "", SERP_API_KEY: "", GEMINI_API_KEY: "" };
 
 // Build new .env content
 const envContent = `# Local Environment Config
 NODE_ENV=development
-PORT=3000
 
-# Database Config
-DATABASE_URL='postgresql://myuser:mypassword@localhost:5432/mydb?schema=public'
+# Database — DATABASE_URL can use a pooler; DIRECT_URL must be a direct connection (used by Prisma migrations)
+DATABASE_URL='${preserved.DATABASE_URL || DEFAULT_DB_URL}'
+DIRECT_URL='${preserved.DIRECT_URL || DEFAULT_DB_URL}'
 
 # Scraper configuration
 RUN_HEADLESS=true
-CONCURRENCY=5
 
 # API keys for development
-# - Place actual keys here. Use 'test' during development to avoid re-entering.
 SERP_API_KEY='${preserved.SERP_API_KEY}'
 GEMINI_API_KEY='${preserved.GEMINI_API_KEY}'`;
 

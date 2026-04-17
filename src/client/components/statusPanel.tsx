@@ -13,7 +13,7 @@ interface JobUpdate {
   files: FileData[];
 }
 
-type Status = "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "FAILED";
+type Status = "IN_PROGRESS" | "COMPLETED" | "CANCELED" | "FAILED";
 
 const MAX_FAILURES = 5;
 
@@ -127,7 +127,7 @@ export default function StatusPanel({ route, jobId, onClose }: { route: string; 
   };
 
   const isRunning = status === "IN_PROGRESS";
-  const isFailed = status === "FAILED" || status === "CANCELLED";
+  const isFailed = status === "FAILED" || status === "CANCELED";
 
   const badgeClass = isRunning ? "badge-info" : isFailed ? "badge-error" : "badge-success";
   const title = isRunning ? "Running Search…" : isFailed ? "Job Failed" : "Job Complete";
@@ -138,7 +138,7 @@ export default function StatusPanel({ route, jobId, onClose }: { route: string; 
         <div className="card-body flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className="card-title">{title}</h2>
-            <span className={`badge ${badgeClass}`}>{status}</span>
+            <span className={`badge ${badgeClass}`}>{status.replace("_", " ")}</span>
           </div>
 
           <pre ref={progressAreaRef} className="text-sm bg-base-200 rounded p-3 max-h-64 overflow-y-auto whitespace-pre-wrap break-words" />

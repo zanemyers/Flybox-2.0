@@ -8,7 +8,7 @@ export default function NotFound() {
       <h1 className="mb-3 text-secondary">
         <b>404</b>
       </h1>
-      <h1 className="text-primary">Gone Fishing...</h1>
+      <h2 className="text-primary">Gone Fishing...</h2>
       <p className="lead">Looks like the page you were trying to find has drifted downstream.</p>
       <div className="my-4 mx-auto text-center max-w-xs">
         <Image src={calvinFishing} alt="Fishing Gif" className="rounded" width={300} height={300} />

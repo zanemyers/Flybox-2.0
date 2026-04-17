@@ -1,13 +1,21 @@
-import { GoogleGenAI } from "@google/genai";
 import { PromisePool } from "@supercharge/promise-pool";
 import * as cheerio from "cheerio";
 import { getJson } from "serpapi";
 import TinyQueue from "tinyqueue";
 import { StealthBrowser as Browser, needsPlaywright, type StealthBrowser } from "@/server/browser";
-import { JobHandler, type SiteInfo } from "@/server/handlers";
-import { extractAnchors, httpFetch, includesAny, isAllowedByRobots, normalizeUrl, sameDomain, scrapeShopDetails, scrapeVisibleText } from "@/server/scrapingUtils";
+import type { JobHandler, SiteInfo } from "@/server/handler";
+import {
+  extractAnchors,
+  httpFetch,
+  includesAny,
+  isAllowedByRobots,
+  normalizeUrl,
+  sameDomain,
+  scrapeShopDetails,
+  scrapeVisibleText,
+} from "@/server/scraper";
 
-const BLANK: Pick<SiteInfo, "email" | "sellsOnline" | "fishingReport" | "socialMedia"> = { email: "", sellsOnline: "", fishingReport: "", socialMedia: [] };
+const BLANK: Pick<SiteInfo, "email" | "sellsOnline" | "fishingReport" | "socialMedia"> = { email: "", sellsOnline: false, fishingReport: false, socialMedia: [] };
 
 // ── Shop phase ────────────────────────────────────────────────────────────────
 async function fetchShopsPage(job: JobHandler, start: number): Promise<SiteInfo[]> {
@@ -23,8 +31,8 @@ async function fetchShopsPage(job: JobHandler, start: number): Promise<SiteInfo[
       reviews: String(r.reviews ?? ""),
       category: Array.isArray(r.types) ? r.types[0] : String(r.type ?? ""),
       email: "",
-      sellsOnline: "",
-      fishingReport: "",
+      sellsOnline: false,
+      fishingReport: false,
       socialMedia: [] as string[],
     }));
   } catch (err) {
@@ -36,7 +44,8 @@ async function fetchShopsPage(job: JobHandler, start: number): Promise<SiteInfo[
 async function scrapeShop(shop: SiteInfo, browser: StealthBrowser, job: JobHandler): Promise<SiteInfo> {
   if (!shop.website) return shop;
 
-  if (!(await isAllowedByRobots(shop.website))) {
+  const { allowed } = await isAllowedByRobots(shop.website);
+  if (!allowed) {
     await job.log(`  🤖 Skipping ${shop.name} — disallowed by robots.txt`);
     return shop;
   }
@@ -47,14 +56,14 @@ async function scrapeShop(shop: SiteInfo, browser: StealthBrowser, job: JobHandl
     result = await browser.fetchPage(shop.website);
   }
 
-  if (!result.html) return { ...shop, ...BLANK };
-  if (result.blocked) return { ...shop, ...BLANK };
+  if (!result.html || result.blocked) return { ...shop, ...BLANK };
 
   try {
     const $ = cheerio.load(result.html);
     const details = await scrapeShopDetails($, shop.website, browser);
     return { ...shop, ...details };
-  } catch {
+  } catch (err) {
+    await job.log(`  ⚠️ Failed to scrape ${shop.name}: ${String(err)}`);
     return { ...shop, ...BLANK };
   }
 }
@@ -78,16 +87,17 @@ async function shopPhase(job: JobHandler, browser: StealthBrowser): Promise<Site
       if (scraped % 10 === 0) await job.log(`  … scraped ${scraped}/${deduped.length}`);
     });
 
-  await job.log(`✅ Shop phase complete. ${results.filter((s) => s.fishingReport === "✅").length} shops publish fishing reports.`);
+  await job.log(`✅ Shop phase complete. ${results.filter((s) => s.fishingReport).length} shops publish fishing reports.`);
   return results;
 }
 
-// ── Crawl phase ───────────────────────────────────────────────────────────────
+// ── Report phase ───────────────────────────────────────────────────────────────
 
 const MAX_DEPTH = 20;
-const TOKEN_CHAR_LIMIT = 200_000;
+const TOKEN_CHAR_LIMIT = 50_000;
 const GEMINI_MODEL = "gemini-2.5-flash";
-const GEMINI_FALLBACK_MODEL = "gemini-2.0-flash";
+const GEMINI_FALLBACK_MODEL = "gemini-2.5-flash-lite";
+const GEMINI_TIMEOUT_MS = 60_000;
 
 const CRAWL_KEYWORDS = ["report", "fishing", "fish", "conditions", "hatch", "fly"];
 const CRAWL_JUNK_WORDS = ["/page/", "/tag/", "/category/", "?page=", "wp-admin", "/feed/"];
@@ -119,8 +129,10 @@ async function crawlSite(baseUrl: string, browser: StealthBrowser): Promise<stri
     if (!item) break;
     const { url, depth } = item;
 
-    if (visited.has(url) || depth > MAX_DEPTH) continue;
-    if (!(await isAllowedByRobots(url))) continue;
+    if (visited.has(url)) continue;
+    const { allowed, crawlDelay } = await isAllowedByRobots(url);
+    if (!allowed) continue;
+    if (crawlDelay > 0) await new Promise((r) => setTimeout(r, crawlDelay * 1000));
     visited.add(url);
 
     let result = await httpFetch(url);
@@ -148,23 +160,54 @@ async function crawlSite(baseUrl: string, browser: StealthBrowser): Promise<stri
   return chunks.join("\n\n").slice(0, TOKEN_CHAR_LIMIT);
 }
 
-async function reportPhase(reportShops: SiteInfo[], job: JobHandler, browser: StealthBrowser): Promise<string> {
-  await job.log(`🕷️ Crawling ${reportShops.length} shop site(s) for fishing reports…`);
+function getRetryDelay(err: unknown): number | null {
+  const msg = String(err);
+  if (msg.includes("503") || msg.includes("UNAVAILABLE")) return 10_000;
+  if (!msg.includes("429") && !msg.includes("RESOURCE_EXHAUSTED")) return null;
+  const match = msg.match(/"retryDelay"\s*:\s*"(\d+)s"/);
+  return match ? Number(match[1]) * 1000 : 120_000;
+}
 
-  const seen = new Set<string>();
-  const uniqueSites = reportShops.filter((shop) => {
-    try {
-      const hostname = new URL(shop.website).hostname;
-      if (seen.has(hostname)) return false;
-      seen.add(hostname);
-      return true;
-    } catch {
-      return false;
+async function summarize(prompt: string, job: JobHandler): Promise<string | null> {
+  async function tryModel(model: string): Promise<string | null> {
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      try {
+        const res = await Promise.race([
+          job.ai.models.generateContent({ model, contents: prompt }),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("503 Gemini request timed out")), GEMINI_TIMEOUT_MS)),
+        ]);
+        return res.text ?? "";
+      } catch (err) {
+        const retryMs = getRetryDelay(err);
+        if (retryMs === null) throw err;
+        if (attempt < 4) {
+          await job.log(`⏳ Gemini unavailable — retrying in ${Math.ceil(retryMs / 1000)}s (attempt ${attempt}/4)…`);
+          await new Promise((r) => setTimeout(r, retryMs));
+        }
+      }
     }
-  });
+    return null;
+  }
 
-  const siteTexts: Array<{ name: string; text: string }> = [];
+  const result = await tryModel(GEMINI_MODEL);
+  if (result !== null) return result;
+  await job.log(`⚠️ ${GEMINI_MODEL} unavailable — falling back to ${GEMINI_FALLBACK_MODEL}…`);
+  return tryModel(GEMINI_FALLBACK_MODEL);
+}
 
+async function reportPhase(reportShops: SiteInfo[], job: JobHandler, browser: StealthBrowser): Promise<string> {
+  const uniqueSites = [
+    ...new Map(
+      reportShops.flatMap((s) => {
+        try { return [[new URL(s.website).hostname, s] as [string, SiteInfo]]; }
+        catch { return []; }
+      })
+    ).values(),
+  ];
+
+  await job.log(`🕷️ Crawling ${uniqueSites.length} shop site(s) for fishing reports…`);
+
+  const texts: string[] = [];
   await PromisePool.withConcurrency(3)
     .for(uniqueSites)
     .process(async (shop) => {
@@ -172,64 +215,25 @@ async function reportPhase(reportShops: SiteInfo[], job: JobHandler, browser: St
       await job.log(`  🔗 Crawling: ${shop.name}`);
       try {
         const text = await crawlSite(shop.website, browser);
-        if (text.trim()) siteTexts.push({ name: shop.name, text });
+        if (text.trim()) texts.push(`==== ${shop.name} ====\n${text}`);
       } catch (err) {
         await job.log(`  ⚠️ Failed to crawl ${shop.name}: ${String(err)}`);
       }
     });
 
-  if (siteTexts.length === 0) return "No fishing report content found.";
+  if (texts.length === 0) return "No fishing report content found.";
 
-  await job.log(`🤖 Summarizing ${siteTexts.length} site(s) with Gemini…`);
+  await job.log(`🤖 Summarizing ${texts.length} site(s) with Gemini…`);
+  const combined = texts.join("\n\n").slice(0, TOKEN_CHAR_LIMIT);
+  const summary = await summarize(`${job.payload.summaryPrompt}\n\n${combined}`, job);
 
-  const combined = siteTexts
-    .map((s) => `==== ${s.name} ====\n${s.text}`)
-    .join("\n\n")
-    .slice(0, TOKEN_CHAR_LIMIT);
-
-  const ai = new GoogleGenAI({ apiKey: job.payload.geminiApiKey });
-  const prompt = `${job.payload.summaryPrompt}\n\n${combined}`;
-
-  function parseRetryDelay(err: unknown): number | null {
-    const msg = String(err);
-    if (!msg.includes("429") && !msg.includes("RESOURCE_EXHAUSTED")) return null;
-    const match = msg.match(/"retryDelay"\s*:\s*"(\d+)s"/);
-    return match ? Number(match[1]) * 1000 : 60_000;
-  }
-
-  async function generateWithRetry(model: string, maxAttempts = 3): Promise<Awaited<ReturnType<typeof ai.models.generateContent>> | null> {
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        return await ai.models.generateContent({ model, contents: prompt });
-      } catch (err) {
-        const retryMs = parseRetryDelay(err);
-        if (retryMs !== null && attempt < maxAttempts) {
-          const waitSec = Math.ceil(retryMs / 1000);
-          await job.log(`⏳ Gemini rate limit hit — retrying in ${waitSec}s (attempt ${attempt}/${maxAttempts})…`);
-          await new Promise((res) => setTimeout(res, retryMs));
-          continue;
-        }
-        const isTransient = String(err).includes("503") || String(err).includes("UNAVAILABLE") || retryMs !== null;
-        if (isTransient) return null;
-        throw err;
-      }
-    }
-    return null;
-  }
-
-  let response = await generateWithRetry(GEMINI_MODEL);
-
-  if (!response) {
-    await job.log(`⚠️ ${GEMINI_MODEL} unavailable — falling back to ${GEMINI_FALLBACK_MODEL}…`);
-    response = await generateWithRetry(GEMINI_FALLBACK_MODEL);
-    if (!response) {
-      await job.log("⚠️ Gemini quota exhausted — returning raw crawled text without summary.");
-      return `[Gemini unavailable — raw crawled text]\n\n${combined}`;
-    }
+  if (!summary) {
+    await job.log("⚠️ Gemini unavailable — returning raw crawled text.");
+    return `[Gemini unavailable]\n\n${combined}`;
   }
 
   await job.log("✅ Summary complete.");
-  return response.text ?? "";
+  return summary;
 }
 
 // ── Pipeline ──────────────────────────────────────────────────────────────────
@@ -241,21 +245,14 @@ export async function runFlybox(job: JobHandler): Promise<void> {
     await browser.launch();
 
     const allShops = await shopPhase(job, browser);
-
     if (await job.isCanceled()) return;
 
-    for (const shop of allShops) job.xls.addRow(shop);
-    await job.setSecondaryFile(await job.xls.getBuffer());
-    await job.log(`📊 Shop directory saved (${allShops.length} shops).`);
+    await job.saveShops(allShops);
 
-    let reportShops = allShops.filter((s) => s.fishingReport === "✅");
-
+    let reportShops = allShops.filter((s) => s.fishingReport);
     if (job.payload.rivers.length > 0) {
       const riverTerms = job.payload.rivers.map((r) => r.toLowerCase().trim());
-      reportShops = reportShops.filter((s) => {
-        const combined = `${s.name} ${s.website} ${s.address}`.toLowerCase();
-        return riverTerms.some((r) => combined.includes(r));
-      });
+      reportShops = reportShops.filter((s) => includesAny(`${s.name} ${s.website} ${s.address}`, riverTerms));
       await job.log(`🏞️ Filtered to ${reportShops.length} shop(s) matching rivers: ${job.payload.rivers.join(", ")}`);
     }
 
@@ -268,12 +265,9 @@ export async function runFlybox(job: JobHandler): Promise<void> {
     if (await job.isCanceled()) return;
 
     const summary = await reportPhase(reportShops, job, browser);
-
     if (await job.isCanceled()) return;
 
-    job.txt.append(summary);
-    await job.setPrimaryFile(job.txt.getBuffer());
-    await job.log("📥 Report summary saved.");
+    await job.saveSummary(summary);
     await job.complete();
   } catch (err) {
     await job.fail(String(err));

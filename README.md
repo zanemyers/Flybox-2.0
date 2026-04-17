@@ -12,10 +12,38 @@ Enter a location and your API keys — Flybox searches Google Maps for fly-fishi
 - **Gemini API key** — for fishing report summarization
 - **PostgreSQL database** — for job tracking
 
-## Setup
+## Local Development
 
-1. Copy `.env.example` to `.env` and fill in the values
-2. `npm install`
-3. `npx prisma migrate dev`
-4. `npx ts-node scripts/setup.ts`
-5. `npm run dev`
+```bash
+npm install
+npx ts-node scripts/setup.ts   # creates .env with default values
+npx prisma migrate dev         # run DB migrations
+npm run dev                    # start dev server (Turbopack)
+```
+
+## Docker (full-stack local)
+
+Spins up the app and a Postgres container with a persistent volume:
+
+```bash
+npm run docker:up      # start Postgres + app
+npm run docker:down    # stop (keeps DB data)
+npm run docker:reset   # stop and wipe DB
+```
+
+`SERP_API_KEY` and `GEMINI_API_KEY` are passed through from your `.env` file.  
+Run migrations against the local DB before starting: `npx prisma migrate deploy`
+
+## Deployment (Render)
+
+1. Create a **Web Service** on Render pointed at this repo, with **Docker** as the environment
+2. Set environment variables in the Render dashboard:
+   - `DATABASE_URL` — supports a connection pooler
+   - `DIRECT_URL` — must be a direct connection (used by Prisma migrations)
+   - `SERP_API_KEY`
+   - `GEMINI_API_KEY`
+3. Add a **pre-deploy command**: `npx prisma migrate deploy`
+
+## License
+
+MIT — see [LICENSE](LICENSE)

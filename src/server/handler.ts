@@ -1,3 +1,4 @@
+import { GoogleGenAI } from "@google/genai";
 import ExcelJS from "exceljs";
 import { JobStatus, prisma } from "@/server/db";
 
@@ -20,19 +21,22 @@ export interface SiteInfo {
   reviews: string;
   category: string;
   email: string;
-  sellsOnline: string;
-  fishingReport: string;
+  sellsOnline: boolean;
+  fishingReport: boolean;
   socialMedia: string[];
 }
 
 export class JobHandler {
   readonly xls = new ExcelFileHandler();
   readonly txt = new TXTFileHandler();
+  readonly ai: GoogleGenAI;
 
   constructor(
     readonly id: string,
     readonly payload: Payload,
-  ) {}
+  ) {
+    this.ai = new GoogleGenAI({ apiKey: payload.geminiApiKey });
+  }
 
   static async create(payload: Payload): Promise<JobHandler> {
     const job = await prisma.job.create({ data: { status: JobStatus.IN_PROGRESS } });
@@ -65,12 +69,16 @@ export class JobHandler {
     return job?.status === JobStatus.CANCELED;
   }
 
-  setPrimaryFile(data: Buffer) {
-    return prisma.job.update({ where: { id: this.id }, data: { primaryFile: new Uint8Array(data) } });
+  async saveShops(shops: SiteInfo[]) {
+    for (const shop of shops) this.xls.addRow(shop);
+    await prisma.job.update({ where: { id: this.id }, data: { secondaryFile: new Uint8Array(await this.xls.getBuffer()) } });
+    await this.log(`📊 Shop directory saved (${shops.length} shops).`);
   }
 
-  setSecondaryFile(data: Buffer) {
-    return prisma.job.update({ where: { id: this.id }, data: { secondaryFile: new Uint8Array(data) } });
+  async saveSummary(summary: string) {
+    this.txt.append(summary);
+    await prisma.job.update({ where: { id: this.id }, data: { primaryFile: new Uint8Array(this.txt.getBuffer()) } });
+    await this.log("📥 Report summary saved.");
   }
 
   complete() {
@@ -78,8 +86,10 @@ export class JobHandler {
   }
 
   async fail(message?: string) {
-    if (message) await this.log(`❌ ${message}`);
-    await prisma.job.update({ where: { id: this.id }, data: { status: JobStatus.FAILED } });
+    await Promise.all([
+      message ? this.log(`❌ ${message}`) : Promise.resolve(),
+      prisma.job.update({ where: { id: this.id }, data: { status: JobStatus.FAILED } }),
+    ]);
   }
 }
 
@@ -104,8 +114,8 @@ export class ExcelFileHandler {
       info.reviews,
       info.category,
       info.email,
-      info.sellsOnline,
-      info.fishingReport,
+      info.sellsOnline ? "✅" : "❌",
+      info.fishingReport ? "✅" : "❌",
       info.socialMedia.join(", "),
     ]);
   }
