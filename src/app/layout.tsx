@@ -41,7 +41,7 @@ const socialLinks = [
   },
   {
     name: "Instagram",
-    href: "https://instagram.com/rescueriver8",
+    href: "https://www.instagram.com/rescueriverco/",
     icon: FaInstagram,
   },
 ];
