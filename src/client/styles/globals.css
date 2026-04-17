@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @plugin "daisyui";
 
+/* Font variables — defaults overridden at runtime by Next.js class injection */
+:root {
+  --font-geist-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-geist-mono: ui-monospace, monospace;
+}
+
 /* Brand colors in OKLCH so opacity modifiers (/70, /80 etc.) work correctly */
 :root,
 [data-theme="light"] {
@@ -19,13 +25,8 @@
   --color-code: oklch(75% 0.2 337);
 }
 
-@theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
 body {
-  font-family: sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -93,9 +94,6 @@ body {
   /* text-white removed — DaisyUI's primary-content now controls label colour */
   .primary-button {
     @apply btn btn-primary rounded-box shadow-md hover:shadow-none;
-  }
-  .secondary-button {
-    @apply btn btn-secondary btn-outline rounded-box;
   }
   .input-label {
     @apply text-sm font-semibold mb-1;
