@@ -48,7 +48,7 @@
     "@hono/node-server": ">=1.19.14"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.11",
+    "@biomejs/biome": "2.4.12",
     "@vitest/coverage-v8": "^4.1.4",
     "tsx": "^4.21.0",
     "vitest": "^4.1.4"
