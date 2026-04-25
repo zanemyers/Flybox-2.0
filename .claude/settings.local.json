@@ -15,7 +15,8 @@
       "WebFetch(domain:docs.cloud.google.com)",
       "WebSearch",
       "Bash(npm test:*)",
-      "Bash(npm audit:*)"
+      "Bash(npm audit:*)",
+      "Bash(npm show:*)"
     ]
   }
 }
