@@ -32,6 +32,7 @@
     "next": "^16.2.12",
     "playwright": "^1.61.1",
     "playwright-extra": "^4.3.6",
+    "postcss": "^8.5.18",
     "prisma": "^7.9.1",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "react": "19.2.8",
@@ -44,7 +45,7 @@
     "typescript": "^6"
   },
   "overrides": {
-    "postcss": "^8.5.10"
+    "postcss": "^8.5.18"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.15",
