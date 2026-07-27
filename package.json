@@ -32,7 +32,7 @@
     "next": "^16.2.6",
     "playwright": "^1.61.1",
     "playwright-extra": "^4.3.6",
-    "prisma": "^7.8.0",
+    "prisma": "^7.9.1",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "react": "19.2.7",
     "react-dom": "19.2.8",
