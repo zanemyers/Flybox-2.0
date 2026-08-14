@@ -1,15 +1,12 @@
+/* These tests import the real implementations from pipeline.ts. They previously
+   kept local COPIES of getRetryDelay, getPriority and the river filter, so
+   pipeline.ts had no coverage at all and the copies could drift from the source
+   while staying green — which is exactly what happened to getPriority when it
+   changed to match on the URL path instead of the whole absolute URL. */
 import { describe, expect, it } from "vitest";
-import { includesAny } from "@/server/scraper";
+import { filterShopsByRivers, getPriority, getRetryDelay } from "@/server/pipeline";
 
-// getRetryDelay is not exported from pipeline.ts, so we replicate and test the
-// logic directly here. The function is a pure decision tree — no I/O.
-function getRetryDelay(err: unknown): number | null {
-  const msg = String(err);
-  if (msg.includes("503") || msg.includes("UNAVAILABLE")) return 30_000;
-  if (!msg.includes("429") && !msg.includes("RESOURCE_EXHAUSTED")) return null;
-  const match = msg.match(/"retryDelay"\s*:\s*"(\d+)s"/);
-  return match ? Number(match[1]) * 1000 : 30_000;
-}
+// ── getRetryDelay ──────────────────────────────────────────────────────────────
 
 describe("getRetryDelay", () => {
   it("returns 30s for a 503 error", () => {
@@ -64,23 +61,6 @@ describe("getRetryDelay", () => {
 });
 
 // ── getPriority ────────────────────────────────────────────────────────────────
-// Replicated from pipeline.ts (unexported). Tests cover all four return branches.
-
-const CRAWL_KEYWORDS = ["report", "fishing", "fish", "conditions", "hatch", "fly"];
-const CRAWL_JUNK_WORDS = ["/page/", "/tag/", "/category/", "?page=", "wp-admin", "/feed/"];
-const CRAWL_CLICK_PHRASES = ["read more", "view report", "see report", "full report", "more info", "learn more"];
-
-function getPriority(currentUrl: string, href: string, text: string): number {
-  const hasKeyword = includesAny(href, CRAWL_KEYWORDS);
-  const hasJunk = includesAny(href, CRAWL_JUNK_WORDS);
-  const hasClickPhrase = includesAny(text, CRAWL_CLICK_PHRASES);
-  const currentHasKeyword = includesAny(currentUrl, CRAWL_KEYWORDS);
-
-  if (hasKeyword && !hasJunk) return 0;
-  if (currentHasKeyword && hasClickPhrase) return 1;
-  if (hasKeyword && hasJunk) return 2;
-  return Infinity;
-}
 
 describe("getPriority", () => {
   it("returns 0 for a keyword href with no junk", () => {
@@ -104,76 +84,83 @@ describe("getPriority", () => {
   });
 
   it("priority 0 beats priority 1 — keyword href wins over click-phrase on keyword page", () => {
-    const p0 = getPriority("https://shop.test/fishing", "https://shop.test/report", "Read more");
-    expect(p0).toBe(0);
+    expect(getPriority("https://shop.test/fishing", "https://shop.test/report", "Read more")).toBe(0);
   });
 
   it("returns Infinity when current URL has keyword but anchor text is not a click phrase", () => {
     expect(getPriority("https://shop.test/fishing", "https://shop.test/gallery", "Photo Gallery")).toBe(Infinity);
   });
+
+  // The hostname must not feed the keyword match: on a fly-shop domain, every
+  // single link used to score as relevant, so the crawler had no priority order.
+  it("ignores keywords in the hostname", () => {
+    expect(getPriority("https://flyfishingshop.test/", "https://flyfishingshop.test/about-us", "About Us")).toBe(Infinity);
+    expect(getPriority("https://troutfishing.test/", "https://troutfishing.test/shipping", "Shipping")).toBe(Infinity);
+  });
+
+  it("still scores the path on a keyword-bearing domain", () => {
+    expect(getPriority("https://flyshop.test/", "https://flyshop.test/fishing-report", "Read")).toBe(0);
+  });
+
+  it("does not treat a keyword-bearing hostname as keyword context for click phrases", () => {
+    expect(getPriority("https://flyshop.test/", "https://flyshop.test/gallery", "Read more")).toBe(Infinity);
+  });
 });
 
-// ── River filtering logic ──────────────────────────────────────────────────────
-// Replicated from runFlybox in pipeline.ts. The filter is a pure data transform.
+// ── River filtering ────────────────────────────────────────────────────────────
 
 interface MinShop {
   name: string;
   website: string;
   address: string;
-  fishingReport: boolean;
 }
 
-function filterByRivers(shops: MinShop[], rivers: string[]): MinShop[] {
-  const riverTerms = rivers.map((r) => r.toLowerCase().trim());
-  return shops.filter((s) => includesAny(`${s.name} ${s.website} ${s.address}`, riverTerms));
-}
+const MADISON_SHOP: MinShop = { name: "Madison River Outfitters", website: "https://madisonfly.com", address: "Ennis, MT" };
+const UNRELATED_SHOP: MinShop = { name: "Generic Fly Shop", website: "https://genericfly.com", address: "Denver, CO" };
 
-const REPORT_SHOP: MinShop = { name: "Madison River Outfitters", website: "https://madisonfly.com", address: "Ennis, MT", fishingReport: true };
-const UNRELATED_SHOP: MinShop = { name: "Generic Fly Shop", website: "https://genericfly.com", address: "Denver, CO", fishingReport: true };
-
-describe("river filtering", () => {
+describe("filterShopsByRivers", () => {
   it("keeps shops whose name contains a river term", () => {
-    const result = filterByRivers([REPORT_SHOP, UNRELATED_SHOP], ["Madison"]);
-    expect(result).toContain(REPORT_SHOP);
+    const result = filterShopsByRivers([MADISON_SHOP, UNRELATED_SHOP], ["Madison"]);
+    expect(result).toContain(MADISON_SHOP);
     expect(result).not.toContain(UNRELATED_SHOP);
   });
 
   it("matches via website URL", () => {
-    const shop: MinShop = { name: "Flies R Us", website: "https://yellowstoneflies.com", address: "Gardiner, MT", fishingReport: true };
-    const result = filterByRivers([shop, UNRELATED_SHOP], ["yellowstone"]);
+    const shop: MinShop = { name: "Flies R Us", website: "https://yellowstoneflies.com", address: "Gardiner, MT" };
+    const result = filterShopsByRivers([shop, UNRELATED_SHOP], ["yellowstone"]);
     expect(result).toContain(shop);
     expect(result).not.toContain(UNRELATED_SHOP);
   });
 
   it("matches via address", () => {
-    const shop: MinShop = { name: "Flies R Us", website: "https://randomfly.com", address: "Bozeman, MT near Gallatin River", fishingReport: true };
-    const result = filterByRivers([shop], ["gallatin"]);
-    expect(result).toContain(shop);
+    const shop: MinShop = { name: "Flies R Us", website: "https://randomfly.com", address: "Bozeman, MT near Gallatin River" };
+    expect(filterShopsByRivers([shop], ["gallatin"])).toContain(shop);
   });
 
   it("is case-insensitive", () => {
-    const result = filterByRivers([REPORT_SHOP], ["madison"]);
-    expect(result).toContain(REPORT_SHOP);
+    expect(filterShopsByRivers([MADISON_SHOP], ["madison"])).toContain(MADISON_SHOP);
   });
 
   it("trims whitespace from river terms", () => {
-    const result = filterByRivers([REPORT_SHOP], ["  madison  "]);
-    expect(result).toContain(REPORT_SHOP);
+    expect(filterShopsByRivers([MADISON_SHOP], ["  madison  "])).toContain(MADISON_SHOP);
   });
 
-  it("returns empty array when no shops match", () => {
-    const result = filterByRivers([UNRELATED_SHOP], ["yellowstone"]);
-    expect(result).toHaveLength(0);
+  it("returns an empty array when no shops match", () => {
+    expect(filterShopsByRivers([UNRELATED_SHOP], ["yellowstone"])).toHaveLength(0);
   });
 
-  it("returns all shops when rivers array is empty (no filtering applied)", () => {
-    const result = filterByRivers([REPORT_SHOP, UNRELATED_SHOP], []);
-    expect(result).toHaveLength(0);
+  it("returns every shop when the river list is empty, rather than dropping them all", () => {
+    const result = filterShopsByRivers([MADISON_SHOP, UNRELATED_SHOP], []);
+    expect(result).toHaveLength(2);
+  });
+
+  it("treats a whitespace-only river term as no filter", () => {
+    expect(filterShopsByRivers([MADISON_SHOP, UNRELATED_SHOP], ["   "])).toHaveLength(2);
   });
 
   it("supports multiple river terms — matches any", () => {
-    const result = filterByRivers([REPORT_SHOP, UNRELATED_SHOP], ["madison", "generic"]);
-    expect(result).toContain(REPORT_SHOP);
+    const result = filterShopsByRivers([MADISON_SHOP, UNRELATED_SHOP], ["madison", "generic"]);
+    expect(result).toContain(MADISON_SHOP);
     expect(result).toContain(UNRELATED_SHOP);
   });
 });

@@ -175,7 +175,7 @@ async function crawlSite(baseUrl: string, browser: StealthBrowser, charBudget: n
   return chunks.join("\n\n").slice(0, charBudget);
 }
 
-function getRetryDelay(err: unknown): number | null {
+export function getRetryDelay(err: unknown): number | null {
   const msg = String(err);
   if (msg.includes("503") || msg.includes("UNAVAILABLE")) return 30_000;
   if (!msg.includes("429") && !msg.includes("RESOURCE_EXHAUSTED")) return null;
@@ -274,6 +274,15 @@ async function reportPhase(reportShops: SiteInfo[], job: JobHandler, browser: St
   return summary;
 }
 
+/** Keeps shops whose name, website or address mentions one of the river terms.
+    Callers must skip this when `rivers` is empty — an empty term list matches
+    nothing, which would drop every shop rather than disabling the filter. */
+export function filterShopsByRivers<T extends Pick<SiteInfo, "name" | "website" | "address">>(shops: T[], rivers: string[]): T[] {
+  const riverTerms = rivers.map((r) => r.toLowerCase().trim()).filter(Boolean);
+  if (riverTerms.length === 0) return shops;
+  return shops.filter((s) => includesAny(`${s.name} ${s.website} ${s.address}`, riverTerms));
+}
+
 // ── Pipeline ──────────────────────────────────────────────────────────────────
 
 export async function runFlybox(job: JobHandler): Promise<void> {
@@ -289,8 +298,7 @@ export async function runFlybox(job: JobHandler): Promise<void> {
 
     let reportShops = allShops.filter((s) => s.fishingReport);
     if (job.payload.rivers.length > 0) {
-      const riverTerms = job.payload.rivers.map((r) => r.toLowerCase().trim());
-      reportShops = reportShops.filter((s) => includesAny(`${s.name} ${s.website} ${s.address}`, riverTerms));
+      reportShops = filterShopsByRivers(reportShops, job.payload.rivers);
       await job.log(`[..] Filtered to ${reportShops.length} shop(s) matching rivers: ${job.payload.rivers.join(", ")}`);
     }
 
