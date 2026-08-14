@@ -1,89 +1,68 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { FiDownload, FiFile, FiFileText, FiSquare, FiWifiOff } from "react-icons/fi";
 
-interface FileData {
-  name: string;
-  buffer?: string;
-}
+type Status = "IN_PROGRESS" | "COMPLETED" | "CANCELED" | "FAILED";
 
 interface JobUpdate {
   message: string;
   status: Status;
-  files: FileData[];
+  createdAt: string;
+  files: { name: string }[];
 }
-
-type Status = "IN_PROGRESS" | "COMPLETED" | "CANCELED" | "FAILED";
 
 const MAX_FAILURES = 5;
 
-export default function StatusPanel({ route, jobId, onClose }: { route: string; jobId: string; onClose: () => void }) {
+/** Fixed names produced by the pipeline — rendered up front so the user knows
+    two outputs are coming before either exists. */
+const EXPECTED_OUTPUTS = [
+  { name: "report_summary.txt", type: "TXT", Icon: FiFileText },
+  { name: "shop_details.xlsx", type: "XLSX", Icon: FiFile },
+] as const;
+
+const fileUrl = (jobId: string, name: string) => `/api/flybox/${jobId}/files/${name}`;
+
+function elapsed(from: number, to: number): string {
+  const total = Math.max(0, Math.floor((to - from) / 1000));
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `T+${pad(Math.floor(total / 3600))}:${pad(Math.floor((total % 3600) / 60))}:${pad(total % 60)}`;
+}
+
+export default function StatusPanel({ jobId, onClose }: { jobId: string; onClose: () => void }) {
   const [status, setStatus] = useState<Status>("IN_PROGRESS");
-  const [files, setFiles] = useState<FileData[]>([]);
+  const [ready, setReady] = useState<Set<string>>(new Set());
   const [pollError, setPollError] = useState<string | null>(null);
+  const [polling, setPolling] = useState(true);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const progressAreaRef = useRef<HTMLPreElement>(null);
-  const fileUrlsRef = useRef<Map<string, string>>(new Map());
-  const downloadedFilesRef = useRef<Set<string>>(new Set());
+  const downloadedRef = useRef<Set<string>>(new Set());
   const failureCountRef = useRef(0);
 
-  const getFileUrl = useCallback((file: FileData) => {
-    if (!file.buffer) return undefined;
-    if (!fileUrlsRef.current.has(file.name)) {
-      const blob = new Blob([Uint8Array.from(atob(file.buffer), (c) => c.charCodeAt(0))]);
-      fileUrlsRef.current.set(file.name, URL.createObjectURL(blob));
-    }
-    return fileUrlsRef.current.get(file.name);
-  }, []);
-
-  const handleIncomingFiles = useCallback(
-    (incoming: FileData[]) => {
-      setFiles((current) => {
-        const updated = current.map((cf) => {
-          const match = incoming.find((f) => f.name === cf.name && f.buffer);
-          return match ? { ...cf, buffer: match.buffer } : cf;
-        });
-
-        const existingNames = new Set(current.map((f) => f.name));
-        const newFiles = incoming.filter((f) => !existingNames.has(f.name));
-
-        for (const file of newFiles) {
-          if (file.buffer && !downloadedFilesRef.current.has(file.name)) {
-            const url = getFileUrl(file);
-            if (url) {
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = file.name;
-              a.click();
-            }
-            downloadedFilesRef.current.add(file.name);
-          }
-        }
-
-        return [...updated, ...newFiles];
-      });
-    },
-    [getFileUrl],
-  );
-
   useEffect(() => {
-    const saved = localStorage.getItem(`${route}-files`);
-    if (saved) {
-      setFiles((JSON.parse(saved) as string[]).map((name) => ({ name })));
-    }
-  }, [route]);
+    // `stopped` guards against an in-flight response landing after the interval
+    // was cleared, which could regress a finished job back to "Running".
+    let stopped = false;
 
-  useEffect(() => {
-    if (files.length) {
-      localStorage.setItem(`${route}-files`, JSON.stringify(files.map((f) => f.name)));
-    }
-  }, [files, route]);
+    const stop = () => {
+      stopped = true;
+      clearInterval(intervalId);
+      setPolling(false);
+    };
 
-  useEffect(() => {
     const intervalId = setInterval(async () => {
       try {
-        const res = await fetch(`/api/${route}/${jobId}/updates`);
+        const res = await fetch(`/api/flybox/${jobId}/updates`);
+        if (res.status === 404) {
+          if (stopped) return;
+          stop();
+          setPollError("This job no longer exists — it may have been cleaned up. Close the panel to start a new run.");
+          return;
+        }
         if (!res.ok) throw new Error(`Server returned ${res.status}`);
         const data = (await res.json()) as JobUpdate;
+        if (stopped) return;
 
         failureCountRef.current = 0;
         setPollError(null);
@@ -92,13 +71,25 @@ export default function StatusPanel({ route, jobId, onClose }: { route: string; 
           progressAreaRef.current.scrollTop = progressAreaRef.current.scrollHeight;
         }
         setStatus(data.status);
-        handleIncomingFiles(data.files);
+        setStartedAt(new Date(data.createdAt).getTime());
+        setReady(new Set(data.files.map((f) => f.name)));
 
-        if (data.status !== "IN_PROGRESS") clearInterval(intervalId);
-      } catch (_err) {
+        // Auto-download each output once, the first poll that reports it ready.
+        for (const { name } of data.files) {
+          if (downloadedRef.current.has(name)) continue;
+          downloadedRef.current.add(name);
+          const a = document.createElement("a");
+          a.href = fileUrl(jobId, name);
+          a.download = name;
+          a.click();
+        }
+
+        if (data.status !== "IN_PROGRESS") stop();
+      } catch {
+        if (stopped) return;
         failureCountRef.current += 1;
         if (failureCountRef.current >= MAX_FAILURES) {
-          clearInterval(intervalId);
+          stop();
           setPollError("Lost connection to the server. The job may still be running.");
         } else {
           setPollError(`Connection issue — retrying… (${failureCountRef.current}/${MAX_FAILURES})`);
@@ -106,66 +97,111 @@ export default function StatusPanel({ route, jobId, onClose }: { route: string; 
       }
     }, 2000);
 
-    return () => clearInterval(intervalId);
-  }, [route, jobId, handleIncomingFiles]);
-
-  useEffect(() => {
     return () => {
-      for (const url of fileUrlsRef.current.values()) URL.revokeObjectURL(url);
-      fileUrlsRef.current.clear();
+      stopped = true;
+      clearInterval(intervalId);
     };
-  }, []);
+  }, [jobId]);
+
+  const isRunning = status === "IN_PROGRESS";
+
+  // Elapsed clock ticks off the server's createdAt, so it survives a reload.
+  useEffect(() => {
+    if (!isRunning || startedAt === null) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [isRunning, startedAt]);
 
   const handleCancel = async () => {
     if (!window.confirm("Cancel this job? This cannot be undone.")) return;
-    await fetch(`/api/${route}/${jobId}/cancel`, { method: "POST" });
+    await fetch(`/api/flybox/${jobId}/cancel`, { method: "POST" });
   };
 
-  const onClosePanel = () => {
-    localStorage.removeItem(`${route}-files`);
-    onClose();
-  };
-
-  const isRunning = status === "IN_PROGRESS";
   const isFailed = status === "FAILED" || status === "CANCELED";
+  const title = isRunning ? "Running search…" : isFailed ? "Job failed" : "Job complete";
 
-  const badgeClass = isRunning ? "badge-info" : isFailed ? "badge-error" : "badge-success";
-  const title = isRunning ? "Running Search…" : isFailed ? "Job Failed" : "Job Complete";
+  const chipClass = isRunning ? "border-info text-info" : isFailed ? "border-error text-error" : "border-success text-success";
+  const spineClass = isRunning ? "border-l-primary" : isFailed ? "border-l-error" : "border-l-success";
+
+  // A dead job (404) or exhausted retries must not leave "Cancel" as the only action.
+  const canCancel = isRunning && polling;
 
   return (
-    <div className="app-panel">
-      <div className="card-base">
-        <div className="card-body flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="card-title">{title}</h2>
-            <span className={`badge ${badgeClass}`}>{status.replace("_", " ")}</span>
-          </div>
-
-          <pre ref={progressAreaRef} className="text-sm font-sans bg-base-200 rounded p-3 h-64 overflow-y-auto whitespace-pre-wrap wrap-break-word" />
-          {pollError && <p className="text-sm text-warning">• {pollError}</p>}
-
-          {files.some((f) => f.buffer) && (
-            <div>
-              <div className="divider">Files</div>
-              <div className="space-y-2">
-                {files.map(
-                  (file) =>
-                    file.buffer && (
-                      <a key={file.name} href={getFileUrl(file)} download={file.name} className="link link-primary block text-sm">
-                        {file.name}
-                      </a>
-                    ),
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="card-actions justify-end">
-            <button type="button" className={`btn w-full ${isRunning ? "btn-error" : "btn-secondary"}`} onClick={isRunning ? handleCancel : onClosePanel}>
-              {isRunning ? "Cancel" : "Close"}
-            </button>
-          </div>
+    <div className={`panel border-l-2 ${spineClass}`}>
+      <div className="panel-head">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="eyebrow">Progress</span>
+          <span className="readout text-micro max-w-[12ch] truncate text-base-content/70" title={jobId}>
+            {jobId}
+          </span>
         </div>
+        <span className={`chip ${chipClass}`}>
+          <span className="size-[5px] rounded-full bg-current" />
+          {status.replace("_", " ")}
+        </span>
+      </div>
+
+      {isRunning && <div className="run-bar" />}
+
+      <div className="panel-body flex flex-col gap-3">
+        {/* Announced once per state change. The log itself is not a live region —
+            it rewrites in full every 2s and would flood a screen reader. */}
+        <p className="sr-only" aria-live="polite">
+          {title}
+        </p>
+
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm">{title}</span>
+          {/* Only while running: the job has no finishedAt, so a clock on a terminal
+              job would report time-since-start rather than how long it took. */}
+          {isRunning && startedAt !== null && <span className="readout text-micro text-base-content/70">{elapsed(startedAt, now)}</span>}
+        </div>
+
+        {/* biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must be keyboard-focusable (WCAG 2.1.1); it has role=log and an accessible name */}
+        <pre ref={progressAreaRef} className="console" role="log" aria-live="off" tabIndex={0} aria-label="Job progress log" />
+
+        {pollError && (
+          <div className="flex items-start gap-2 border-t border-rule pt-3 text-xs">
+            <FiWifiOff className="mt-px size-3.5 shrink-0 text-warning" />
+            <span>{pollError}</span>
+          </div>
+        )}
+
+        <div className="border-t border-rule pt-3">
+          <span className="eyebrow mb-1 block">Output</span>
+          <ul className="ms-0 list-none divide-y divide-rule">
+            {EXPECTED_OUTPUTS.map(({ name, type, Icon }) => {
+              const available = ready.has(name);
+              return (
+                <li key={name} className={`flex items-center gap-3 py-2 ${available ? "" : "text-base-content/70"}`}>
+                  <Icon className="size-3.5 shrink-0" />
+                  <span className="flex-1 truncate font-mono text-xs">{name}</span>
+                  <span className="chip border-rule text-base-content/70">{available ? type : isRunning ? "Pending" : "None"}</span>
+                  {available && (
+                    <a href={fileUrl(jobId, name)} download={name} className="btn btn-ghost btn-xs btn-square" aria-label={`Download ${name}`}>
+                      <FiDownload className="size-3.5" />
+                    </a>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        <button
+          type="button"
+          className={`btn h-10 w-full gap-2 ${canCancel ? "btn-outline btn-error" : "btn-ghost border border-rule"}`}
+          onClick={canCancel ? handleCancel : onClose}
+        >
+          {canCancel ? (
+            <>
+              <FiSquare className="size-3.5" />
+              Cancel job
+            </>
+          ) : (
+            "Close"
+          )}
+        </button>
       </div>
     </div>
   );

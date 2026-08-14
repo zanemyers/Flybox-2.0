@@ -1,26 +1,49 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import Link from "next/link";
-import Script from "next/script";
 import type React from "react";
-import { FaFacebook, FaGlobe, FaInstagram, FaLinkedinIn } from "react-icons/fa";
+import { FaFacebook, FaInstagram, FaLinkedinIn } from "react-icons/fa";
+import { FiExternalLink } from "react-icons/fi";
+import { HookMark } from "@/client/components/brand";
 import Header from "@/client/components/header";
 import "../client/styles/globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const plexSans = IBM_Plex_Sans({
+  variable: "--font-plex-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-plex-mono",
   subsets: ["latin"],
+  weight: ["400", "500"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://flybox.zm1.org"),
   title: "Flybox",
   description: "Fly-fishing data aggregation tools for Rescue River",
+  openGraph: {
+    title: "Flybox",
+    description: "Fly-fishing data aggregation tools for Rescue River",
+    type: "website",
+    siteName: "Flybox",
+  },
 };
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f8f7f3" },
+    { media: "(prefers-color-scheme: dark)", color: "#16192a" },
+  ],
+};
+
+/* Must run synchronously before first paint, so it is an inline <script> rather
+   than next/script — `beforeInteractive` is queued into self.__next_s and runs
+   after the initial paint, which flashed the light theme on every load. */
+const themeInit = `(function(){try{var s=localStorage.getItem('flybox-theme');var t=(s==='light'||s==='dark')?s:(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);document.documentElement.style.colorScheme=t;}catch(e){}})();`;
 
 const legalLinks = [
   { label: "Privacy Policy", href: "/privacy-policy" },
@@ -28,61 +51,57 @@ const legalLinks = [
 ];
 
 const socialLinks = [
-  { name: "Website", href: "https://rescueriver.com/", icon: FaGlobe },
-  {
-    name: "LinkedIn",
-    href: "https://www.linkedin.com/company/rescue-river/",
-    icon: FaLinkedinIn,
-  },
-  {
-    name: "Facebook",
-    href: "https://www.facebook.com/rescueriver",
-    icon: FaFacebook,
-  },
-  {
-    name: "Instagram",
-    href: "https://www.instagram.com/rescueriverco/",
-    icon: FaInstagram,
-  },
+  { name: "Website", href: "https://rescueriver.com/", icon: FiExternalLink },
+  { name: "LinkedIn", href: "https://www.linkedin.com/company/rescue-river/", icon: FaLinkedinIn },
+  { name: "Facebook", href: "https://www.facebook.com/rescueriver", icon: FaFacebook },
+  { name: "Instagram", href: "https://www.instagram.com/rescueriverco/", icon: FaInstagram },
 ];
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-base-100 text-base-content`}>
-        <Script
-          id="theme-init"
-          strategy="beforeInteractive"
-        >{`(function(){var t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.colorScheme=t;})();`}</Script>
-        <div className="flex flex-col min-h-screen bg-base-100">
+      <head>
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static string, must execute before first paint */}
+        <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+      </head>
+      <body className={`${plexSans.variable} ${plexMono.variable} antialiased bg-base-100 text-base-content`}>
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-field focus:border focus:border-stroke focus:bg-base-100 focus:px-3 focus:py-2 focus:text-sm"
+        >
+          Skip to content
+        </a>
+        <div className="flex min-h-screen flex-col">
           <Header />
-          <main className="grow px-4">{children}</main>
-          <footer className="bg-base-200 border-t border-base-300">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-                <p className="text-base-content/70 text-center md:text-left">Built with ❤️ for the Rescue River team.</p>
-                <div className="flex gap-4 md:gap-6">
+          <main id="main" className="grow">
+            {children}
+          </main>
+          <footer className="border-t border-rule bg-base-100">
+            <div className="shell flex flex-col gap-3 py-4 sm:h-14 sm:flex-row sm:items-center sm:justify-between sm:gap-0 sm:py-0">
+              <div className="flex items-center gap-2.5">
+                <span className="eyebrow">© 2026 Zane Myers</span>
+                <HookMark className="size-3 text-primary" />
+                <span className="text-xs text-base-content/70">Built for the Rescue River team.</span>
+              </div>
+              <div className="flex items-center gap-4">
+                {legalLinks.map(({ label, href }) => (
+                  <Link key={label} href={href} className="text-xs text-base-content/70 transition-colors hover:text-base-content">
+                    {label}
+                  </Link>
+                ))}
+                <span className="h-4 w-px bg-rule" />
+                <div className="flex items-center gap-1">
                   {socialLinks.map(({ name, href, icon: Icon }) => (
                     <a
                       key={name}
                       href={href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-base-content/70 transition-colors p-2 rounded-full hover:bg-primary hover:text-primary-content"
+                      className="-m-0.5 p-2.5 text-base-content/70 transition-colors hover:text-primary"
                       aria-label={name}
                     >
-                      <Icon size={20} />
+                      <Icon size={14} />
                     </a>
-                  ))}
-                </div>
-              </div>
-              <div className="mt-8 pt-8 border-t border-base-300 flex flex-col md:flex-row justify-between items-center gap-4">
-                <p className="text-base-content/70 text-sm">© 2026 Zane Myers. All rights reserved.</p>
-                <div className="flex gap-6 text-sm">
-                  {legalLinks.map(({ label, href }) => (
-                    <Link key={label} href={href} className="text-base-content/70 hover:text-base-content transition-colors">
-                      {label}
-                    </Link>
                   ))}
                 </div>
               </div>

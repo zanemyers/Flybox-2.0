@@ -19,17 +19,21 @@ const TABS: TabDef[] = [
 function Tab({ label, defaultChecked, children }: { label: string; defaultChecked: boolean; children: ReactNode }) {
   return (
     <>
-      <input type="radio" name="my_tabs" className="tab checked:bg-base-200" aria-label={label} defaultChecked={defaultChecked} />
-      <div className="tab-content bg-base-200 border-base-300 shadow-lg p-6 max-h-200 overflow-y-auto">{children}</div>
+      <input type="radio" name="my_tabs" className="tab eyebrow" aria-label={label} defaultChecked={defaultChecked} />
+      {/* No max-h/overflow here: a nested scroll region traps the wheel, breaks the
+          in-page hash links the Flybox TOC relies on, and hides text from Cmd-F. */}
+      <div className="tab-content border-rule bg-base-200 p-5 sm:p-6">{children}</div>
     </>
   );
 }
 
 export default function DocTabs() {
-  const activeTab = useSearchParams().get("tab") ?? "Flybox";
+  const requested = useSearchParams().get("tab");
+  // An unrecognised ?tab= value used to leave every tab unchecked, rendering a blank page.
+  const activeTab = TABS.some((t) => t.label === requested) ? requested : TABS[0].label;
 
   return (
-    <div className="tabs tabs-lift tabs-md lg:tabs-lg">
+    <div className="tabs tabs-border">
       {TABS.map(({ label, component: Content }) => (
         <Tab key={label} label={label} defaultChecked={activeTab === label}>
           <Content />

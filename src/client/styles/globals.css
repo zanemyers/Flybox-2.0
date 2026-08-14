@@ -1,106 +1,294 @@
-@import "tailwindcss";
-@plugin "daisyui";
+/* Flybox — "Sounder" theme.
+   A navy chassis with olive markings: hairline rules instead of shadows, tabular
+   mono for every number, and one accent hue. Contrast ratios in the comments were
+   computed oklch -> Oklab -> linear sRGB -> WCAG relative luminance. Several oklch
+   values sit deliberately at the sRGB gamut edge — don't "tidy" them. */
 
-/* Font variables — defaults overridden at runtime by Next.js class injection */
-:root {
-  --font-geist-sans: ui-sans-serif, system-ui, sans-serif;
-  --font-geist-mono: ui-monospace, monospace;
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: false; /* our two themes below are the only ones */
 }
 
-/* Brand colors in OKLCH so opacity modifiers (/70, /80 etc.) work correctly */
-:root,
+/* ─────────────────────────────────────────────────────────────────── LIGHT
+   Warm chart-paper ground (hue 95) + navy ink (hue 255) + olive (hue 112).
+   ink/base-100 14.45:1   ink/base-200 13.43:1   ink/base-300 11.71:1 */
+@plugin "daisyui/theme" {
+  name: "light";
+  default: true;
+  color-scheme: "light";
+
+  --color-base-100: oklch(97.5% 0.006 95); /* page ground */
+  --color-base-200: oklch(95% 0.008 95); /* panels, form card */
+  --color-base-300: oklch(90.5% 0.01 95); /* hover fills, code chips */
+  --color-base-content: oklch(26% 0.035 255); /* navy ink */
+
+  --color-primary: oklch(45% 0.09 112); /* OLIVE — the one brand accent. 6.81 on b100, 6.33 on b200 */
+  --color-primary-content: oklch(98% 0.01 112); /* 6.92 on olive fill */
+  --color-secondary: oklch(42% 0.09 132); /* deep olive; DaisyUI needs it defined, our markup uses state colours instead */
+  --color-secondary-content: oklch(98% 0.01 132);
+  --color-accent: oklch(38% 0.05 255); /* navy emphasis: links, inline code. 9.31 on b100 */
+  --color-accent-content: oklch(97% 0.008 255);
+  --color-neutral: oklch(30% 0.03 255);
+  --color-neutral-content: oklch(96% 0.008 255);
+
+  --color-info: oklch(45% 0.09 235); /* IN PROGRESS. 6.32 on b200 */
+  --color-info-content: oklch(98% 0.01 235);
+  --color-success: oklch(44% 0.11 145);
+  --color-success-content: oklch(98% 0.01 145);
+  --color-warning: oklch(52% 0.12 60); /* hue 60, never readable as olive. 5.32 on b100 */
+  --color-warning-content: oklch(98% 0.01 60);
+  --color-error: oklch(48% 0.17 25); /* 6.65 on b100, 6.18 on b200 */
+  --color-error-content: oklch(97% 0.008 25);
+
+  --radius-selector: 0.125rem;
+  --radius-field: 0.1875rem;
+  --radius-box: 0.25rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0; /* no DaisyUI gloss */
+  --noise: 0; /* no DaisyUI noise texture */
+}
+
+/* ──────────────────────────────────────────────────────────────────── DARK
+   ink/base-100 14.42:1   ink/base-200 13.02:1   ink/base-300 11.09:1 */
+@plugin "daisyui/theme" {
+  name: "dark";
+  prefersdark: true;
+  color-scheme: "dark";
+
+  --color-base-100: oklch(21% 0.03 255);
+  --color-base-200: oklch(25% 0.032 255);
+  --color-base-300: oklch(30% 0.034 255);
+  --color-base-content: oklch(93% 0.012 255);
+
+  --color-primary: oklch(76% 0.12 112); /* OLIVE — 8.41 on b100, 7.59 on b200. Not brighter: a full-width fill at L80 read as highlighter. */
+  --color-primary-content: oklch(22% 0.04 112); /* 8.18 on olive fill */
+  --color-secondary: oklch(76% 0.13 132); /* light olive; see light-theme note */
+  --color-secondary-content: oklch(22% 0.04 132);
+  --color-accent: oklch(80% 0.05 255);
+  --color-accent-content: oklch(20% 0.03 255);
+  --color-neutral: oklch(34% 0.03 255);
+  --color-neutral-content: oklch(95% 0.01 255);
+
+  --color-info: oklch(76% 0.09 225);
+  --color-info-content: oklch(20% 0.03 225);
+  --color-success: oklch(76% 0.13 145);
+  --color-success-content: oklch(20% 0.03 145);
+  --color-warning: oklch(78% 0.15 62);
+  --color-warning-content: oklch(20% 0.03 62);
+  --color-error: oklch(70% 0.17 25); /* 6.15 on b100, 5.55 on b200 */
+  --color-error-content: oklch(18% 0.03 25);
+
+  --radius-selector: 0.125rem;
+  --radius-field: 0.1875rem;
+  --radius-box: 0.25rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+/* ───────────────────────────────────────────────── non-DaisyUI tokens
+   Registered in @theme so Tailwind emits border-stroke / bg-sunken /
+   border-rule utilities, but declared as var() indirections so the value
+   still resolves per theme at the use site. */
+@theme {
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  --color-stroke: var(--stroke); /* interactive boundaries ONLY — WCAG 1.4.11 */
+  --color-rule: var(--rule); /* decorative hairlines ONLY — carries no information */
+  --color-sunken: var(--sunken); /* recessed readouts: log console, coordinate well */
+
+  --text-micro: 0.6875rem; /* 11px — uppercase tracked labels only, never prose */
+}
+
 [data-theme="light"] {
-  --color-primary: oklch(43% 0.1 210); /* dark teal — readable on white */
-  --color-primary-content: oklch(97% 0.01 210); /* near-white — btn-primary label */
-  --color-secondary: oklch(53% 0.14 108); /* olive — readable on white */
-  --color-secondary-content: oklch(97% 0.01 108);
-  --color-code: oklch(57% 0.28 337);
+  /* stroke clears 3:1 on every surface a control can sit on:
+     b100 3.98   b200 3.70   b300 3.23   sunken 3.48 */
+  --stroke: oklch(58% 0.02 255);
+  --rule: oklch(26% 0.035 255 / 14%);
+  --sunken: oklch(93% 0.01 255);
+  --depth-top: oklch(97.5% 0.006 95);
+  --depth-bottom: oklch(95.5% 0.008 240);
 }
 
 [data-theme="dark"] {
-  --color-primary: oklch(72% 0.1 214); /* light teal — readable on dark bg */
-  --color-primary-content: oklch(20% 0.05 214); /* dark — btn-primary label */
-  --color-secondary: oklch(75% 0.16 108); /* light olive — readable on dark bg */
-  --color-secondary-content: oklch(20% 0.05 108);
-  --color-code: oklch(75% 0.2 337);
+  /* b100 4.14   b200 3.74   b300 3.19   sunken 4.47 */
+  --stroke: oklch(58% 0.03 255);
+  --rule: oklch(93% 0.012 255 / 16%);
+  --sunken: oklch(17% 0.03 255);
+  --depth-top: oklch(21% 0.03 255);
+  --depth-bottom: oklch(18.5% 0.032 255);
 }
 
+/* THE ALPHA FLOOR. One rule, both themes, text and borders alike: /70 is the
+   floor for anything that carries information.
+     light ink/70 -> 5.61 (b100) 5.41 (b200) 5.25 (sunken)
+     dark  ink/70 -> 7.57 (b100) 7.06 (b200) 7.92 (sunken)
+   Below /70 is permitted ONLY for hairlines, the contour field and the 404/500
+   watermark — none of which carry information. Do NOT reintroduce
+   base-content/60 as text (4.12 light, fails AA), and never put alpha on the
+   focus ring (primary/45 measures ~2:1 light and fails 1.4.11). */
+
 body {
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  min-height: 100dvh;
+  background-image: linear-gradient(180deg, var(--depth-top) 0%, var(--depth-bottom) 100%);
+  background-attachment: fixed;
 }
 
 @layer base {
-  hr {
-    @apply text-base-content/20 my-6;
-  }
   h1 {
-    @apply text-4xl font-bold;
+    @apply text-[2rem] font-semibold tracking-[-0.02em] leading-[1.15];
   }
   h2 {
-    @apply text-3xl font-semibold;
+    @apply text-2xl font-semibold tracking-[-0.015em];
   }
   h3 {
-    @apply text-2xl font-semibold;
+    @apply text-xl font-semibold tracking-[-0.015em];
   }
   h4 {
-    @apply text-xl font-semibold;
+    @apply text-[1.0625rem] font-semibold;
   }
   h5 {
-    @apply text-lg font-medium;
-  }
-  h6 {
     @apply text-base font-medium;
   }
+  h6 {
+    @apply text-sm font-medium;
+  }
   ol {
-    @apply list-decimal ms-3;
+    @apply list-decimal ms-4;
   }
   ul {
-    @apply list-disc ms-3;
+    @apply list-disc ms-4;
+  }
+  hr {
+    @apply border-t border-rule my-8;
   }
   code {
-    @apply font-sans text-(--color-code);
+    @apply font-mono text-[0.9em] text-accent bg-base-content/8 rounded-[2px] px-1 py-px;
+  }
+  /* one ring for the whole app, full opacity, >=6:1 on every surface */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary;
   }
 }
 
 @layer components {
-  .link-hash,
-  .link-external {
-    @apply underline text-primary hover:text-secondary;
+  /* ONE container, replacing .app-container (which stacked py-12 AND my-12),
+     docs' w-3/4, about's w-[85%] and the footer's max-w-7xl. */
+  .shell {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
   }
-  .app-container {
-    @apply py-12 my-12 w-[85%] mx-auto;
+  .prose-measure {
+    @apply max-w-[68ch] [text-wrap:pretty];
   }
-  .app-content {
-    @apply flex flex-col lg:flex-row lg:gap-8;
+
+  /* Etched label — tracked 11px mono uppercase against negative-tracked sans
+     headings. Never prose, never user-entered text, never more than 3 words. */
+  .eyebrow {
+    @apply font-mono text-micro font-medium uppercase tracking-[0.08em] text-base-content/70;
   }
-  .app-panel {
-    @apply pb-6 w-full lg:flex-1;
+  .readout {
+    @apply font-mono tabular-nums;
   }
-  .card-base {
-    @apply card h-full border border-base-300;
+
+  /* Shared control contract. 16px/40px below sm (iOS zooms any input under 16px
+     on focus); 14px/36px from sm up. --color-stroke, never base-content/20. */
+  .field {
+    @apply w-full rounded-field border border-stroke bg-base-100 px-3 h-10 text-base sm:h-9 sm:text-sm placeholder:text-base-content/70 focus-visible:border-primary disabled:opacity-70 read-only:cursor-default;
   }
-  .card-light {
-    @apply card h-full bg-base-200 border border-base-300 shadow-sm;
+
+  /* Outline chip, replacing every filled DaisyUI badge. The text always names
+     the state, so colour is never the only signal. */
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-[2px] border px-2 py-0.5 font-mono text-micro font-medium uppercase tracking-[0.08em];
   }
-  .card-icon {
-    @apply text-6xl;
+
+  /* Panel + header band — the single card structure in the app. Replaces
+     .card-base, .card-light and the four one-off card compositions. */
+  .panel {
+    @apply rounded-box border border-rule bg-base-200;
   }
-  .icon-list {
-    @apply flex flex-row py-0.5;
+  .panel-head {
+    @apply flex items-center justify-between gap-3 border-b border-rule px-4 py-2.5 sm:px-5;
   }
-  .icon-list__icon {
-    @apply ms-3 me-2;
+  .panel-body {
+    @apply px-4 py-4 sm:px-5 sm:py-5;
   }
-  /* text-white removed — DaisyUI's primary-content now controls label colour */
-  .primary-button {
-    @apply btn btn-primary rounded-box shadow-md hover:shadow-none;
+
+  /* Recessed console. clamp() because the old h-64 overflowed landscape phones. */
+  .console {
+    @apply h-[clamp(14rem,38vh,20rem)] overflow-y-auto rounded-field bg-sunken p-3 font-mono text-xs leading-[1.6] whitespace-pre-wrap wrap-break-word inset-ring inset-ring-rule;
   }
-  .input-label {
-    @apply text-sm font-semibold mb-1;
+
+  /* Recessed instrument well: coordinate readout, error digest. */
+  .well {
+    @apply rounded-field bg-sunken px-3 py-2 inset-ring inset-ring-rule;
+  }
+
+  /* THE ONLY ANIMATION IN THE APP. Indeterminate by design — GET /updates
+     returns no phase or count, so any percentage would be fabricated.
+     Replaces every `loading loading-spinner`. */
+  .run-bar {
+    @apply relative h-0.5 overflow-hidden bg-sunken;
+  }
+  .run-bar::after {
+    content: "";
+    @apply absolute inset-y-0 left-0 w-[28%] bg-primary;
+    animation: run-sweep 2s linear infinite;
   }
 }
 
-/* Remove card border in dark mode (data-theme variant, not media-query dark:) */
-[data-theme="dark"] .card-light {
-  border: none;
+@keyframes run-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(357%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .run-bar::after {
+    animation: none;
+    @apply w-2/5;
+  }
+  /* biome-ignore-start lint/complexity/noImportantStyles: a reduced-motion kill-switch has to outrank third-party animation rules (Leaflet's zoom/pan transitions) */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  /* biome-ignore-end lint/complexity/noImportantStyles: end kill-switch */
+}
+
+/* Leaflet, themed. The filter is scoped to .leaflet-tile so the attribution and
+   zoom controls are NOT inverted — filtering .leaflet-container garbles both. */
+[data-theme="dark"] .leaflet-tile {
+  filter: invert(0.94) hue-rotate(180deg) saturate(0.5) brightness(0.92) contrast(0.94);
+}
+[data-theme="light"] .leaflet-tile {
+  filter: saturate(0.55) contrast(1.02);
+}
+.leaflet-container {
+  font-family: var(--font-sans);
+}
+.leaflet-bar a,
+.leaflet-control-zoom a {
+  background: var(--color-base-200);
+  color: var(--color-base-content);
+  border-color: var(--color-stroke);
+}
+.leaflet-control-attribution {
+  background: var(--color-base-200);
+  color: var(--color-base-content);
+  font-size: 0.625rem;
+}
+.leaflet-control-attribution a {
+  color: var(--color-accent);
 }

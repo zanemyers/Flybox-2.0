@@ -29,6 +29,7 @@
     "daisyui": "^5.7.17",
     "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",
+    "leaflet": "^1.9.4",
     "next": "^16.3.1",
     "playwright": "^1.62.1",
     "playwright-extra": "^4.3.6",

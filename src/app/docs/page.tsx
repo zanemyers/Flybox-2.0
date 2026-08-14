@@ -9,11 +9,12 @@ export const metadata: Metadata = {
 
 export default function Docs() {
   return (
-    <div className="w-3/4 mx-auto my-8 py-8 rounded-4xl">
+    <div className="shell py-10">
       <Suspense
         fallback={
-          <div className="flex justify-center py-16">
-            <span className="loading loading-spinner loading-lg" />
+          <div className="py-16">
+            <div className="run-bar mx-auto w-40" />
+            <span className="sr-only">Loading documentation</span>
           </div>
         }
       >

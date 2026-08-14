@@ -34,16 +34,30 @@ export interface ListBlockProps {
   extraClass?: string;
 }
 
+/** Derives the anchor id a TOC entry links to. Exported so the TOC and the
+    section headings cannot drift apart. */
+export const sectionId = (title: string) => title.toLowerCase().replaceAll(" ", "-");
+
 export function DocSection({ title, subSection, overview, children, conclusion }: DocSectionProps) {
-  const id = title.toLowerCase().replaceAll(" ", "-");
-  const HeaderTag = subSection ? "h5" : "h3";
+  const id = sectionId(title);
+  // h1 (doc title) -> h2 (section) -> h3 (sub-section): no skipped levels.
+  const HeaderTag = subSection ? "h3" : "h2";
 
   return (
-    <section id={id} className="pb-6">
-      <HeaderTag className={subSection ? "" : "py-2"}>{title}</HeaderTag>
-      {overview && <div className={subSection ? "pb-1" : "pb-6"}>{overview}</div>}
+    <section id={id} className="group pb-8 last:pb-0">
+      <HeaderTag className={subSection ? "" : "border-b border-rule pb-2"}>
+        {title}
+        <a
+          href={`#${id}`}
+          className="ms-2 text-primary opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+          aria-label={`Link to ${title}`}
+        >
+          #
+        </a>
+      </HeaderTag>
+      {overview && <div className={`prose-measure ${subSection ? "pt-1 pb-1" : "pt-3 pb-4"}`}>{overview}</div>}
       {children}
-      {conclusion}
+      {conclusion && <div className="prose-measure pt-3">{conclusion}</div>}
     </section>
   );
 }
@@ -52,7 +66,7 @@ export function ListBlock({ ordered, orderChild, extraClass, items }: ListBlockP
   const ListTag = ordered ? "ol" : "ul";
 
   return (
-    <ListTag className={extraClass}>
+    <ListTag className={`prose-measure space-y-2 ${ordered ? "[&>li]:marker:font-mono [&>li]:marker:text-primary" : ""} ${extraClass ?? ""}`}>
       {items.map((item, index) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: list items have no natural unique key
         <li key={`item-${index}`}>
@@ -67,7 +81,7 @@ export function ListBlock({ ordered, orderChild, extraClass, items }: ListBlockP
           </div>
 
           {item.note && (
-            <div className="flex flex-row flex-wrap">
+            <div className="flex flex-row flex-wrap text-sm text-base-content/70">
               {item.noteLabel && <em className="mr-1.5">{item.noteLabel}:</em>}
               {item.note}
             </div>
@@ -76,8 +90,8 @@ export function ListBlock({ ordered, orderChild, extraClass, items }: ListBlockP
           {item.children && <ListBlock items={item.children} ordered={orderChild} />}
 
           {item.img && item.alt && (
-            <div className="flex justify-center pb-4">
-              <Image src={item.img} alt={item.alt} />
+            <div className="my-4 rounded-field border border-rule bg-base-100 p-2">
+              <Image src={item.img} alt={item.alt} className="h-auto max-w-full" />
             </div>
           )}
         </li>

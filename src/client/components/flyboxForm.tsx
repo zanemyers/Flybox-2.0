@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
+import { HookMark } from "@/client/components/brand";
 import TagInput from "@/client/components/inputs/tagInput";
 import TextareaInput from "@/client/components/inputs/textareaInput";
 import TextInput from "@/client/components/inputs/textInput";
@@ -46,32 +47,54 @@ interface FormState {
   summaryPrompt: string;
 }
 
+/** Single source of truth for every non-secret default. */
+const DEFAULTS: Omit<FormState, "serpApiKey" | "geminiApiKey"> = {
+  searchTerm: "Fly Fishing Shops",
+  latitude: 44.427963,
+  longitude: -110.588455,
+  rivers: [],
+  summaryPrompt: DEFAULT_SUMMARY_PROMPT,
+};
+
+const STORAGE_KEY = "flybox-form";
+
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <section className="mt-4 border-t border-rule pt-4 first:mt-0 first:border-t-0 first:pt-0">
+      <span className="eyebrow mb-2.5 block">{label}</span>
+      {children}
+    </section>
+  );
+}
+
 export default function FlyboxForm() {
-  const { jobId, submit, reset } = useForm("flybox");
+  const { jobId, submit, reset } = useForm();
 
-  const [form, setForm] = useState<FormState>({
-    serpApiKey: "",
-    geminiApiKey: "",
-    searchTerm: "Fly Fishing Shops",
-    latitude: 44.427963,
-    longitude: -110.588455,
-    rivers: [],
-    summaryPrompt: DEFAULT_SUMMARY_PROMPT,
-  });
-
+  const [form, setForm] = useState<FormState>({ serpApiKey: "", geminiApiKey: "", ...DEFAULTS });
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("flybox-form");
-    if (!saved) return;
-    const parsed = JSON.parse(saved) as Partial<FormState>;
-    setForm((prev) => ({ ...prev, ...parsed }));
+    // Corrupt JSON here used to throw inside the effect and blank the whole page
+    // on every reload, with no way for the user to recover.
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return;
+      const parsed = JSON.parse(saved) as Partial<FormState>;
+      setForm((prev) => ({ ...prev, ...parsed }));
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+    }
   }, []);
 
   useEffect(() => {
-    const { serpApiKey, geminiApiKey, ...rest } = form;
-    localStorage.setItem("flybox-form", JSON.stringify(rest));
+    const { serpApiKey: _s, geminiApiKey: _g, ...rest } = form;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(rest));
+    } catch {
+      /* storage full or blocked — the form still works, it just won't persist */
+    }
   }, [form]);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((prev) => ({ ...prev, [key]: value }));
@@ -82,24 +105,17 @@ export default function FlyboxForm() {
       return;
     }
     setConfirmReset(false);
-    localStorage.removeItem("flybox-form");
-    setForm((prev) => ({
-      serpApiKey: prev.serpApiKey,
-      geminiApiKey: prev.geminiApiKey,
-      searchTerm: "Fly Fishing Shops",
-      latitude: 44.427963,
-      longitude: -110.588455,
-      rivers: [],
-      summaryPrompt: DEFAULT_SUMMARY_PROMPT,
-    }));
+    localStorage.removeItem(STORAGE_KEY);
+    setForm((prev) => ({ serpApiKey: prev.serpApiKey, geminiApiKey: prev.geminiApiKey, ...DEFAULTS }));
   };
 
   const handleSubmit = async () => {
     setSubmitting(true);
+    setSubmitError("");
     try {
       await submit(form);
-    } catch {
-      console.error("Submission failed.");
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Could not start the job. Check your connection and try again.");
       setSubmitting(false);
     }
   };
@@ -107,7 +123,6 @@ export default function FlyboxForm() {
   if (jobId) {
     return (
       <StatusPanel
-        route="flybox"
         jobId={jobId}
         onClose={() => {
           reset();
@@ -118,20 +133,25 @@ export default function FlyboxForm() {
   }
 
   return (
-    <div className="app-panel flex flex-col">
+    <div className="flex flex-col gap-3">
       <form
         id="flybox-form"
         noValidate
-        className="card bg-base-200 border border-base-300 shadow-sm"
+        className="panel"
         onSubmit={(e) => {
           e.preventDefault();
           if (e.currentTarget.checkValidity()) handleSubmit();
           else e.currentTarget.reportValidity();
         }}
       >
-        <div className="card-body">
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-4 sm:gap-y-0">
+        <div className="panel-head">
+          <span className="eyebrow">Run configuration</span>
+          <span className="readout text-micro text-base-content/70">FB-01</span>
+        </div>
+
+        <div className="panel-body">
+          <Section label="Credentials">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <TextInput
                 type="password"
                 label="SerpAPI Key"
@@ -147,32 +167,64 @@ export default function FlyboxForm() {
                 onChange={(v) => update("geminiApiKey", v)}
               />
             </div>
+          </Section>
+
+          <Section label="Search">
             <TextInput label="Search Term" placeholder="e.g. Fly Fishing Shops" value={form.searchTerm} onChange={(v) => update("searchTerm", v)} />
+          </Section>
+
+          <Section label="Position">
             <MapInput
               latitude={form.latitude}
               longitude={form.longitude}
-              onChange={(lat, lng) => {
-                update("latitude", lat);
-                update("longitude", lng);
-              }}
+              onChange={(lat, lng) => setForm((prev) => ({ ...prev, latitude: lat, longitude: lng }))}
             />
+          </Section>
+
+          <Section label="Filters">
             <TagInput label="Rivers" values={form.rivers} onChange={(v) => update("rivers", v)} placeholder="e.g. Madison, Snake, Yellowstone" optional />
+          </Section>
+
+          <Section label="Prompt">
             <TextareaInput
               label="Summary Prompt"
               value={form.summaryPrompt}
               onChange={(v) => update("summaryPrompt", v)}
               defaultValue={DEFAULT_SUMMARY_PROMPT}
             />
-          </div>
+          </Section>
         </div>
       </form>
 
-      <div className="flex gap-2 mt-3">
-        <button type="button" onClick={resetForm} onBlur={() => setConfirmReset(false)} className={`btn ${confirmReset ? "btn-warning" : "btn-ghost"}`}>
-          {confirmReset ? "Confirm Reset" : "Reset"}
+      {submitError && (
+        <p role="alert" className="text-xs text-error">
+          {submitError}
+        </p>
+      )}
+
+      {/* The submit button is a sibling of the form, wired by `form=`, so it sits
+          visually outside the card while still submitting it. */}
+      <div className="mt-1 flex gap-2">
+        <button
+          type="button"
+          onClick={resetForm}
+          onBlur={() => setConfirmReset(false)}
+          className={`btn h-10 ${confirmReset ? "btn-outline btn-error" : "btn-ghost border border-rule"}`}
+        >
+          {confirmReset ? "Confirm reset" : "Reset"}
         </button>
-        <button type="submit" form="flybox-form" disabled={submitting} className="btn btn-primary flex-1">
-          {submitting ? <span className="loading loading-spinner loading-sm" /> : "Run Flybox"}
+        <button type="submit" form="flybox-form" disabled={submitting} aria-busy={submitting} className="btn btn-primary h-10 flex-1 gap-2">
+          {submitting ? (
+            <>
+              <span className="run-bar w-24" />
+              <span className="sr-only">Submitting</span>
+            </>
+          ) : (
+            <>
+              <HookMark className="size-4" />
+              Run Flybox
+            </>
+          )}
         </button>
       </div>
     </div>

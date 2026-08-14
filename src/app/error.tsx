@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect } from "react";
+import { ContourField } from "@/client/components/brand";
 
 export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
@@ -8,16 +10,33 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
   }, [error]);
 
   return (
-    <div className="w-[85%] text-center mx-auto py-12">
-      <h1 className="mb-3 text-secondary">
-        <b>500</b>
-      </h1>
-      <h2 className="text-primary">Something Went Wrong</h2>
-      <p className="lead">An unexpected error occurred. Try refreshing the page or heading back home.</p>
-      <div className="flex justify-center gap-4 mt-6">
-        <button type="button" className="btn btn-primary btn-lg px-4" onClick={reset}>
-          Try Again
-        </button>
+    <div className="shell relative grid min-h-[70vh] place-content-center overflow-hidden py-12">
+      <div className="pointer-events-none absolute inset-0">
+        <ContourField />
+      </div>
+      <span aria-hidden="true" className="readout pointer-events-none absolute inset-0 grid place-content-center text-[5rem] text-base-content/12">
+        500
+      </span>
+
+      <div className="relative max-w-[46ch]">
+        <span className="eyebrow">Unexpected error</span>
+        <h1 className="mt-2">Instrument fault</h1>
+        <p className="mt-4">An unexpected error occurred. Try refreshing the page or heading back home.</p>
+
+        {/* The digest was previously console-only, so a user had nothing to quote in a bug report. */}
+        <div className="well mt-5 flex items-center gap-3">
+          <span className="eyebrow">Digest</span>
+          <code className="readout select-all text-xs">{error.digest ?? "—"}</code>
+        </div>
+
+        <div className="mt-6 flex gap-2">
+          <button type="button" className="btn btn-primary h-10" onClick={reset}>
+            Try again
+          </button>
+          <Link href="/" className="btn btn-ghost h-10 border border-rule">
+            Back to home
+          </Link>
+        </div>
       </div>
     </div>
   );

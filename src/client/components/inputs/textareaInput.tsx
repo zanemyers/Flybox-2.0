@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { FaPencilAlt } from "react-icons/fa";
+import { useEffect, useId, useRef, useState } from "react";
+import { FiEdit2, FiX } from "react-icons/fi";
 
 export default function TextareaInput({
   label,
@@ -14,6 +14,7 @@ export default function TextareaInput({
   onChange: (value: string) => void;
   defaultValue?: string;
 }) {
+  const labelId = useId();
   const [show, setShow] = useState(false);
   const [draft, setDraft] = useState(value);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -49,17 +50,27 @@ export default function TextareaInput({
     setShow(false);
   };
 
+  const lineCount = value.split("\n").length;
+
   return (
     <>
       <div className="w-full">
-        {/* biome-ignore lint/a11y/noLabelWithoutControl: label describes preview display; textarea is in modal */}
-        <label className="input-label">
-          {label} <span className="text-error">*</span>
-        </label>
-        <div className="flex items-start gap-2 px-3 py-2 rounded-lg border border-base-content/20 bg-base-100/50">
-          <p className="flex-1 text-sm text-base-content/60 line-clamp-2">{value}</p>
-          <button type="button" className="btn btn-ghost btn-xs btn-square shrink-0 mt-0.5" aria-label={`Edit ${label}`} onClick={open}>
-            <FaPencilAlt size={12} />
+        {/* A <span>, not a <label>: the control it describes lives in the modal,
+            so the edit button points here with aria-labelledby instead. */}
+        <span id={labelId} className="eyebrow mb-1.5 block">
+          {label}
+        </span>
+        <div className="well flex items-start gap-3">
+          <p className="line-clamp-2 flex-1 font-mono text-xs leading-[1.5] text-base-content/70">{value}</p>
+          <span className="readout text-micro shrink-0 text-base-content/70">{lineCount} lines</span>
+          <button
+            type="button"
+            className="btn btn-ghost btn-xs btn-square shrink-0 border border-rule"
+            aria-labelledby={labelId}
+            aria-label={`Edit ${label}`}
+            onClick={open}
+          >
+            <FiEdit2 className="size-3" />
           </button>
         </div>
       </div>
@@ -68,29 +79,38 @@ export default function TextareaInput({
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* biome-ignore lint/a11y/noStaticElementInteractions: modal backdrop overlay */}
           {/* biome-ignore lint/a11y/useKeyWithClickEvents: Escape key handled by window keydown handler */}
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShow(false)} />
-          <div ref={modalRef} className="relative bg-base-100 rounded-box shadow-xl w-[90%] max-w-2xl p-6 flex flex-col gap-4">
-            <h3 className="text-lg font-semibold">Edit {label}</h3>
-            <textarea
-              ref={textareaRef}
-              className="textarea textarea-bordered w-full text-sm"
-              rows={16}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-            />
-            <div className="flex justify-between">
-              {defaultValue && (
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDraft(defaultValue)}>
-                  Reset to Default
-                </button>
-              )}
-              <div className="flex gap-2 ml-auto">
-                <button type="button" className="btn btn-ghost" onClick={() => setShow(false)}>
-                  Cancel
-                </button>
-                <button type="button" className="btn btn-primary" onClick={save}>
-                  Save
-                </button>
+          <div className="absolute inset-0 bg-base-100/70 backdrop-blur-sm" onClick={() => setShow(false)} />
+          <div ref={modalRef} role="dialog" aria-modal="true" aria-labelledby={`${labelId}-title`} className="panel relative w-[90%] max-w-2xl bg-base-100">
+            <div className="panel-head">
+              <span id={`${labelId}-title`} className="eyebrow">
+                Edit {label}
+              </span>
+              <button type="button" className="btn btn-ghost btn-xs btn-square" aria-label="Close" onClick={() => setShow(false)}>
+                <FiX className="size-3.5" />
+              </button>
+            </div>
+            <div className="panel-body flex flex-col gap-4">
+              <textarea
+                ref={textareaRef}
+                className="w-full rounded-field border border-stroke bg-base-100 p-3 font-mono text-xs leading-[1.6]"
+                rows={16}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+              />
+              <div className="flex justify-between">
+                {defaultValue && (
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDraft(defaultValue)}>
+                    Reset to default
+                  </button>
+                )}
+                <div className="ml-auto flex gap-2">
+                  <button type="button" className="btn btn-ghost btn-sm border border-rule" onClick={() => setShow(false)}>
+                    Cancel
+                  </button>
+                  <button type="button" className="btn btn-primary btn-sm" onClick={save}>
+                    Save
+                  </button>
+                </div>
               </div>
             </div>
           </div>

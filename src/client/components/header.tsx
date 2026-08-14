@@ -1,11 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { FaMoon, FaSun } from "react-icons/fa";
-import tackleBox from "@/client/images/tackle_box.png";
+import { FiMoon, FiSun } from "react-icons/fi";
+import { HookMark } from "@/client/components/brand";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -17,6 +16,11 @@ function applyTheme(isDark: boolean) {
   const theme = isDark ? "dark" : "light";
   document.documentElement.setAttribute("data-theme", theme);
   document.documentElement.style.colorScheme = theme;
+  try {
+    localStorage.setItem("flybox-theme", theme);
+  } catch {
+    /* private browsing — the choice just won't persist */
+  }
 }
 
 export default function Header() {
@@ -34,28 +38,43 @@ export default function Header() {
   };
 
   return (
-    <header className="w-full pt-6 bg-base-100 relative">
-      <Link href="/" className="flex items-center justify-center gap-3 mb-4">
-        <Image src={tackleBox} alt="Tackle Box" width={64} height={64} />
-        <h1 className="text-6xl text-primary font-light">Flybox</h1>
-      </Link>
-      <button type="button" onClick={toggleTheme} className="btn btn-ghost btn-sm btn-circle absolute top-4 right-4" aria-label="Toggle theme">
-        {dark ? <FaSun className="w-4 h-4" /> : <FaMoon className="w-4 h-4" />}
-      </button>
-      <nav className="w-[95%] bg-base-200 shadow mx-auto py-2 px-6">
-        <ul className="flex flex-wrap justify-center gap-5 items-center list-none">
-          {navLinks.map(({ label, href }) => (
-            <li key={label}>
-              <Link
-                href={href}
-                className={`font-medium transition-colors hover:text-primary ${currentPath === href ? "text-primary underline underline-offset-4 decoration-2" : ""}`}
-              >
-                {label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
+    <header className="sticky top-0 z-40 h-14 border-b border-rule bg-base-100/85 backdrop-blur-sm">
+      <div className="shell flex h-full items-center justify-between gap-4">
+        <Link href="/" className="flex items-center gap-2.5">
+          <HookMark className="size-5 text-primary" />
+          <span className="text-[1.0625rem] font-semibold tracking-[-0.01em]">FLYBOX</span>
+          <span className="eyebrow hidden sm:inline">/ Rescue River</span>
+        </Link>
+
+        <nav className="flex items-center gap-5">
+          <ul className="flex list-none items-center gap-5">
+            {navLinks.map(({ label, href }) => {
+              const active = currentPath === href;
+              return (
+                <li key={label}>
+                  <Link
+                    href={href}
+                    aria-current={active ? "page" : undefined}
+                    className={`eyebrow relative py-4 transition-colors hover:text-base-content ${active ? "text-primary" : ""}`}
+                  >
+                    {label}
+                    {active && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-primary" />}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          <span className="h-4 w-px bg-rule" />
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="-m-1 grid size-7 place-items-center rounded-field border border-rule p-2.5 transition-colors hover:bg-base-content/8"
+            aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
+          >
+            {dark ? <FiSun size={14} /> : <FiMoon size={14} />}
+          </button>
+        </nav>
+      </div>
     </header>
   );
 }

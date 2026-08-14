@@ -1,21 +1,25 @@
-import Image from "next/image";
 import Link from "next/link";
-import calvinFishing from "@/client/images/calvin-fishing.gif";
+import { ContourField } from "@/client/components/brand";
 
 export default function NotFound() {
   return (
-    <div className="w-[85%] text-center mx-auto py-12">
-      <h1 className="mb-3 text-secondary">
-        <b>404</b>
-      </h1>
-      <h2 className="text-primary">Gone Fishing...</h2>
-      <p className="lead">Looks like the page you were trying to find has drifted downstream.</p>
-      <div className="my-4 mx-auto text-center max-w-xs">
-        <Image src={calvinFishing} alt="Fishing Gif" className="rounded" width={300} height={300} />
+    <div className="shell relative grid min-h-[70vh] place-content-center overflow-hidden py-12">
+      <div className="pointer-events-none absolute inset-0">
+        <ContourField />
       </div>
-      <Link href="/" className="btn btn-primary btn-lg px-4">
-        Cast a Line Back Home
-      </Link>
+      <span aria-hidden="true" className="readout pointer-events-none absolute inset-0 grid place-content-center text-[5rem] text-base-content/12">
+        404
+      </span>
+
+      <div className="relative max-w-[46ch]">
+        <span className="eyebrow">Page not found</span>
+        <h1 className="mt-2">Off the map</h1>
+        <p className="readout mt-3 text-xs text-base-content/70">LAT --.------ LON ---.------</p>
+        <p className="mt-4">Looks like the page you were trying to find has drifted downstream.</p>
+        <Link href="/" className="btn btn-primary mt-6 h-10">
+          Back to home
+        </Link>
+      </div>
     </div>
   );
 }

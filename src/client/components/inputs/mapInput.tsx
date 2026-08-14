@@ -3,9 +3,8 @@
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useEffect, useRef, useState } from "react";
-import { FaMapPin } from "react-icons/fa";
+import { FiCrosshair, FiSearch, FiX } from "react-icons/fi";
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
-import NumberInput from "@/client/components/inputs/numberInput";
 
 const markerIcon = L.icon({
   iconUrl: "/leaflet/marker-icon.png",
@@ -16,7 +15,51 @@ const markerIcon = L.icon({
   popupAnchor: [1, -34],
 });
 
+const DEFAULT_LAT = 44.427963;
+const DEFAULT_LNG = -110.588455;
+
 const round6 = (n: number) => Math.round(n * 1e6) / 1e6;
+const fmt = (n: number) => (Number.isFinite(n) ? n.toFixed(6) : "—");
+
+/* Defined at module scope on purpose: as inner functions they were fresh
+   component types on every render, so React unmounted and remounted them,
+   re-firing flyTo/setView and leaking the invalidateSize timeout. */
+
+function LocationSelector({ onPick }: { onPick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(e) {
+      onPick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
+
+function FlyToLocation({ target }: { target: [number, number] | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!target) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) map.setView(target, map.getZoom());
+    else map.flyTo(target, map.getZoom());
+  }, [target, map]);
+  return null;
+}
+
+function ResizeOnShow({ active, position }: { active: boolean; position: [number, number] }) {
+  const map = useMap();
+  const posRef = useRef(position);
+  posRef.current = position;
+
+  useEffect(() => {
+    if (!active) return;
+    // Leaflet measures 0x0 inside a just-opened <dialog>; remeasure after paint.
+    const id = setTimeout(() => {
+      map.invalidateSize();
+      map.setView(posRef.current);
+    }, 200);
+    return () => clearTimeout(id);
+  }, [active, map]);
+  return null;
+}
 
 export default function MapInput({ latitude, longitude, onChange }: { latitude: number; longitude: number; onChange: (lat: number, lng: number) => void }) {
   const [show, setShow] = useState(false);
@@ -24,23 +67,32 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
   const [position, setPosition] = useState<[number, number]>([latitude, longitude]);
   const [search, setSearch] = useState("");
   const [flyTo, setFlyTo] = useState<[number, number] | null>(null);
+  const [searchError, setSearchError] = useState("");
 
   const handleSearch = async () => {
     if (!search.trim()) return;
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&format=json&limit=1`);
-    const data = (await res.json()) as { lat: string; lon: string }[];
-    if (data.length > 0) {
+    setSearchError("");
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&format=json&limit=1`);
+      if (!res.ok) throw new Error(String(res.status));
+      const data = (await res.json()) as { lat: string; lon: string }[];
+      if (data.length === 0) {
+        setSearchError("No match for that place.");
+        return;
+      }
       const lat = Number(data[0].lat);
       const lng = Number(data[0].lon);
       setPosition([lat, lng]);
       setFlyTo([lat, lng]);
       onChange(round6(lat), round6(lng));
+    } catch {
+      setSearchError("Location lookup failed. Try again.");
     }
   };
 
   useEffect(() => {
-    const lat = Number.isNaN(latitude) ? 44.427963 : latitude;
-    const lng = Number.isNaN(longitude) ? -110.588455 : longitude;
+    const lat = Number.isFinite(latitude) ? latitude : DEFAULT_LAT;
+    const lng = Number.isFinite(longitude) ? longitude : DEFAULT_LNG;
     setPosition([lat, lng]);
   }, [latitude, longitude]);
 
@@ -51,85 +103,69 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
     else if (dialog.open) dialog.close();
   }, [show]);
 
-  function LocationSelector() {
-    useMapEvents({
-      click(e) {
-        setPosition([e.latlng.lat, e.latlng.lng]);
-        onChange(round6(e.latlng.lat), round6(e.latlng.lng));
-        setShow(false);
-      },
-    });
-    return null;
-  }
-
-  function FlyToLocation({ target }: { target: [number, number] | null }) {
-    const map = useMap();
-    useEffect(() => {
-      if (target) map.flyTo(target, map.getZoom());
-    }, [target, map]);
-    return null;
-  }
-
-  function ResizeOnShow({ active }: { active: boolean }) {
-    const map = useMap();
-    useEffect(() => {
-      if (active) {
-        setTimeout(() => {
-          map.invalidateSize();
-          map.setView(position);
-        }, 200);
-      }
-    }, [active, map]);
-    return null;
-  }
+  const pick = (lat: number, lng: number) => {
+    setPosition([lat, lng]);
+    onChange(round6(lat), round6(lng));
+  };
 
   return (
     <div className="w-full">
-      <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-x-2">
-        <NumberInput label="Latitude" value={latitude} />
-        <NumberInput label="Longitude" value={longitude} />
-        <button
-          type="button"
-          className="btn bg-base-300 border border-base-content/20 hover:bg-base-content/20"
-          onClick={() => setShow(true)}
-          aria-label="Pick location on map"
-        >
-          <FaMapPin size={18} className="text-primary" />
+      {/* items-end is what aligns the button against the labelled readouts — keep it. */}
+      <div className="well grid grid-cols-[1fr_1fr_auto] items-end gap-x-3">
+        <div>
+          <span className="eyebrow mb-1 block">Latitude</span>
+          <span className="readout block text-sm text-primary">{fmt(latitude)}</span>
+        </div>
+        <div>
+          <span className="eyebrow mb-1 block">Longitude</span>
+          <span className="readout block text-sm text-primary">{fmt(longitude)}</span>
+        </div>
+        <button type="button" className="btn btn-ghost h-10 border border-stroke" onClick={() => setShow(true)} aria-label="Pick location on map">
+          <FiCrosshair className="size-4 text-primary" />
         </button>
       </div>
 
       <dialog ref={dialogRef} className="modal" onClose={() => setShow(false)}>
-        <div className="modal-box w-11/12 max-w-3xl p-0 overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-base-300">
-            <h3 className="font-semibold text-lg">Select a Location</h3>
-            <button type="button" className="btn btn-sm btn-circle btn-ghost" onClick={() => setShow(false)}>
-              ✕
+        <div className="modal-box panel h-full w-full max-w-none overflow-hidden rounded-none p-0 sm:h-auto sm:w-11/12 sm:max-w-3xl sm:rounded-box">
+          <div className="panel-head">
+            <span className="eyebrow">Select position</span>
+            <button type="button" className="btn btn-ghost btn-xs btn-square" aria-label="Close" onClick={() => setShow(false)}>
+              <FiX className="size-3.5" />
             </button>
           </div>
 
-          <div className="flex gap-2 px-6 py-3 border-b border-base-300">
-            <input
-              type="text"
-              className="input input-bordered w-full"
-              placeholder="Search for a location..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  void handleSearch();
-                }
-              }}
-            />
-            <button type="button" className="btn btn-primary" onClick={handleSearch}>
-              Search
-            </button>
+          <div className="border-b border-rule px-4 py-3 sm:px-5">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                className="field"
+                placeholder="Search for a place…"
+                aria-label="Search for a place"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void handleSearch();
+                  }
+                }}
+              />
+              <button type="button" className="btn btn-primary h-10 sm:h-9" onClick={handleSearch}>
+                <FiSearch className="size-4" />
+                <span className="hidden sm:inline">Search</span>
+              </button>
+            </div>
+            {searchError && (
+              <p role="alert" className="mt-1.5 text-xs text-error">
+                {searchError}
+              </p>
+            )}
           </div>
 
           <MapContainer
             center={position}
             zoom={10}
-            style={{ height: "460px", width: "100%" }}
+            style={{ height: "clamp(20rem, 55vh, 28rem)", width: "100%" }}
             maxBounds={[
               [-90, -180],
               [90, 180],
@@ -144,15 +180,23 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
               eventHandlers={{
                 dragend: (e) => {
                   const latLng = (e.target as L.Marker).getLatLng();
-                  setPosition([latLng.lat, latLng.lng]);
-                  onChange(round6(latLng.lat), round6(latLng.lng));
+                  pick(latLng.lat, latLng.lng);
                 },
               }}
             />
-            <LocationSelector />
-            <ResizeOnShow active={show} />
+            <LocationSelector onPick={pick} />
+            <ResizeOnShow active={show} position={position} />
             <FlyToLocation target={flyTo} />
           </MapContainer>
+
+          <div className="flex items-center justify-between gap-3 border-t border-rule px-4 py-2.5 sm:px-5">
+            <span className="readout text-xs text-primary">
+              {fmt(position[0])}, {fmt(position[1])}
+            </span>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => setShow(false)}>
+              Use this position
+            </button>
+          </div>
         </div>
 
         {/* biome-ignore lint/a11y/noStaticElementInteractions: modal backdrop overlay */}

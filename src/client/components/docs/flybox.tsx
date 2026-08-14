@@ -1,18 +1,23 @@
 "use client";
 
-import Link from "next/link";
-import type { ReactNode } from "react";
-import type { ListItems, TocItem } from "@/client/components/docs";
-import { DocSection, ListBlock } from "@/client/components/docs";
+import type { ListItems } from "@/client/components/docs";
+import { DocSection, ListBlock, sectionId } from "@/client/components/docs";
 import { details } from "@/client/images/docs";
 
-const toc: TocItem[] = [
-  {
-    label: "Using the Form",
-    children: [{ label: "Input" }, { label: "Output" }],
-  },
-  { label: "Disclaimers" },
-  { label: "Additional Notes" },
+/* Section titles live here and are used for BOTH the contents list and the
+   DocSection headings, so a TOC entry can no longer point at an id that does not
+   exist — three of the five links were dead before. */
+const SECTIONS = {
+  form: "Using the Flybox Form",
+  output: "Output Files",
+  disclaimers: "Disclaimers",
+  notes: "Additional Notes",
+} as const;
+
+const toc: { title: string; children?: string[] }[] = [
+  { title: SECTIONS.form, children: [SECTIONS.output] },
+  { title: SECTIONS.disclaimers },
+  { title: SECTIONS.notes },
 ];
 
 const input: ListItems[] = [
@@ -35,14 +40,24 @@ const input: ListItems[] = [
     note: <code>Fly Fishing Shops</code>,
   },
   {
-    label: "Location",
-    main: "Latitude and longitude for the search. You can also click the map to pick a spot.",
+    label: "Position",
+    main: "Latitude and longitude for the search. Open the map picker to click a spot, drag the marker, or search for a place by name.",
     noteLabel: "Default",
     note: (
-      <p>
+      <span>
         Yellowstone National Park (<strong>Latitude:</strong> <code>44.427963</code>, <strong>Longitude:</strong> <code>-110.588455</code>)
-      </p>
+      </span>
     ),
+  },
+  {
+    label: "Rivers",
+    main: "Optional. Filters the report phase to shops whose name, website, or address mentions one of these rivers.",
+    noteLabel: "Tip",
+    note: "Type or paste a comma-separated list — each name becomes its own tag.",
+  },
+  {
+    label: "Summary Prompt",
+    main: "The instructions sent to Gemini alongside the crawled text. Edit it to change the shape of the summary.",
   },
 ];
 
@@ -80,81 +95,63 @@ const notes: ListItems[] = [
   },
 ];
 
-const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-
-function TocLink({ label, children }: { label: string; children?: ReactNode }) {
-  const target = label.toLowerCase().replace(/\s+/g, "-");
-  return (
-    <li className="underline text-primary hover:text-secondary">
-      <Link
-        className="link-hash"
-        href={`#${target}`}
-        onClick={(e) => {
-          e.preventDefault();
-          scrollTo(target);
-        }}
-      >
-        {label}
-      </Link>
-      {children}
-    </li>
-  );
-}
-
 export default function FlyboxDoc() {
   return (
     <>
-      <h1 className="text-4xl font-semibold pb-3">🎣 Flybox Documentation</h1>
-      <p>
+      <h1>Flybox documentation</h1>
+      <p className="prose-measure mt-3">
         Flybox finds fly-fishing shops using <strong>Google Maps</strong> via <strong>SerpAPI</strong>, scrapes their websites for fishing reports, and
         summarizes them with <strong>Google Gemini</strong>.
       </p>
-      <hr />
-      <div>
-        <h3>Contents</h3>
-        <ul>
-          {toc.map((item) => (
-            <TocLink key={item.label} label={item.label}>
-              {item.children && (
-                <ul>
-                  {item.children.map((child) => (
-                    <TocLink key={child.label} label={child.label} />
+
+      <nav aria-label="Contents" className="mt-6 border-y border-rule py-4">
+        <span className="eyebrow">Contents</span>
+        <ul className="ms-4 mt-2 list-disc text-sm">
+          {toc.map(({ title, children }) => (
+            <li key={title}>
+              <a className="link link-accent" href={`#${sectionId(title)}`}>
+                {title}
+              </a>
+              {children && (
+                <ul className="ms-4 list-disc">
+                  {children.map((child) => (
+                    <li key={child}>
+                      <a className="link link-accent" href={`#${sectionId(child)}`}>
+                        {child}
+                      </a>
+                    </li>
                   ))}
                 </ul>
               )}
-            </TocLink>
+            </li>
           ))}
         </ul>
-      </div>
+      </nav>
 
-      <hr />
-
-      <DocSection
-        title="Using the Flybox Form"
-        overview="Enter your API keys, a search term, and a location. You can also filter by river names and customize the summary prompt."
-        conclusion={
-          <p>
-            Click <strong>Run Flybox</strong>. Progress updates will appear on the page and files will automatically download when done.
-          </p>
-        }
-      >
-        <ListBlock items={input} />
-        <DocSection subSection={true} title="Output Files" overview="After running, Flybox produces:">
-          <ListBlock items={output} />
+      <div className="mt-8">
+        <DocSection
+          title={SECTIONS.form}
+          overview="Enter your API keys, a search term, and a position. You can also filter by river names and customize the summary prompt."
+          conclusion={
+            <p>
+              Press <strong>Run Flybox</strong>. Progress updates appear on the page and both files download automatically when they are ready.
+            </p>
+          }
+        >
+          <ListBlock items={input} />
+          <DocSection subSection title={SECTIONS.output} overview="After running, Flybox produces:">
+            <ListBlock items={output} />
+          </DocSection>
         </DocSection>
-      </DocSection>
 
-      <hr />
+        <DocSection title={SECTIONS.disclaimers}>
+          <ListBlock items={disclaimers} />
+        </DocSection>
 
-      <DocSection title="Disclaimers">
-        <ListBlock items={disclaimers} />
-      </DocSection>
-
-      <hr />
-
-      <DocSection title="Additional Notes">
-        <ListBlock items={notes} />
-      </DocSection>
+        <DocSection title={SECTIONS.notes}>
+          <ListBlock items={notes} />
+        </DocSection>
+      </div>
     </>
   );
 }

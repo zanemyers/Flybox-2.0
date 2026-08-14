@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { FiX } from "react-icons/fi";
 
 export default function TagInput({
   label,
@@ -18,9 +19,17 @@ export default function TagInput({
   const inputId = useId();
   const [draft, setDraft] = useState("");
 
+  // Splits on commas so a pasted "Madison, Snake, Yellowstone" becomes three tags.
   const add = (raw: string) => {
-    const name = raw.trim().replace(/,+$/, "").trim();
-    if (name && !values.includes(name)) onChange([...values, name]);
+    const names = raw
+      .split(",")
+      .map((n) => n.trim())
+      .filter(Boolean);
+    if (names.length) {
+      const merged = [...values];
+      for (const name of names) if (!merged.includes(name)) merged.push(name);
+      onChange(merged);
+    }
     setDraft("");
   };
 
@@ -36,27 +45,36 @@ export default function TagInput({
 
   const onChangeDraft = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    if (val.endsWith(",")) add(val);
+    if (val.includes(",")) add(val);
     else setDraft(val);
   };
 
   return (
     <div className="w-full">
-      <label className="input-label" htmlFor={inputId}>
-        {label}
-        {optional && <span className="text-base-content/40 font-normal"> (optional)</span>}
-      </label>
+      <div className="mb-1.5 flex items-center gap-2">
+        <label className="eyebrow" htmlFor={inputId}>
+          {label}
+        </label>
+        {optional && <span className="chip border-rule text-base-content/70">Optional</span>}
+      </div>
+      {/* The ring lives on the wrapper, not the inner input: the wrapper is the
+          perceived control, and the input's own outline is suppressed. */}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: click-to-focus wrapper for tag input */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: inner input handles keyboard interaction */}
       <div
-        className="flex flex-wrap gap-1.5 items-center px-3 py-2 rounded-lg border border-base-content/20 bg-base-100 min-h-10 cursor-text"
+        className="flex min-h-10 cursor-text flex-wrap items-center gap-1.5 rounded-field border border-stroke bg-base-100 px-3 py-2 focus-within:border-primary focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary"
         onClick={(e) => (e.currentTarget.querySelector("input") as HTMLInputElement)?.focus()}
       >
         {values.map((v) => (
-          <span key={v} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary text-sm font-medium">
+          <span key={v} className="inline-flex items-center gap-1 rounded-[2px] border border-primary/70 px-2 py-0.5 text-xs font-medium text-primary">
             {v}
-            <button type="button" onClick={() => remove(v)} className="leading-none opacity-60 hover:opacity-100">
-              ×
+            <button
+              type="button"
+              onClick={() => remove(v)}
+              aria-label={`Remove ${v}`}
+              className="grid size-5 place-items-center opacity-70 transition-opacity hover:opacity-100"
+            >
+              <FiX className="size-2.5" />
             </button>
           </span>
         ))}
@@ -70,7 +88,7 @@ export default function TagInput({
           }}
           placeholder={values.length === 0 ? placeholder : ""}
           id={inputId}
-          className="flex-1 min-w-32 bg-transparent outline-none text-sm"
+          className="min-w-32 flex-1 bg-transparent text-base outline-none placeholder:text-base-content/70 sm:text-sm"
         />
       </div>
     </div>
