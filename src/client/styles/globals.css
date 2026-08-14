@@ -62,7 +62,9 @@
   --color-base-300: oklch(30% 0.034 255);
   --color-base-content: oklch(93% 0.012 255);
 
-  --color-primary: oklch(76% 0.12 112); /* OLIVE — 8.41 on b100, 7.59 on b200. Not brighter: a full-width fill at L80 read as highlighter. */
+  --color-primary: oklch(
+    76% 0.085 112
+  ); /* OLIVE — 8.37 on b100, 7.56 on b200. Chroma is deliberately low: contrast here comes from lightness, so a muted olive costs nothing and a saturated one read as highlighter on large fills. */
   --color-primary-content: oklch(22% 0.04 112); /* 8.18 on olive fill */
   --color-secondary: oklch(76% 0.13 132); /* light olive; see light-theme note */
   --color-secondary-content: oklch(22% 0.04 132);

@@ -14,7 +14,12 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
       <div className="pointer-events-none absolute inset-0">
         <ContourField />
       </div>
-      <span aria-hidden="true" className="readout pointer-events-none absolute inset-0 grid place-content-center text-[5rem] text-base-content/12">
+      {/* Right-aligned so it never sits behind the left-aligned copy, and hidden
+          on narrow screens where there is no clear space for it. */}
+      <span
+        aria-hidden="true"
+        className="readout pointer-events-none absolute inset-y-0 right-0 hidden select-none items-center pe-2 text-[7rem] leading-none text-base-content/10 sm:flex"
+      >
         500
       </span>
 
