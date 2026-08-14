@@ -113,7 +113,10 @@ describe("ExcelFileHandler", () => {
     const buf = await handler.getBuffer();
 
     const wb = new ExcelJS.default.Workbook();
-    await wb.xlsx.load(buf);
+    // exceljs's type declarations globally augment `Buffer extends ArrayBuffer`,
+    // creating a phantom mismatch with real Node Buffers. Runtime is fine.
+    // biome-ignore lint/suspicious/noExplicitAny: exceljs type-declaration bug
+    await wb.xlsx.load(buf as any);
     const sheet = wb.worksheets[0];
     const dataRow = sheet.getRow(2); // row 1 is header
     // Column 11 is Social Media
