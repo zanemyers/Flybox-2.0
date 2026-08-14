@@ -18,8 +18,11 @@ COPY . .
 # Generate Prisma client for linux, then build Next.js
 RUN npx prisma generate && npm run build
 
-# ── Stage 4: Runtime (Playwright image has Chromium + all system deps) ─────────
-FROM mcr.microsoft.com/playwright:v1.59.1-noble AS runner
+# ── Stage 4: Runtime ───────────────────────────────────────────────────────────
+# This tag MUST track the `playwright` version in package-lock.json: the image
+# ships the Chromium build that exactly that release expects, and a mismatch
+# fails at launch with "Executable doesn't exist at /ms-playwright/chromium-*".
+FROM mcr.microsoft.com/playwright:v1.62.0-noble AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     RUN_HEADLESS=true
@@ -29,6 +32,10 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/generated ./generated
 COPY --from=builder /app/public ./public
 COPY package.json ./
+# Required by `npx prisma migrate deploy`, which the deploy docs run as a
+# pre-deploy step — without the schema and its config that command fails.
+COPY db ./db
+COPY prisma.config.ts ./
 
 EXPOSE 3000
 CMD ["node_modules/.bin/next", "start"]

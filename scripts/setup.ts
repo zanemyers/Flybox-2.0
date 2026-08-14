@@ -46,7 +46,9 @@ DIRECT_URL='${preserved.DIRECT_URL || DEFAULT_DB_URL}'
 # Scraper configuration
 RUN_HEADLESS=true
 
-# API keys for development
+# API keys. NOTE: no application code reads these today — Flybox takes both keys
+# from the run form. They are kept here as a scratchpad for local testing and as
+# scaffolding for the planned server-side key injection (GitHub issue #5).
 SERP_API_KEY='${preserved.SERP_API_KEY}'
 GEMINI_API_KEY='${preserved.GEMINI_API_KEY}'`;
 

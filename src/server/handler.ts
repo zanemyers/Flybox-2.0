@@ -48,7 +48,9 @@ export const OUTPUT_FILES = {
 
 export type OutputName = keyof typeof OUTPUT_FILES;
 
-export const isOutputName = (name: string): name is OutputName => name in OUTPUT_FILES;
+// Object.hasOwn, not `in`: `"__proto__" in OUTPUT_FILES` is true via the
+// prototype chain, which would let a bogus name past this allow-list.
+export const isOutputName = (name: string): name is OutputName => Object.hasOwn(OUTPUT_FILES, name);
 
 /** Builds the shop directory workbook. Emoji conversion happens here and only
     here — SiteInfo keeps sellsOnline/fishingReport as booleans everywhere else. */
@@ -78,6 +80,8 @@ export async function buildShopWorkbook(shops: SiteInfo[]): Promise<Buffer> {
 }
 
 export class JobHandler {
+  private static readonly CANCEL_TTL_MS = 1_500;
+
   readonly ai: GoogleGenAI;
 
   constructor(
@@ -145,9 +149,20 @@ export class JobHandler {
     return prisma.jobMessage.create({ data: { jobId: this.id, message } });
   }
 
+  /* Called between every shop and every crawled page, so the result is cached
+     briefly: an uncached check was one DB round-trip per item. CANCELED is
+     terminal, so once seen it is never re-queried. */
+  private canceled = false;
+  private canceledCheckedAt = 0;
+
   async isCanceled() {
+    if (this.canceled) return true;
+    const now = Date.now();
+    if (now - this.canceledCheckedAt < JobHandler.CANCEL_TTL_MS) return false;
+    this.canceledCheckedAt = now;
     const job = await prisma.job.findUnique({ where: { id: this.id }, select: { status: true } });
-    return job?.status === JobStatus.CANCELED;
+    this.canceled = job?.status === JobStatus.CANCELED;
+    return this.canceled;
   }
 
   async saveShops(shops: SiteInfo[]) {

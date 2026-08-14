@@ -16,7 +16,7 @@ Enter a location and your API keys — Flybox searches Google Maps for fly-fishi
 
 ```bash
 npm install
-npx ts-node scripts/setup.ts   # creates .env with default values
+npx tsx scripts/setup.ts       # creates .env with default values
 npx prisma migrate dev         # run DB migrations
 npm run dev                    # start dev server (Turbopack)
 ```
@@ -31,8 +31,15 @@ npm run docker:down    # stop (keeps DB data)
 npm run docker:reset   # stop and wipe DB
 ```
 
-`SERP_API_KEY` and `GEMINI_API_KEY` are passed through from your `.env` file.  
-Run migrations against the local DB before starting: `npx prisma migrate deploy`
+Start the containers first, then migrate against the running database:
+
+```bash
+npm run docker:up                 # in one shell
+npx prisma migrate deploy         # in another, once Postgres is accepting connections
+```
+
+`SERP_API_KEY` and `GEMINI_API_KEY` are passed through from your `.env` file, but no
+application code reads them — Flybox takes both keys from the run form.
 
 ## Deployment (Render)
 
@@ -40,9 +47,21 @@ Run migrations against the local DB before starting: `npx prisma migrate deploy`
 2. Set environment variables in the Render dashboard:
    - `DATABASE_URL` — supports a connection pooler
    - `DIRECT_URL` — must be a direct connection (used by Prisma migrations)
-   - `SERP_API_KEY`
-   - `GEMINI_API_KEY`
 3. Add a **pre-deploy command**: `npx prisma migrate deploy`
+
+The API keys are supplied per run through the form, so they are not deployment
+environment variables.
+
+> The runner image tag in the `Dockerfile` must match the `playwright` version in
+> `package-lock.json` — the image only ships the Chromium build that release expects.
+
+## Checks
+
+```bash
+npm run check   # lint + typecheck + tests
+```
+
+`npm run lint` is Biome only and does not type-check; `npm run typecheck` runs `tsc`.
 
 ## License
 

@@ -1,6 +1,17 @@
 .git
+.github
 .next
 node_modules
 generated
 .env*
 npm-debug.log*
+
+# Not needed to build or run the image
+coverage
+docs
+tests
+.claude
+.idea
+.vscode
+README.md
+CLAUDE.md
