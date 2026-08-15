@@ -34,10 +34,15 @@ function Feature({
   return (
     <section className={`flex flex-col items-center gap-8 py-12 ${reverse ? "md:flex-row-reverse" : "md:flex-row"}`}>
       <div className="w-full">
-        {/* The line art is drawn in dark ink, so it sits on a fixed paper plate in
-            BOTH themes. The old in-data-[theme=dark]:invert mix-blend-screen hack
-            mangled the artwork instead of framing it. */}
-        <div className="rounded-field border border-rule bg-[oklch(97.5%_0.008_92)] p-4">
+        {/* The line art is dark ink on white, so it sits on a paper plate in BOTH
+            themes — the old in-data-[theme=dark]:invert mix-blend-screen hack
+            mangled the artwork instead of framing it. In dark mode the plate AND
+            the image's own baked-in white background are dimmed together with one
+            filter on the wrapper, so a glaring white rectangle becomes a soft grey
+            card. brightness alone keeps hue intact and scales ink and paper by the
+            same factor, so the drawing's internal contrast is unchanged. Light mode
+            gets no filter at all. */}
+        <div className="rounded-field border border-rule bg-[oklch(97.5%_0.008_92)] p-4 in-data-[theme=dark]:brightness-[0.6]">
           <Image src={img} alt={alt} className="h-auto max-w-full" />
         </div>
         <a
