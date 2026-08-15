@@ -60,25 +60,31 @@ const socialLinks = [
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    /* The font variables MUST live on <html>, not <body>: Tailwind's @theme emits
+       --font-sans/--font-mono on :root, and a custom property is resolved on the
+       element that declares it. With the variables one level down on <body>,
+       var(--font-plex-mono) was undefined at :root, so --font-mono computed to
+       the guaranteed-invalid value and inherited as empty — IBM Plex never
+       loaded and every .eyebrow/.readout/.console rendered in proportional sans. */
+    <html lang="en" className={`${plexSans.variable} ${plexMono.variable}`} suppressHydrationWarning>
       <head>
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static string, must execute before first paint */}
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>
-      <body className={`${plexSans.variable} ${plexMono.variable} antialiased bg-base-100 text-base-content`}>
+      <body className="antialiased bg-base-100 text-base-content">
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-field focus:border focus:border-stroke focus:bg-base-100 focus:px-3 focus:py-2 focus:text-sm"
         >
           Skip to content
         </a>
-        <div className="flex min-h-screen flex-col">
+        <div className="flex min-h-dvh flex-col">
           <Header />
           <main id="main" className="grow">
             {children}
           </main>
           <footer className="border-t border-rule bg-base-100">
-            <div className="shell flex flex-col gap-3 py-4 sm:h-14 sm:flex-row sm:items-center sm:justify-between sm:gap-0 sm:py-0">
+            <div className="shell flex flex-col gap-3 py-4 md:h-14 md:flex-row md:items-center md:justify-between md:gap-0 md:py-0">
               <div className="flex items-center gap-2.5">
                 <span className="eyebrow">© 2026 Zane Myers</span>
                 <HookMark className="size-3 text-primary" />
@@ -91,7 +97,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                   </Link>
                 ))}
                 <span className="h-4 w-px bg-rule" />
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-3">
                   {socialLinks.map(({ name, href, icon: Icon }) => (
                     <a key={name} href={href} target="_blank" rel="noopener noreferrer" className="icon-btn" aria-label={name}>
                       <Icon className="size-4" />

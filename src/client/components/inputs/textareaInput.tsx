@@ -63,37 +63,37 @@ export default function TextareaInput({
         <div className="well flex items-start gap-3">
           <p className="line-clamp-2 flex-1 font-mono text-xs leading-[1.5] text-base-content/70">{value}</p>
           <span className="readout text-micro shrink-0 text-base-content/70">{lineCount} lines</span>
-          <button
-            type="button"
-            className="btn btn-ghost btn-xs btn-square shrink-0 border border-rule"
-            aria-labelledby={labelId}
-            aria-label={`Edit ${label}`}
-            onClick={open}
-          >
-            <FiEdit2 className="size-3" />
+          <button type="button" className="icon-btn shrink-0 border border-rule" aria-labelledby={labelId} aria-label={`Edit ${label}`} onClick={open}>
+            <FiEdit2 className="size-3.5" />
           </button>
         </div>
       </div>
 
       {show && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain p-4">
           {/* biome-ignore lint/a11y/noStaticElementInteractions: modal backdrop overlay */}
           {/* biome-ignore lint/a11y/useKeyWithClickEvents: Escape key handled by window keydown handler */}
           <div className="absolute inset-0 bg-base-100/70 backdrop-blur-sm" onClick={() => setShow(false)} />
-          <div ref={modalRef} role="dialog" aria-modal="true" aria-labelledby={`${labelId}-title`} className="panel relative w-[90%] max-w-2xl bg-base-100">
+          <div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`${labelId}-title`}
+            className="panel relative my-auto w-full max-w-2xl bg-base-100"
+          >
             <div className="panel-head">
               <span id={`${labelId}-title`} className="eyebrow">
                 Edit {label}
               </span>
-              <button type="button" className="btn btn-ghost btn-xs btn-square" aria-label="Close" onClick={() => setShow(false)}>
-                <FiX className="size-3.5" />
+              <button type="button" className="icon-btn" aria-label="Close" onClick={() => setShow(false)}>
+                <FiX className="size-4" />
               </button>
             </div>
             <div className="panel-body flex flex-col gap-4">
               <textarea
                 ref={textareaRef}
-                className="w-full rounded-field border border-stroke bg-base-100 p-3 font-mono text-xs leading-[1.6]"
-                rows={16}
+                className="max-h-[50dvh] w-full rounded-field border border-stroke bg-base-100 p-3 font-mono text-xs leading-[1.6]"
+                rows={14}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
               />

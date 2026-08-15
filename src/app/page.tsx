@@ -54,7 +54,7 @@ export default function Home() {
         <div className="relative">
           <span className="eyebrow">SerpAPI · Playwright · Gemini 2.5</span>
           <h1 className="mt-2">Field report generator</h1>
-          <p className="mt-3 max-w-[62ch] [text-wrap:pretty]">
+          <p className="prose-measure mt-3">
             Get a fly-fishing <strong>report summary</strong> and <strong>shop directory</strong> for any location — automatically. Flybox finds local shops,
             identifies which ones publish fishing reports, and summarizes them with Google Gemini.
           </p>

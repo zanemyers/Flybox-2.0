@@ -190,6 +190,11 @@ body {
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-primary;
   }
+  /* DaisyUI's .btn draws its own focus ring, so the global rule above never
+     reaches a button. Restate it at higher specificity. */
+  .btn:focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary;
+  }
 }
 
 @layer components {
@@ -208,6 +213,12 @@ body {
   }
   .readout {
     @apply font-mono tabular-nums;
+  }
+
+  /* .field-shell is the same box as .field, for controls that are not a bare
+     <input> (the tag wrapper), so they cannot drift out of the height contract. */
+  .field-shell {
+    @apply w-full rounded-field border border-stroke bg-base-100 px-3 min-h-10 text-base sm:min-h-9 sm:text-sm;
   }
 
   /* Shared control contract. 16px/40px below sm (iOS zooms any input under 16px
@@ -238,8 +249,10 @@ body {
      transparent ::before, so padding can never eat the content box the way
      `size-7 p-2.5` did (28px box - 20px padding = 8px for a 14px icon). */
   .icon-btn {
-    @apply relative grid size-8 shrink-0 place-items-center rounded-field text-base-content/70 transition-colors hover:bg-base-content/8 hover:text-base-content;
+    @apply relative grid size-8 shrink-0 place-items-center rounded-field text-base-content/70 transition-colors hover:bg-base-content/8 hover:text-base-content focus-visible:text-base-content;
   }
+  /* The 44px target overhangs the 32px box by 6px per side, so any row of these
+     MUST use gap-3 (12px) or more, or adjacent targets overlap and steal clicks. */
   .icon-btn::before {
     content: "";
     @apply absolute left-1/2 top-1/2 size-11 -translate-x-1/2 -translate-y-1/2;

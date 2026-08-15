@@ -173,14 +173,16 @@ export default function StatusPanel({ jobId, onClose }: { jobId: string; onClose
             {EXPECTED_OUTPUTS.map(({ name, type, Icon }) => {
               const available = ready.has(name);
               return (
-                <li key={name} className={`flex items-center gap-3 py-2 ${available ? "" : "text-base-content/70"}`}>
+                <li key={name} className={`flex min-h-10 items-center gap-3 ${available ? "" : "text-base-content/70"}`}>
                   <Icon className="size-3.5 shrink-0" />
                   <span className="flex-1 truncate font-mono text-xs">{name}</span>
                   <span className="chip border-rule text-base-content/70">{available ? type : isRunning ? "Pending" : "None"}</span>
-                  {available && (
-                    <a href={fileUrl(jobId, name)} download={name} className="btn btn-ghost btn-xs btn-square" aria-label={`Download ${name}`}>
-                      <FiDownload className="size-3.5" />
+                  {available ? (
+                    <a href={fileUrl(jobId, name)} download={name} className="icon-btn" aria-label={`Download ${name}`}>
+                      <FiDownload className="size-4" />
                     </a>
+                  ) : (
+                    <span className="size-8 shrink-0" aria-hidden="true" />
                   )}
                 </li>
               );

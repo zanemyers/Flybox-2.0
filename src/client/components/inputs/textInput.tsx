@@ -53,7 +53,7 @@ export default function TextInput({
             onClick={() => setRevealed((r) => !r)}
             aria-pressed={revealed}
             aria-label={revealed ? `Hide ${label}` : `Show ${label}`}
-            className="absolute inset-y-0 end-0 grid w-10 place-items-center text-base-content/70 transition-colors hover:text-base-content"
+            className="absolute end-px top-px bottom-px grid w-10 cursor-pointer place-items-center rounded-e-field text-base-content/70 transition-colors hover:text-base-content focus-visible:text-base-content"
           >
             {revealed ? <FiEyeOff className="size-4" /> : <FiEye className="size-4" />}
           </button>

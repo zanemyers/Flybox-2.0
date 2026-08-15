@@ -16,12 +16,16 @@ export function HookMark({ className }: { className?: string }) {
       aria-hidden="true"
       focusable="false"
     >
-      {/* eye */}
-      <circle cx="6.6" cy="3.2" r="1.5" strokeWidth={1.2} />
-      {/* shank, bend and point */}
-      <path d="M6.6 4.7v6.6a3.6 3.6 0 0 0 7.2 0V8.9" />
-      {/* barb, cutting back toward the bend */}
-      <path d="M13.8 9 11.7 11.3" strokeWidth={1.2} />
+      {/* The drawing spans y 1.7-14.9, so it is nudged down to sit on the
+          viewBox's optical centre; without this every centred instance rides high. */}
+      <g transform="translate(0 1.6)">
+        {/* eye */}
+        <circle cx="6.6" cy="3.2" r="1.5" strokeWidth={1.2} />
+        {/* shank, bend and point */}
+        <path d="M6.6 4.7v6.6a3.6 3.6 0 0 0 7.2 0V8.9" />
+        {/* barb, cutting back toward the bend */}
+        <path d="M13.8 9 11.7 11.3" strokeWidth={1.2} />
+      </g>
     </svg>
   );
 }

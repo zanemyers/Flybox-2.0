@@ -19,7 +19,13 @@ const TABS: TabDef[] = [
 function Tab({ label, defaultChecked, children }: { label: string; defaultChecked: boolean; children: ReactNode }) {
   return (
     <>
-      <input type="radio" name="my_tabs" className="tab eyebrow" aria-label={label} defaultChecked={defaultChecked} />
+      <input
+        type="radio"
+        name="my_tabs"
+        className="tab font-mono !text-micro font-medium uppercase tracking-[0.08em]"
+        aria-label={label}
+        defaultChecked={defaultChecked}
+      />
       {/* No max-h/overflow here: a nested scroll region traps the wheel, breaks the
           in-page hash links the Flybox TOC relies on, and hides text from Cmd-F. */}
       <div className="tab-content border-rule bg-base-200 p-5 sm:p-6">{children}</div>

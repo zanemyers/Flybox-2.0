@@ -204,12 +204,12 @@ export default function FlyboxForm() {
 
       {/* The submit button is a sibling of the form, wired by `form=`, so it sits
           visually outside the card while still submitting it. */}
-      <div className="mt-1 flex gap-2">
+      <div className="flex gap-2">
         <button
           type="button"
           onClick={resetForm}
           onBlur={() => setConfirmReset(false)}
-          className={`btn h-10 ${confirmReset ? "btn-outline btn-error" : "btn-ghost border border-rule"}`}
+          className={`btn h-10 w-32 ${confirmReset ? "btn-outline btn-error" : "btn-ghost border border-rule"}`}
         >
           {confirmReset ? "Confirm reset" : "Reset"}
         </button>

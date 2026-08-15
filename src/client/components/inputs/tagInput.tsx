@@ -62,7 +62,7 @@ export default function TagInput({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: click-to-focus wrapper for tag input */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: inner input handles keyboard interaction */}
       <div
-        className="flex min-h-10 cursor-text flex-wrap items-center gap-1.5 rounded-field border border-stroke bg-base-100 px-3 py-2 focus-within:border-primary focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary"
+        className="field-shell flex cursor-text flex-wrap items-center gap-1.5 py-1.5 focus-within:border-primary focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary"
         onClick={(e) => (e.currentTarget.querySelector("input") as HTMLInputElement)?.focus()}
       >
         {values.map((v) => (
@@ -72,7 +72,7 @@ export default function TagInput({
               type="button"
               onClick={() => remove(v)}
               aria-label={`Remove ${v}`}
-              className="grid size-5 place-items-center opacity-70 transition-opacity hover:opacity-100"
+              className="relative grid size-4 cursor-pointer place-items-center opacity-70 transition-opacity before:absolute before:left-1/2 before:top-1/2 before:size-6 before:-translate-x-1/2 before:-translate-y-1/2 hover:opacity-100"
             >
               <FiX className="size-2.5" />
             </button>
@@ -88,7 +88,7 @@ export default function TagInput({
           }}
           placeholder={values.length === 0 ? placeholder : ""}
           id={inputId}
-          className="min-w-32 flex-1 bg-transparent text-base outline-none placeholder:text-base-content/70 sm:text-sm"
+          className="min-w-32 flex-1 self-stretch bg-transparent text-base outline-none placeholder:text-base-content/70 sm:text-sm"
         />
       </div>
     </div>

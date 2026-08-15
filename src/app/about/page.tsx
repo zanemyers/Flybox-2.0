@@ -32,7 +32,7 @@ function Feature({
   reverse?: boolean;
 }) {
   return (
-    <section className={`flex flex-col items-center gap-8 py-10 ${reverse ? "md:flex-row-reverse" : "md:flex-row"}`}>
+    <section className={`flex flex-col items-center gap-8 py-12 ${reverse ? "md:flex-row-reverse" : "md:flex-row"}`}>
       <div className="w-full">
         {/* The line art is drawn in dark ink, so it sits on a fixed paper plate in
             BOTH themes. The old in-data-[theme=dark]:invert mix-blend-screen hack
@@ -85,7 +85,7 @@ export default function About() {
       <section>
         <span className="eyebrow">About</span>
         <h1 className="mt-2 max-w-[52ch]">Helping you stay informed and ready for your next fly-fishing adventure.</h1>
-        <hr />
+        <hr className="mt-8 mb-0" />
       </section>
 
       <Feature index="01" img={idea} alt="Illustration of a person with an idea" heading="Where the idea came from">
@@ -114,7 +114,7 @@ export default function About() {
         </p>
       </Feature>
 
-      <section className="mt-8 border-t border-rule pt-8">
+      <section className="mt-4 border-t border-rule pt-8">
         <span className="eyebrow">Learn how it works</span>
         <ul className="ms-0 mt-3 list-none divide-y divide-rule">
           {links.map(({ index, title, description, href }) => (

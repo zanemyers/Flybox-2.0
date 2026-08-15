@@ -40,14 +40,14 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-40 h-14 border-b border-rule bg-base-100/85 backdrop-blur-sm">
       <div className="shell flex h-full items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-2.5">
-          <HookMark className="size-5 text-primary" />
+        <Link href="/" className="flex items-baseline gap-2.5">
+          <HookMark className="size-5 shrink-0 self-center text-primary" />
           <span className="text-[1.0625rem] font-semibold tracking-[-0.01em]">FLYBOX</span>
           <span className="eyebrow hidden sm:inline">/ Rescue River</span>
         </Link>
 
-        <nav className="flex items-center gap-3 sm:gap-5">
-          <ul className="flex list-none items-center gap-3 sm:gap-5">
+        <nav className="flex h-full items-center gap-3 sm:gap-5">
+          <ul className="flex h-full list-none items-stretch gap-3 sm:gap-5">
             {navLinks.map(({ label, href }) => {
               const active = currentPath === href;
               return (
@@ -55,7 +55,7 @@ export default function Header() {
                   <Link
                     href={href}
                     aria-current={active ? "page" : undefined}
-                    className={`eyebrow relative py-4 transition-colors hover:text-base-content ${active ? "text-primary" : ""}`}
+                    className={`eyebrow relative flex h-full items-center transition-colors hover:text-primary ${active ? "text-primary" : ""}`}
                   >
                     {label}
                     {active && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-primary" />}

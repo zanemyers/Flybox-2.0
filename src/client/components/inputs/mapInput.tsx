@@ -120,17 +120,17 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
           <span className="eyebrow mb-1 block">Longitude</span>
           <span className="readout block text-sm text-primary">{fmt(longitude)}</span>
         </div>
-        <button type="button" className="btn btn-ghost h-10 border border-stroke" onClick={() => setShow(true)} aria-label="Pick location on map">
+        <button type="button" className="btn btn-square btn-ghost size-10 border border-stroke" onClick={() => setShow(true)} aria-label="Pick location on map">
           <FiCrosshair className="size-4 text-primary" />
         </button>
       </div>
 
       <dialog ref={dialogRef} className="modal" onClose={() => setShow(false)}>
-        <div className="modal-box panel h-full w-full max-w-none overflow-hidden rounded-none p-0 sm:h-auto sm:w-11/12 sm:max-w-3xl sm:rounded-box">
+        <div className="modal-box panel max-h-dvh w-full max-w-none overflow-y-auto rounded-none bg-base-200 p-0 sm:w-11/12 sm:max-w-3xl sm:rounded-box">
           <div className="panel-head">
             <span className="eyebrow">Select position</span>
-            <button type="button" className="btn btn-ghost btn-xs btn-square" aria-label="Close" onClick={() => setShow(false)}>
-              <FiX className="size-3.5" />
+            <button type="button" className="icon-btn" aria-label="Close" onClick={() => setShow(false)}>
+              <FiX className="size-4" />
             </button>
           </div>
 
@@ -150,7 +150,7 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
                   }
                 }}
               />
-              <button type="button" className="btn btn-primary h-10 sm:h-9" onClick={handleSearch}>
+              <button type="button" className="btn btn-primary h-10 sm:h-9" onClick={handleSearch} aria-label="Search">
                 <FiSearch className="size-4" />
                 <span className="hidden sm:inline">Search</span>
               </button>
@@ -189,7 +189,7 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
             <FlyToLocation target={flyTo} />
           </MapContainer>
 
-          <div className="flex items-center justify-between gap-3 border-t border-rule px-4 py-2.5 sm:px-5">
+          <div className="flex min-h-12 items-center justify-between gap-3 border-t border-rule px-4 sm:px-5">
             <span className="readout text-xs text-primary">
               {fmt(position[0])}, {fmt(position[1])}
             </span>

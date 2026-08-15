@@ -90,7 +90,7 @@ export function ListBlock({ ordered, orderChild, extraClass, items }: ListBlockP
           {item.children && <ListBlock items={item.children} ordered={orderChild} />}
 
           {item.img && item.alt && (
-            <div className="my-4 rounded-field border border-rule bg-base-100 p-2">
+            <div className="mt-3 rounded-field border border-rule bg-base-100 p-2">
               <Image src={item.img} alt={item.alt} className="h-auto max-w-full" />
             </div>
           )}
