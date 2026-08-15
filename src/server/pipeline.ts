@@ -7,7 +7,40 @@ import type { JobHandler, SiteInfo } from "@/server/handler";
 import { extractAnchors, httpFetch, includesAny, isAllowedByRobots, normalizeUrl, sameDomain, scrapeShopDetails, scrapeVisibleText } from "@/server/scraper";
 
 // ── Shop phase ────────────────────────────────────────────────────────────────
-async function fetchShopsPage(job: JobHandler, start: number): Promise<SiteInfo[]> {
+
+/* SerpAPI bills every paginated request separately and its google_maps engine
+   returns at most 20 results per page — there is no `num` parameter to raise
+   that, so 100 listings genuinely costs 5 searches. The only lever is to stop
+   asking for pages that do not exist: a page shorter than SERP_PAGE_SIZE is the
+   last one. A rural search returning 12 shops used to burn all 5 searches, four
+   of them on empty pages. */
+export const SERP_PAGE_SIZE = 20;
+export const SERP_MAX_PAGES = 5;
+
+/** Walks SerpAPI pages until one comes back short. `fetchPage` returns null to
+    mean "the request failed", which is NOT the same as "there are no more
+    results" — on failure we stop rather than assume the listing ended. */
+export async function paginateShops(
+  fetchPage: (start: number) => Promise<SiteInfo[] | null>,
+  maxPages = SERP_MAX_PAGES,
+  pageSize = SERP_PAGE_SIZE,
+): Promise<{ shops: SiteInfo[]; searchesSpent: number; stoppedEarly: boolean }> {
+  const shops: SiteInfo[] = [];
+  let searchesSpent = 0;
+
+  for (let page = 0; page < maxPages; page++) {
+    const batch = await fetchPage(page * pageSize);
+    if (batch === null) return { shops, searchesSpent, stoppedEarly: true };
+
+    searchesSpent++;
+    shops.push(...batch);
+    if (batch.length < pageSize) return { shops, searchesSpent, stoppedEarly: true };
+  }
+
+  return { shops, searchesSpent, stoppedEarly: false };
+}
+
+async function fetchShopsPage(job: JobHandler, start: number): Promise<SiteInfo[] | null> {
   try {
     const { serpApiKey, searchTerm, latitude, longitude } = job.payload;
     const data = await getJson({ engine: "google_maps", api_key: serpApiKey, q: searchTerm, ll: `@${latitude},${longitude},8z`, type: "search", start });
@@ -26,7 +59,7 @@ async function fetchShopsPage(job: JobHandler, start: number): Promise<SiteInfo[
     }));
   } catch (err) {
     await job.log(`[!!] Failed to fetch results at offset ${start}: ${String(err)}`);
-    return [];
+    return null;
   }
 }
 
@@ -60,9 +93,9 @@ async function scrapeShop(shop: SiteInfo, browser: StealthBrowser, job: JobHandl
 async function shopPhase(job: JobHandler, browser: StealthBrowser): Promise<SiteInfo[]> {
   await job.log("[..] Searching for shops via SerpAPI…");
 
-  const pages = await Promise.all([0, 20, 40, 60, 80].map((start) => fetchShopsPage(job, start)));
-  const deduped = [...new Map(pages.flat().map((s) => [s.website || s.name, s])).values()].slice(0, 100);
-  await job.log(`[..] Found ${deduped.length} shops. Scraping websites…`);
+  const { shops, searchesSpent } = await paginateShops((start) => fetchShopsPage(job, start));
+  const deduped = [...new Map(shops.map((s) => [s.website || s.name, s])).values()].slice(0, SERP_MAX_PAGES * SERP_PAGE_SIZE);
+  await job.log(`[..] Found ${deduped.length} shops using ${searchesSpent} of ${SERP_MAX_PAGES} SerpAPI searches. Scraping websites…`);
 
   const results: SiteInfo[] = [];
   let scraped = 0;

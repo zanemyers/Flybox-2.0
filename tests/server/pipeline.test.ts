@@ -4,7 +4,7 @@
    while staying green — which is exactly what happened to getPriority when it
    changed to match on the URL path instead of the whole absolute URL. */
 import { describe, expect, it } from "vitest";
-import { filterShopsByRivers, getPriority, getRetryDelay } from "@/server/pipeline";
+import { filterShopsByRivers, getPriority, getRetryDelay, paginateShops, SERP_MAX_PAGES } from "@/server/pipeline";
 
 // ── getRetryDelay ──────────────────────────────────────────────────────────────
 
@@ -162,5 +162,82 @@ describe("filterShopsByRivers", () => {
     const result = filterShopsByRivers([MADISON_SHOP, UNRELATED_SHOP], ["madison", "generic"]);
     expect(result).toContain(MADISON_SHOP);
     expect(result).toContain(UNRELATED_SHOP);
+  });
+});
+
+// ── SerpAPI pagination ─────────────────────────────────────────────────────────
+// SerpAPI bills each paginated request separately, so these tests pin how many
+// searches a run actually costs. Getting this wrong costs real money.
+
+const shop = (name: string): Parameters<typeof filterShopsByRivers>[0][number] & Record<string, unknown> =>
+  ({ name, website: `https://${name}.test`, address: "" }) as never;
+
+/** Builds a fake SerpAPI whose pages have the given sizes; null entries fail. */
+function fakeSerp(pageSizes: (number | null)[]) {
+  const calls: number[] = [];
+  const fetchPage = async (start: number) => {
+    calls.push(start);
+    const size = pageSizes[start / 20];
+    if (size === null || size === undefined) return null;
+    return Array.from({ length: size }, (_, i) => shop(`s${start}-${i}`));
+  };
+  return { fetchPage, calls };
+}
+
+describe("paginateShops — how many SerpAPI searches a run costs", () => {
+  it("spends 1 search when the first page is short", async () => {
+    const { fetchPage, calls } = fakeSerp([12]);
+    const r = await paginateShops(fetchPage as never);
+    expect(r.searchesSpent).toBe(1);
+    expect(calls).toEqual([0]);
+    expect(r.shops).toHaveLength(12);
+  });
+
+  it("spends all 5 only when every page is full", async () => {
+    const { fetchPage, calls } = fakeSerp([20, 20, 20, 20, 20]);
+    const r = await paginateShops(fetchPage as never);
+    expect(r.searchesSpent).toBe(5);
+    expect(calls).toEqual([0, 20, 40, 60, 80]);
+    expect(r.shops).toHaveLength(100);
+    expect(r.stoppedEarly).toBe(false);
+  });
+
+  it("stops at the first short page in the middle", async () => {
+    const { fetchPage, calls } = fakeSerp([20, 20, 7]);
+    const r = await paginateShops(fetchPage as never);
+    expect(r.searchesSpent).toBe(3);
+    expect(calls).toEqual([0, 20, 40]);
+    expect(r.shops).toHaveLength(47);
+  });
+
+  it("spends 1 search when the location has no results at all", async () => {
+    const { fetchPage } = fakeSerp([0]);
+    const r = await paginateShops(fetchPage as never);
+    expect(r.searchesSpent).toBe(1);
+    expect(r.shops).toHaveLength(0);
+  });
+
+  it("never exceeds the page cap", async () => {
+    const { fetchPage, calls } = fakeSerp([20, 20, 20, 20, 20, 20, 20]);
+    const r = await paginateShops(fetchPage as never);
+    expect(calls).toHaveLength(SERP_MAX_PAGES);
+    expect(r.searchesSpent).toBe(SERP_MAX_PAGES);
+  });
+
+  it("keeps the pages it already paid for when a later request fails", async () => {
+    const { fetchPage, calls } = fakeSerp([20, null, 20]);
+    const r = await paginateShops(fetchPage as never);
+    expect(r.shops).toHaveLength(20);
+    expect(r.searchesSpent).toBe(1); // the failed request is not counted
+    expect(calls).toEqual([0, 20]); // and it does not push on past the failure
+    expect(r.stoppedEarly).toBe(true);
+  });
+
+  it("does not mistake a failed first request for an empty location", async () => {
+    const { fetchPage } = fakeSerp([null]);
+    const r = await paginateShops(fetchPage as never);
+    expect(r.shops).toHaveLength(0);
+    expect(r.searchesSpent).toBe(0);
+    expect(r.stoppedEarly).toBe(true);
   });
 });
