@@ -38,8 +38,9 @@
                                                  4.5 text needs. Use text-mark when salmon is text. */
   --color-secondary-content: oklch(22% 0.05 32); /* 4.61 on the salmon fill */
 
-  --color-accent: oklch(51.6% 0.112 109.6); /* #6d6c01 — olive, darkened from #787818 so it clears
-                                               4.5 as text on every light surface (4.55 on sunken) */
+  --color-accent: oklch(48% 0.106 109.6); /* #626200 — olive, darkened from #787818 far enough to
+                                             clear 4.5 even as text on the inline-code chip
+                                             (base-content/8 over base-200): 4.57 there, 6.01 on b100 */
   --color-accent-content: oklch(98% 0.008 90);
 
   --color-neutral: oklch(30% 0.04 222);
@@ -184,7 +185,7 @@ body {
     @apply border-t border-rule my-8;
   }
   code {
-    @apply font-mono text-[0.9em] text-primary bg-base-content/8 rounded-[2px] px-1 py-px;
+    @apply font-mono text-[0.9em] text-accent bg-base-content/8 rounded-[2px] px-1 py-px;
   }
   /* one ring for the whole app, full opacity */
   :focus-visible {

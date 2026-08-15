@@ -34,7 +34,7 @@ export function HookMark({ className }: { className?: string }) {
     the home hero and the 404. Decorative — well below the /70 alpha floor. */
 export function ContourField() {
   return (
-    <svg viewBox="0 0 1440 320" preserveAspectRatio="none" className="absolute inset-0 h-full w-full text-base-content" aria-hidden="true" focusable="false">
+    <svg viewBox="0 0 1440 320" preserveAspectRatio="none" className="absolute inset-0 h-full w-full text-accent" aria-hidden="true" focusable="false">
       {[0, 1, 2, 3, 4, 5].map((n) => (
         <path
           key={n}
@@ -44,7 +44,7 @@ export function ContourField() {
           stroke="currentColor"
           strokeWidth="1"
           vectorEffect="non-scaling-stroke"
-          opacity={0.09 - n * 0.011}
+          opacity={0.14 - n * 0.016}
         />
       ))}
     </svg>
