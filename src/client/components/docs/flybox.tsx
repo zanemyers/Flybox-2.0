@@ -109,14 +109,14 @@ export default function FlyboxDoc() {
         <ul className="ms-4 mt-2 list-disc text-sm">
           {toc.map(({ title, children }) => (
             <li key={title}>
-              <a className="link link-accent" href={`#${sectionId(title)}`}>
+              <a className="link link-primary" href={`#${sectionId(title)}`}>
                 {title}
               </a>
               {children && (
                 <ul className="ms-4 list-disc">
                   {children.map((child) => (
                     <li key={child}>
-                      <a className="link link-accent" href={`#${sectionId(child)}`}>
+                      <a className="link link-primary" href={`#${sectionId(child)}`}>
                         {child}
                       </a>
                     </li>

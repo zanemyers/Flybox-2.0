@@ -66,7 +66,7 @@ export function ListBlock({ ordered, orderChild, extraClass, items }: ListBlockP
   const ListTag = ordered ? "ol" : "ul";
 
   return (
-    <ListTag className={`prose-measure space-y-2 ${ordered ? "[&>li]:marker:font-mono [&>li]:marker:text-primary" : ""} ${extraClass ?? ""}`}>
+    <ListTag className={`prose-measure space-y-2 ${ordered ? "[&>li]:marker:font-mono [&>li]:marker:text-mark" : ""} ${extraClass ?? ""}`}>
       {items.map((item, index) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: list items have no natural unique key
         <li key={`item-${index}`}>

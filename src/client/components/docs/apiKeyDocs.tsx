@@ -6,7 +6,7 @@ const serpSteps = [
     main: (
       <span>
         Go to{" "}
-        <a className="link link-accent" href="https://serpapi.com/" target="_blank" rel="noopener noreferrer">
+        <a className="link link-primary" href="https://serpapi.com/" target="_blank" rel="noopener noreferrer">
           SerpApi
         </a>{" "}
         and create an account.
@@ -36,7 +36,7 @@ const geminiSteps = [
     main: (
       <span>
         Go to{" "}
-        <a className="link link-accent" href="https://ai.google.dev/aistudio" target="_blank" rel="noopener noreferrer">
+        <a className="link link-primary" href="https://ai.google.dev/aistudio" target="_blank" rel="noopener noreferrer">
           ai.google.dev
         </a>{" "}
         and sign in with your Google account.

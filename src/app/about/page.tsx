@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 const RescueRiver = () => (
-  <a className="link link-accent" href="https://rescueriver.com/" target="_blank" rel="noopener noreferrer">
+  <a className="link link-primary" href="https://rescueriver.com/" target="_blank" rel="noopener noreferrer">
     Rescue River
   </a>
 );
@@ -120,7 +120,7 @@ export default function About() {
           {links.map(({ index, title, description, href }) => (
             <li key={title}>
               <Link href={href} className="group flex items-baseline gap-4 py-4">
-                <span className="readout text-micro text-primary">{index}</span>
+                <span className="readout text-micro text-mark">{index}</span>
                 <span className="flex-1">
                   <span className="block font-semibold">{title}</span>
                   <span className="block text-sm text-base-content/70">{description}</span>

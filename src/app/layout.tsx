@@ -35,8 +35,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f8f7f3" },
-    { media: "(prefers-color-scheme: dark)", color: "#16192a" },
+    // Must track --color-base-100 in globals.css for each theme.
+    { media: "(prefers-color-scheme: light)", color: "#faf7ef" },
+    { media: "(prefers-color-scheme: dark)", color: "#011d26" },
   ],
 };
 
@@ -92,15 +93,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 <span className="h-4 w-px bg-rule" />
                 <div className="flex items-center gap-1">
                   {socialLinks.map(({ name, href, icon: Icon }) => (
-                    <a
-                      key={name}
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="-m-0.5 p-2.5 text-base-content/70 transition-colors hover:text-primary"
-                      aria-label={name}
-                    >
-                      <Icon size={14} />
+                    <a key={name} href={href} target="_blank" rel="noopener noreferrer" className="icon-btn" aria-label={name}>
+                      <Icon className="size-4" />
                     </a>
                   ))}
                 </div>

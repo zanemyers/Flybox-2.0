@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 const steps = [
   <>
     Enter your <strong>SerpAPI</strong> and <strong>Gemini API</strong> keys — don&apos;t have them? See the{" "}
-    <Link className="link link-accent" href="/docs">
+    <Link className="link link-primary" href="/docs">
       docs
     </Link>
     .
@@ -85,14 +85,14 @@ export default function Home() {
               {steps.map((step, i) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: ordered steps, index IS the identity
                 <li key={i} className="col-span-2 grid grid-cols-subgrid items-baseline py-2">
-                  <span className="readout text-micro text-primary">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="readout text-micro text-mark">{String(i + 1).padStart(2, "0")}</span>
                   <span className="text-sm">{step}</span>
                 </li>
               ))}
             </ol>
             <p className="mt-3 text-xs text-base-content/70">
               For more detail, see the{" "}
-              <Link className="link link-accent" href="/docs?tab=Flybox">
+              <Link className="link link-primary" href="/docs?tab=Flybox">
                 Flybox documentation
               </Link>
               .

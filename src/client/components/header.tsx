@@ -46,8 +46,8 @@ export default function Header() {
           <span className="eyebrow hidden sm:inline">/ Rescue River</span>
         </Link>
 
-        <nav className="flex items-center gap-5">
-          <ul className="flex list-none items-center gap-5">
+        <nav className="flex items-center gap-3 sm:gap-5">
+          <ul className="flex list-none items-center gap-3 sm:gap-5">
             {navLinks.map(({ label, href }) => {
               const active = currentPath === href;
               return (
@@ -64,14 +64,10 @@ export default function Header() {
               );
             })}
           </ul>
-          <span className="h-4 w-px bg-rule" />
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="-m-1 grid size-7 place-items-center rounded-field border border-rule p-2.5 transition-colors hover:bg-base-content/8"
-            aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
-          >
-            {dark ? <FiSun size={14} /> : <FiMoon size={14} />}
+          <span className="hidden h-4 w-px bg-rule sm:block" />
+          <button type="button" onClick={toggleTheme} className="icon-btn" aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}>
+            <FiSun className={`col-start-1 row-start-1 size-4 transition-opacity ${dark ? "opacity-100" : "opacity-0"}`} />
+            <FiMoon className={`col-start-1 row-start-1 size-4 transition-opacity ${dark ? "opacity-0" : "opacity-100"}`} />
           </button>
         </nav>
       </div>

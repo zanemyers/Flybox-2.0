@@ -23,7 +23,7 @@ export function Clause({ heading, children }: { heading: string; children: React
 
 export function GithubIssues() {
   return (
-    <a className="link link-accent" href="https://github.com/zanemyers/Flybox-2.0/issues" target="_blank" rel="noopener noreferrer">
+    <a className="link link-primary" href="https://github.com/zanemyers/Flybox-2.0/issues" target="_blank" rel="noopener noreferrer">
       GitHub repository
     </a>
   );
