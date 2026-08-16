@@ -8,24 +8,23 @@ export const metadata: Metadata = {
 
 export default function PrivacyPolicy() {
   return (
-    <LegalPage title="Privacy Policy" updated="April 11, 2026">
+    <LegalPage title="Privacy Policy" updated="August 16, 2026">
       <p>Flybox values your privacy. This Privacy Policy explains what information we collect, how we use it, and your rights regarding that information.</p>
 
       <Clause heading="Information We Collect">
         <p>Flybox does not require an account, an API key, or any personal information to use the website.</p>
-        <p>We may collect limited, non-identifying information automatically, such as:</p>
+        <p>There is no analytics or tracking on this site. The only information tied to your use of it is:</p>
         <ul>
-          <li>Browser type</li>
-          <li>Device type</li>
-          <li>General usage data (pages visited, approximate location)</li>
+          <li>A salted, one-way hash of your IP address, stored with each run purely to enforce rate limits (see below)</li>
+          <li>The map position and any river names you enter, stored with the run so it can be listed on the Recent runs page</li>
         </ul>
-        <p>This information is used solely to understand site usage and improve the service.</p>
+        <p>Standard server logs kept by our hosting provider are outside our control and subject to their policy.</p>
       </Clause>
 
       <Clause heading="API Keys">
         <p>
-          Flybox encourages users to provide their own third-party API keys (such as SerpAPI and OpenAI) to stay in control of their usage limits and costs.
-          When provided, these keys are used only to make requests on your behalf during your session and are never stored, logged, or retained by Flybox.
+          Flybox supplies its own third-party API keys and never asks you for one. Those keys stay on our server and are never sent to your browser. Because we
+          pay for them, runs are rate limited.
         </p>
       </Clause>
 
@@ -54,16 +53,31 @@ export default function PrivacyPolicy() {
       </Clause>
 
       <Clause heading="Use of Third-Party Services">
+        <p>Flybox sends data to the following third parties in the course of a run:</p>
+        <ul>
+          <li>
+            <strong>SerpAPI</strong> — receives the map position you chose, to search Google Maps for nearby shops.
+          </li>
+          <li>
+            <strong>OpenAI</strong> — receives the text scraped from shop websites, to summarize it. Only that scraped text is sent; nothing about you is
+            included.
+          </li>
+          <li>
+            <strong>OpenStreetMap / Nominatim</strong> — receives coordinates, to turn them into a place name for the Recent runs page and to power the map
+            search box.
+          </li>
+        </ul>
         <p>
-          Flybox relies on third-party tools and services to collect and display information. These services may have their own privacy policies and terms.
-          Flybox is not responsible for the privacy practices of third-party services or external websites.
+          Each has its own privacy policy and terms. Flybox is not responsible for the privacy practices of third-party services or of the external websites it
+          crawls.
         </p>
       </Clause>
 
-      <Clause heading="Cookies">
+      <Clause heading="Cookies and Local Storage">
         <p>
-          Flybox may use cookies or similar technologies to support basic site functionality and analytics. You can control or disable cookies through your
-          browser settings.
+          Flybox sets no cookies and runs no analytics. It does use your browser&apos;s local storage to remember your theme preference, your last form
+          settings, and the ID of a run in progress so you do not lose it on refresh. That data never leaves your browser and you can clear it at any time
+          through your browser settings.
         </p>
       </Clause>
 
@@ -82,7 +96,10 @@ export default function PrivacyPolicy() {
       </Clause>
 
       <Clause heading="Personal Privacy">
-        <p>Flybox does not knowingly collect, store, or process any personal information from anyone.</p>
+        <p>
+          Flybox has no accounts, no sign-in, and no advertising or analytics trackers. The only thing we store that relates to you personally is the salted
+          hash of your IP address described above, which we keep solely to enforce rate limits and which is deleted along with the run.
+        </p>
       </Clause>
 
       <Clause heading="Changes to This Policy">

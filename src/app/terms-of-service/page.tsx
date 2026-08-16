@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function TermsOfService() {
   return (
-    <LegalPage title="Terms of Service" updated="April 11, 2026">
+    <LegalPage title="Terms of Service" updated="August 16, 2026">
       <p>
         Welcome to Flybox. By accessing or using this website, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do
         not use the site.
@@ -28,10 +28,17 @@ export default function TermsOfService() {
         <p>Flybox does not guarantee the accuracy, completeness, or timeliness of any information displayed.</p>
       </Clause>
 
-      <Clause heading="API Keys and Third-Party Costs">
+      <Clause heading="Usage Limits">
         <p>
-          Flybox encourages users to provide their own API keys for SerpAPI and OpenAI to stay in control of their usage limits and any associated costs. Flybox
-          is not responsible for any charges incurred through your use of third-party APIs.
+          Flybox supplies and pays for the third-party APIs it uses, so runs are rate limited per user and in total. Attempting to circumvent those limits, or
+          automating requests against the service, is not permitted. Availability is not guaranteed and the limits may change at any time.
+        </p>
+      </Clause>
+
+      <Clause heading="Recent Runs Are Public">
+        <p>
+          Completed runs are listed on a public page showing their date and approximate location, and their output files can be downloaded by anyone. Runs are
+          not tied to any account or identity. Do not use Flybox for a search you would not want listed publicly.
         </p>
       </Clause>
 
