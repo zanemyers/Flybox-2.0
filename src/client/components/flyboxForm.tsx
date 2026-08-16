@@ -133,7 +133,7 @@ export default function FlyboxForm() {
             <TagInput label="Rivers" values={form.rivers} onChange={(v) => update("rivers", v)} placeholder="e.g. Madison, Snake, Yellowstone" optional />
           </Section>
 
-          <Section label="Output">
+          <Section>
             <label htmlFor="summarize" className="flex cursor-pointer items-start gap-3">
               <input
                 id="summarize"
