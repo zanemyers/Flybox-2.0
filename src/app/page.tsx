@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { FiAlertTriangle, FiLock } from "react-icons/fi";
 import { ContourField } from "@/client/components/brand";
 import FlyboxForm from "@/client/components/flyboxForm";
 
@@ -33,19 +32,6 @@ const outputs = [
     text: "Fishing reports from every shop that publishes them, grouped by body of water — or the raw crawled text if you turn summarization off.",
   },
   { name: "shop_details.xlsx", text: "Every shop found: name, website, address, phone, rating, email, socials, and whether it sells online or posts reports." },
-];
-
-const notes = [
-  {
-    Icon: FiAlertTriangle,
-    label: "Limits",
-    text: "Flybox supplies its own API keys, so runs are rate limited to keep the service available to everyone.",
-  },
-  {
-    Icon: FiLock,
-    label: "Privacy",
-    text: "No account, no keys, nothing personal stored. Output files are retained only long enough to download them.",
-  },
 ];
 
 export default function Home() {
@@ -107,18 +93,6 @@ export default function Home() {
             </ul>
           </section>
         </div>
-      </div>
-
-      <div className="mt-10 grid gap-2 border-t border-rule pt-4 pb-12 text-xs text-base-content/70 sm:grid-cols-2">
-        {notes.map(({ Icon, label, text }) => (
-          <p key={label} className="flex items-start gap-2">
-            <Icon className="mt-0.5 size-3.5 shrink-0" />
-            <span>
-              <span className="eyebrow me-1.5">{label}</span>
-              {text}
-            </span>
-          </p>
-        ))}
       </div>
     </div>
   );

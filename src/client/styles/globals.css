@@ -56,7 +56,10 @@
                                           two never read as the same signal. 6.62 on sunken */
   --color-error-content: oklch(98% 0.008 25);
 
-  --radius-selector: 0.25rem; /* boxy with a softened corner, matching --radius-field. A pill read too soft; 2px read as a checkbox. */
+  --radius-selector: 0.25rem; /* the summarize toggle is the only control this reaches. DaisyUI renders its track at
+                                 --radius-selector + padding + border, so 0.25rem lands at an 8px track and a 4px knob:
+                                 boxy with the corner knocked off. A .toggle override here would be inert — DaisyUI's
+                                 own rule wins — so tune this token, not the component. */
   --radius-field: 0.25rem;
   --radius-box: 0.375rem;
   --size-selector: 0.25rem;
@@ -99,7 +102,10 @@
   --color-error: oklch(70.5% 0.16 22); /* #f37272 — 6.18 on b100 */
   --color-error-content: oklch(18% 0.035 22);
 
-  --radius-selector: 0.25rem; /* boxy with a softened corner, matching --radius-field. A pill read too soft; 2px read as a checkbox. */
+  --radius-selector: 0.25rem; /* the summarize toggle is the only control this reaches. DaisyUI renders its track at
+                                 --radius-selector + padding + border, so 0.25rem lands at an 8px track and a 4px knob:
+                                 boxy with the corner knocked off. A .toggle override here would be inert — DaisyUI's
+                                 own rule wins — so tune this token, not the component. */
   --radius-field: 0.25rem;
   --radius-box: 0.375rem;
   --size-selector: 0.25rem;
