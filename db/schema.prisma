@@ -17,8 +17,22 @@ model Job {
   /// is never stored, so this cannot be read back as an identifier.
   clientHash String?
 
+  /// What the run was for, so the catalog can describe it after the fact. The
+  /// payload used to live only in memory on JobHandler.
+  latitude     Float?
+  longitude    Float?
+  /// Reverse-geocoded label for the coordinates, e.g. "Yellowstone National Park".
+  /// Null when lookup failed; the catalog falls back to the raw coordinates.
+  locationName String?
+  rivers       String[] @default([])
+  summarized   Boolean  @default(false)
+
+  /// primaryFile is report_summary.txt — the summary when summarized, otherwise
+  /// the raw crawled text. rawFile holds the crawled text in BOTH cases, so a
+  /// summarized run can still offer the source it was built from.
   primaryFile   Bytes?
   secondaryFile Bytes?
+  rawFile       Bytes?
   jobMessages   JobMessage[]
 
   @@index([createdAt])

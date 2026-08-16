@@ -383,6 +383,9 @@ async function reportPhase(reportShops: SiteInfo[], job: JobHandler, browser: St
     await job.log(`[!!] Budget reached — ${included} of ${texts.length} crawled site(s) fit in the output.`);
   }
 
+  // Kept in both modes: a summarized run can still offer its source text.
+  await job.saveRawText(combined);
+
   // Raw mode: hand back what was crawled and never call the model at all.
   if (!wantsSummary) {
     await job.log(`[OK] Raw text from ${included} site(s) ready — summarization skipped.`);

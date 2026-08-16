@@ -1,4 +1,5 @@
 import { hasKey } from "@/server/config";
+import { reverseGeocode } from "@/server/geocode";
 import { JobHandler, type Payload } from "@/server/handler";
 import { runFlybox } from "@/server/pipeline";
 import { checkRateLimit } from "@/server/rateLimit";
@@ -59,7 +60,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const job = await JobHandler.create(parsed.payload, limit.clientHash);
+    // Resolved once here rather than on every catalog render. Best-effort: the
+    // catalog falls back to raw coordinates when this returns null.
+    const locationName = await reverseGeocode(parsed.payload.latitude, parsed.payload.longitude);
+    const job = await JobHandler.create(parsed.payload, limit.clientHash, locationName);
     runFlybox(job).catch(() => {});
     return Response.json({ jobId: job.id });
   } catch (err) {

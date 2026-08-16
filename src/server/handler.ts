@@ -46,6 +46,7 @@ export const SHOP_COLUMNS = [
 export const OUTPUT_FILES = {
   "report_summary.txt": { column: "primaryFile", contentType: "text/plain; charset=utf-8" },
   "shop_details.xlsx": { column: "secondaryFile", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+  "report_raw.txt": { column: "rawFile", contentType: "text/plain; charset=utf-8" },
 } as const;
 
 export type OutputName = keyof typeof OUTPUT_FILES;
@@ -110,8 +111,18 @@ export class JobHandler {
 
   /** clientHash is the salted IP hash used for rate limiting; the raw address
       is never stored. Null when no client address could be determined. */
-  static async create(payload: Payload, clientHash: string | null = null): Promise<JobHandler> {
-    const job = await prisma.job.create({ data: { status: JobStatus.IN_PROGRESS, clientHash } });
+  static async create(payload: Payload, clientHash: string | null = null, locationName: string | null = null): Promise<JobHandler> {
+    const job = await prisma.job.create({
+      data: {
+        status: JobStatus.IN_PROGRESS,
+        clientHash,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
+        locationName,
+        rivers: payload.rivers,
+        summarized: payload.summarize,
+      },
+    });
     return new JobHandler(job.id, payload);
   }
 
@@ -131,10 +142,11 @@ export class JobHandler {
      GET /api/flybox/[id]/files/[name]. */
   static async getUpdates(id: string) {
     const [rows, messages] = await Promise.all([
-      prisma.$queryRaw<{ status: JobStatus; createdAt: Date; hasPrimary: boolean; hasSecondary: boolean }[]>`
+      prisma.$queryRaw<{ status: JobStatus; createdAt: Date; hasPrimary: boolean; hasSecondary: boolean; hasRaw: boolean }[]>`
         SELECT "status", "createdAt",
                ("primaryFile"   IS NOT NULL) AS "hasPrimary",
-               ("secondaryFile" IS NOT NULL) AS "hasSecondary"
+               ("secondaryFile" IS NOT NULL) AS "hasSecondary",
+               ("rawFile"       IS NOT NULL) AS "hasRaw"
         FROM "Job" WHERE "id" = ${id}
       `,
       prisma.jobMessage.findMany({ where: { jobId: id }, orderBy: { createdAt: "asc" }, select: { message: true } }),
@@ -146,6 +158,7 @@ export class JobHandler {
     const files: { name: OutputName }[] = [];
     if (job.hasPrimary) files.push({ name: "report_summary.txt" });
     if (job.hasSecondary) files.push({ name: "shop_details.xlsx" });
+    if (job.hasRaw) files.push({ name: "report_raw.txt" });
 
     return {
       message: messages.map((m) => m.message).join("\n"),
@@ -156,12 +169,14 @@ export class JobHandler {
   }
 
   static async getFile(id: string, name: OutputName): Promise<Uint8Array | null> {
-    if (OUTPUT_FILES[name].column === "primaryFile") {
-      const job = await prisma.job.findUnique({ where: { id }, select: { primaryFile: true } });
-      return job?.primaryFile ?? null;
+    switch (OUTPUT_FILES[name].column) {
+      case "primaryFile":
+        return (await prisma.job.findUnique({ where: { id }, select: { primaryFile: true } }))?.primaryFile ?? null;
+      case "rawFile":
+        return (await prisma.job.findUnique({ where: { id }, select: { rawFile: true } }))?.rawFile ?? null;
+      default:
+        return (await prisma.job.findUnique({ where: { id }, select: { secondaryFile: true } }))?.secondaryFile ?? null;
     }
-    const job = await prisma.job.findUnique({ where: { id }, select: { secondaryFile: true } });
-    return job?.secondaryFile ?? null;
   }
 
   log(message: string) {
@@ -193,6 +208,12 @@ export class JobHandler {
   async saveSummary(summary: string) {
     await prisma.job.update({ where: { id: this.id }, data: { primaryFile: new Uint8Array(Buffer.from(summary, "utf-8")) } });
     await this.log("[OK] Report summary saved.");
+  }
+
+  /** The crawled source text, kept even on summarized runs so the catalog can
+      offer both the report and what it was built from. */
+  async saveRawText(raw: string) {
+    await prisma.job.update({ where: { id: this.id }, data: { rawFile: new Uint8Array(Buffer.from(raw, "utf-8")) } });
   }
 
   complete() {

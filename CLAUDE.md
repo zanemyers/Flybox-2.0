@@ -139,6 +139,18 @@ RATE_LIMIT_SALT=...             # Keeps client rate-limit hashes stable across r
 
 Optional rate-limit overrides, with defaults: `RATE_LIMIT_CLIENT_HOUR` (3), `RATE_LIMIT_CLIENT_DAY` (10), `RATE_LIMIT_GLOBAL_DAY` (40), `RATE_LIMIT_GLOBAL_MONTH` (200). The monthly default is sized against a 1,000-search SerpAPI plan at 5 searches per run.
 
+## The run catalog
+
+`/runs` lists the newest `CATALOG_LIMIT` (15) COMPLETED runs, all downloadable; the newest `DETAILED_RUNS` (5) also show an inline snippet of the report. Both constants live in `src/server/catalog.ts` and are imported by `scripts/db_cleanup.ts`, so retention and display cannot drift apart.
+
+Because every listed run offers downloads, readiness for all 15 is answered with a raw `IS NOT NULL` query rather than by selecting the blobs — selecting them to render a list would pull megabytes. Only the newest 5 have their body read, for the snippet.
+
+`Job` stores the run's `latitude`/`longitude`/`rivers`/`summarized` so the catalog can describe a run after the fact; the payload used to live only in memory. `locationName` is reverse-geocoded **once at job creation** (`src/server/geocode.ts`, Nominatim) — never on render. It is best-effort and null on failure, in which case the page shows coordinates instead.
+
+`rawFile` holds the crawled source text in BOTH modes, so a summarized run can still offer what it was built from. `primaryFile` remains report_summary.txt — the summary when summarized, the raw text otherwise.
+
+**The catalog is public.** Anyone can see the location and download the outputs of any recent run. This is disclosed in the privacy policy; keep it that way if the retention or the listing changes.
+
 ## Rate limiting and abuse
 
 `POST /api/flybox` is unauthenticated and every run costs the operator 5 SerpAPI searches, an OpenAI call and a headless browser crawling up to 100 third-party sites. `src/server/rateLimit.ts` enforces per-client and global caps before a job is created. The client is identified by a **salted SHA-256 of its IP**, stored on `Job.clientHash`; the raw address is never stored. Without `RATE_LIMIT_SALT` a per-process salt is generated, so limits reset on redeploy — an unsalted hash of an IPv4 address is trivially reversible, so degrading to that is not acceptable.
