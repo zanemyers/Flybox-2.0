@@ -2,8 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import Link from "next/link";
 import type React from "react";
-import { FaFacebook, FaInstagram, FaLinkedinIn } from "react-icons/fa";
-import { FiExternalLink } from "react-icons/fi";
+import { FaFacebook, FaGlobe, FaInstagram, FaLinkedinIn } from "react-icons/fa";
 import { HookMark } from "@/client/components/brand";
 import Header from "@/client/components/header";
 import "../client/styles/globals.css";
@@ -52,7 +51,9 @@ const legalLinks = [
 ];
 
 const socialLinks = [
-  { name: "Website", href: "https://rescueriver.com/", icon: FiExternalLink },
+  // FaGlobe, not FiExternalLink: it sits at the same solid weight as the three
+  // brand logos beside it, which a 2px-stroke glyph does not.
+  { name: "Website", href: "https://rescueriver.com/", icon: FaGlobe },
   { name: "LinkedIn", href: "https://www.linkedin.com/company/rescue-river/", icon: FaLinkedinIn },
   { name: "Facebook", href: "https://www.facebook.com/rescueriver", icon: FaFacebook },
   { name: "Instagram", href: "https://www.instagram.com/rescueriverco/", icon: FaInstagram },
