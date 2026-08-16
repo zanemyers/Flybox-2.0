@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import type { ReactNode } from "react";
 import { FiAlertTriangle, FiFile, FiFileText } from "react-icons/fi";
 import { ContourField } from "@/client/components/brand";
 import { details } from "@/client/images/docs";
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 interface Stage {
   code: string;
   title: string;
-  detail: string;
+  detail: ReactNode;
   facts: [string, string][];
 }
 
@@ -33,8 +34,12 @@ const stages: Stage[] = [
   {
     code: "02",
     title: "Check the rules",
-    detail:
-      "Before touching a shop's site, Flybox reads its robots.txt and honours it — including Allow/Disallow precedence, wildcards and crawl-delay. Sites that say no are skipped and recorded in the log.",
+    detail: (
+      <>
+        Before touching a shop&apos;s site, Flybox reads its <code>robots.txt</code> and honors it — including <code>Allow</code>/<code>Disallow</code>{" "}
+        precedence, wildcards and <code>crawl-delay</code>. Sites that say no are skipped and recorded in the log.
+      </>
+    ),
     facts: [
       ["Respects", "robots.txt"],
       ["Crawl-delay", "capped at 5s"],
@@ -65,8 +70,12 @@ const stages: Stage[] = [
   {
     code: "05",
     title: "Summarize",
-    detail:
-      "The collected text is sent to OpenAI once, with instructions to merge duplicate waters, keep the three most recent dates for each, and cite its sources. Turn summarization off and this step is skipped entirely — you get the crawled text instead, and a far larger allowance of it.",
+    detail: (
+      <>
+        The collected text is sent to OpenAI once, with instructions to merge duplicate waters, keep the three most recent dates for each, and cite its sources.
+        Turn <code>Summarize with AI</code> off and this step is skipped entirely — you get the crawled text instead, and a far larger allowance of it.
+      </>
+    ),
     facts: [
       ["Model", "gpt-5.6-luna"],
       ["Fallback", "gpt-5.6-terra"],
@@ -107,7 +116,7 @@ export default function HowItWorks() {
                 {facts.map(([k, v]) => (
                   <div key={k} className="flex items-baseline justify-between gap-3 border-b border-rule py-1.5 last:border-b-0">
                     <dt className="eyebrow shrink-0">{k}</dt>
-                    <dd className="readout text-right text-[0.6875rem] text-base-content/70 [text-wrap:nowrap]">{v}</dd>
+                    <dd className="readout text-accent text-right text-[0.6875rem] [text-wrap:nowrap]">{v}</dd>
                   </div>
                 ))}
               </dl>
@@ -121,8 +130,8 @@ export default function HowItWorks() {
         <hr className="my-2" />
         <div className="grid gap-6 md:grid-cols-2">
           <div>
-            <p className="flex items-center gap-2 font-mono text-sm">
-              <FiFileText className="size-4 shrink-0 text-primary" />
+            <p className="readout flex items-center gap-2 text-sm text-mark">
+              <FiFileText className="size-4 shrink-0" />
               report_summary.txt
             </p>
             <p className="mt-2 text-sm text-base-content/70">
@@ -131,8 +140,8 @@ export default function HowItWorks() {
             </p>
           </div>
           <div>
-            <p className="flex items-center gap-2 font-mono text-sm">
-              <FiFile className="size-4 shrink-0 text-primary" />
+            <p className="readout flex items-center gap-2 text-sm text-mark">
+              <FiFile className="size-4 shrink-0" />
               shop_details.xlsx
             </p>
             <p className="mt-2 text-sm text-base-content/70">

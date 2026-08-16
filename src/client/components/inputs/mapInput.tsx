@@ -110,7 +110,7 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
 
   return (
     <div className="w-full">
-      {/* items-end is what aligns the button against the labelled readouts — keep it. */}
+      {/* items-end is what aligns the button against the labeled readouts — keep it. */}
       <div className="well grid grid-cols-[1fr_1fr_auto] items-end gap-x-3">
         <div>
           <span className="eyebrow mb-1 block">Latitude</span>

@@ -1,12 +1,12 @@
 /* Flybox theme.
-   Blue leads, cream carries, salmon and olive accent. Every colour below is
+   Blue leads, cream carries, salmon and olive accent. Every color below is
    either one of the brand hexes exactly, or a lightness-shifted version of one
    chosen so it clears WCAG on the surface it actually sits on. Ratios in the
    comments were computed oklch -> Oklab -> linear sRGB -> WCAG luminance, and
    the hex beside each value is its exact sRGB round-trip.
 
-   Brand source colours:
-     #0d667a  deep teal-blue   the main colour
+   Brand source colors:
+     #0d667a  deep teal-blue   the main color
      #cb6551  salmon           warm highlight
      #787818  olive            secondary highlight
      #bfc131  yellow-green     bright accent, dark mode only
@@ -228,7 +228,7 @@ body {
     @apply w-full rounded-field border border-stroke bg-base-100 px-3 h-10 text-base sm:h-9 sm:text-sm placeholder:text-base-content/70 focus-visible:border-primary disabled:opacity-70 read-only:cursor-default;
   }
 
-  /* Outline chip. The text always names the state, so colour is never the only
+  /* Outline chip. The text always names the state, so color is never the only
      signal. Fixed height so a row of chips shares one baseline. */
   .chip {
     @apply inline-flex h-5 shrink-0 items-center gap-1.5 rounded-[2px] border px-1.5 font-mono text-micro font-medium uppercase leading-none tracking-[0.08em];

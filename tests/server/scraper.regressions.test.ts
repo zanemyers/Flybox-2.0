@@ -39,10 +39,10 @@ function allowed(txt: string, pathname: string) {
 }
 
 describe("robots.txt — the reported case/wildcard bugs", () => {
-  it("honours a case-sensitive Disallow", () => {
+  it("honors a case-sensitive Disallow", () => {
     expect(allowed("User-agent: *\nDisallow: /Private/", "/Private/secret")).toBe(false);
   });
-  it("honours a case-sensitive Allow override", () => {
+  it("honors a case-sensitive Allow override", () => {
     expect(allowed("User-agent: *\nDisallow: /\nAllow: /Fishing-Report/", "/Fishing-Report/today")).toBe(true);
   });
   it("supports * wildcards", () => {

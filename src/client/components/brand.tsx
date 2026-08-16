@@ -17,7 +17,7 @@ export function HookMark({ className }: { className?: string }) {
       focusable="false"
     >
       {/* The drawing spans y 1.7-14.9, so it is nudged down to sit on the
-          viewBox's optical centre; without this every centred instance rides high. */}
+          viewBox's optical center; without this every centered instance rides high. */}
       <g transform="translate(0 1.6)">
         {/* eye */}
         <circle cx="6.6" cy="3.2" r="1.5" strokeWidth={1.2} />

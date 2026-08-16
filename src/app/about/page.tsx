@@ -38,7 +38,7 @@ function Feature({
             themes — the old in-data-[theme=dark]:invert mix-blend-screen hack
             mangled the artwork instead of framing it. In dark mode the plate AND
             the image's own baked-in white background are dimmed together with one
-            filter on the wrapper, so a glaring white rectangle becomes a soft grey
+            filter on the wrapper, so a glaring white rectangle becomes a soft gray
             card. brightness alone keeps hue intact and scales ink and paper by the
             same factor, so the drawing's internal contrast is unchanged. Light mode
             gets no filter at all. */}
@@ -73,8 +73,8 @@ const links = [
   {
     index: "02",
     title: "Rescue River",
-    description: "The organisation Flybox was built for, bringing hope and healing to survivors of trafficking and exploitation.",
-    href: "https://rescueriver.com/",
+    description: "The organization Flybox was built for, bringing hope and healing to survivors of trafficking and exploitation.",
+    href: "https://rescueriver.com/pages/about",
   },
 ];
 

@@ -74,15 +74,6 @@ export default function Home() {
 
         <div className="flex flex-col gap-8 lg:sticky lg:top-20 lg:order-1 lg:self-start">
           <section>
-            <span className="eyebrow">What it does</span>
-            <hr className="my-2" />
-            <p className="prose-measure text-sm">
-              Flybox searches Google Maps for fly-fishing shops near a position you choose, crawls each site for contact details and fishing reports, then
-              summarizes what it finds into one structured document.
-            </p>
-          </section>
-
-          <section>
             <span className="eyebrow">How it runs</span>
             <hr className="my-2" />
             <ol className="ms-0 grid list-none grid-cols-[2.5rem_1fr] divide-y divide-rule">

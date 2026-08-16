@@ -83,7 +83,7 @@ export async function buildShopWorkbook(shops: SiteInfo[]): Promise<Buffer> {
 
 /* The SDK's own timeout aborts the underlying request, unlike the hand-rolled
    Promise.race it replaces, which left the request running and billable. It also
-   retries 429/5xx with backoff and honours Retry-After, so the pipeline does not
+   retries 429/5xx with backoff and honors Retry-After, so the pipeline does not
    need to parse error strings to work out how long to wait. */
 const OPENAI_TIMEOUT_MS = 90_000;
 const OPENAI_MAX_RETRIES = 2;
