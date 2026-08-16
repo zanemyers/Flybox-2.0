@@ -3,6 +3,7 @@ import * as cheerio from "cheerio";
 import { getJson } from "serpapi";
 import TinyQueue from "tinyqueue";
 import { StealthBrowser as Browser, needsPlaywright, type StealthBrowser } from "@/server/browser";
+import { requireKey, SEARCH_TERM, SUMMARY_PROMPT } from "@/server/config";
 import type { JobHandler, SiteInfo } from "@/server/handler";
 import { extractAnchors, httpFetch, includesAny, isAllowedByRobots, normalizeUrl, sameDomain, scrapeShopDetails, scrapeVisibleText } from "@/server/scraper";
 
@@ -42,8 +43,15 @@ export async function paginateShops(
 
 async function fetchShopsPage(job: JobHandler, start: number): Promise<SiteInfo[] | null> {
   try {
-    const { serpApiKey, searchTerm, latitude, longitude } = job.payload;
-    const data = await getJson({ engine: "google_maps", api_key: serpApiKey, q: searchTerm, ll: `@${latitude},${longitude},8z`, type: "search", start });
+    const { latitude, longitude } = job.payload;
+    const data = await getJson({
+      engine: "google_maps",
+      api_key: requireKey("SERP_API_KEY"),
+      q: SEARCH_TERM,
+      ll: `@${latitude},${longitude},8z`,
+      type: "search",
+      start,
+    });
     return ((data.local_results ?? []) as Record<string, unknown>[]).map((r) => ({
       name: String(r.title ?? ""),
       website: String(r.website ?? ""),
@@ -123,6 +131,8 @@ async function shopPhase(job: JobHandler, browser: StealthBrowser): Promise<Site
 
 const MAX_DEPTH = 20;
 const TOKEN_CHAR_LIMIT = 50_000;
+/* Raw mode has no prompt, so the only bound is a sane download size. */
+const RAW_CHAR_LIMIT = 500_000;
 const MIN_SITE_CHAR_BUDGET = 4_000;
 const MAX_CRAWL_DELAY_SEC = 5;
 /* Luna is the cheap tier and this is structured extraction, not reasoning, so
@@ -337,13 +347,15 @@ async function reportPhase(reportShops: SiteInfo[], job: JobHandler, browser: St
     ).values(),
   ];
 
+  const { summarize: wantsSummary } = job.payload;
   await job.log(`[..] Crawling ${uniqueSites.length} shop site(s) for fishing reports…`);
 
-  /* Each site gets a share of the prompt budget. Previously every site could
-     crawl up to the full 50k limit and the concatenation was then truncated to
-     the same 50k, so if the first site filled its budget the rest contributed
-     nothing at all — while the log still claimed every site was summarized. */
-  const perSiteBudget = Math.max(MIN_SITE_CHAR_BUDGET, Math.floor(TOKEN_CHAR_LIMIT / Math.max(1, uniqueSites.length)));
+  /* Each site gets a share of the budget. Previously every site could crawl up
+     to the full limit and the concatenation was then truncated to the same
+     limit, so if the first site filled its budget the rest contributed nothing.
+     Raw mode has no prompt to fit, so it gets a far larger allowance. */
+  const totalBudget = wantsSummary ? TOKEN_CHAR_LIMIT : RAW_CHAR_LIMIT;
+  const perSiteBudget = Math.max(MIN_SITE_CHAR_BUDGET, Math.floor(totalBudget / Math.max(1, uniqueSites.length)));
 
   const texts: string[] = [];
   const { errors } = await PromisePool.withConcurrency(3)
@@ -365,14 +377,20 @@ async function reportPhase(reportShops: SiteInfo[], job: JobHandler, browser: St
 
   if (texts.length === 0) return "No fishing report content found.";
 
-  const combined = texts.join("\n\n").slice(0, TOKEN_CHAR_LIMIT);
+  const combined = texts.join("\n\n").slice(0, totalBudget);
   const included = (combined.match(/^==== /gm) ?? []).length;
   if (included < texts.length) {
-    await job.log(`[!!] Prompt budget reached — ${included} of ${texts.length} crawled site(s) fit in the summary request.`);
+    await job.log(`[!!] Budget reached — ${included} of ${texts.length} crawled site(s) fit in the output.`);
+  }
+
+  // Raw mode: hand back what was crawled and never call the model at all.
+  if (!wantsSummary) {
+    await job.log(`[OK] Raw text from ${included} site(s) ready — summarization skipped.`);
+    return combined;
   }
 
   await job.log(`[..] Summarizing ${included} site(s) with ${OPENAI_MODEL}…`);
-  const summary = await summarize(`${job.payload.summaryPrompt}\n\n${combined}`, job);
+  const summary = await summarize(`${SUMMARY_PROMPT}\n\n${combined}`, job);
 
   if (!summary) {
     await job.log("[!!] Summarization unavailable — returning raw crawled text.");

@@ -8,7 +8,7 @@ import { HookMark } from "@/client/components/brand";
 
 const navLinks = [
   { label: "Home", href: "/" },
-  { label: "Docs", href: "/docs" },
+  { label: "How it works", href: "/how-it-works" },
   { label: "About", href: "/about" },
 ];
 

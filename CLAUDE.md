@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Flybox is a fly-fishing data aggregation tool built for [Rescue River](https://rescueriver.com). It finds fly-fishing shops via SerpAPI (Google Maps), scrapes their websites for contact info and fishing reports, and summarizes reports with Google Gemini via a single unified pipeline at `/api/flybox`.
+Flybox is a fly-fishing data aggregation tool built for [Rescue River](https://rescueriver.com). It finds fly-fishing shops via SerpAPI (Google Maps), scrapes their websites for contact info and fishing reports, and summarizes reports with OpenAI via a single unified pipeline at `/api/flybox`.
+
+**Flybox supplies its own API keys.** There is no bring-your-own-key flow. That is the single most important constraint in the codebase: anything a caller can change is something a caller can bill the operator for. The search term and the summary prompt are therefore server-side constants in `src/server/config.ts`, NOT form fields — an editable prompt is a free LLM endpoint, and an editable search term is a general-purpose Maps scraper. Do not move either back onto the client.
+
+The whole request payload is `{ latitude, longitude, rivers, summarize }`.
 
 ## Commands
 
@@ -71,7 +75,8 @@ Five files, each with a single responsibility:
   - *Shop phase*: fetches 5 SerpAPI pages (offsets 0–80), dedupes, concurrently scrapes each shop (robots check → HTTP → Playwright fallback → `scrapeShopDetails`)
   - *Report phase*: filters shops where `fishingReport: true`, dedupes by hostname, crawls each site with a priority queue (BFS, depth-limited), feeds text to Gemini for summarization
   - **Each site gets a share of the prompt budget** (`TOKEN_CHAR_LIMIT / siteCount`, floored at 4k chars). Don't reintroduce a single global cap applied twice — that silently dropped every site after the first.
-  - Gemini primary model: `gemini-2.5-flash`; fallback: `gemini-2.5-flash-lite`. All `generateContent` calls are wrapped in a 60s `Promise.race` timeout to guard against socket-hang bugs on the free tier. 503/UNAVAILABLE and 429/RESOURCE_EXHAUSTED errors retry once (429 honours `retryDelay` from the response, defaulting to 30s) before falling back to the lite model. An **empty** response is treated as failure, not success.
+  - OpenAI primary model: `gpt-5.6-luna`; fallback: `gpt-5.6-terra` (~10x the price, so it must only run after the primary has exhausted the SDK's retries). `max_output_tokens` is capped and `reasoning: { effort: "none" }` is pinned — this is structured extraction, and reasoning tokens bill at the output rate. The SDK's own `timeout` and `maxRetries` handle aborting and backoff; do NOT reintroduce a `Promise.race` timeout, which billed for abandoned requests. An **empty** response is treated as failure, not success.
+  - `summarize: false` skips the model entirely and returns the crawled text, with a much larger char budget (`RAW_CHAR_LIMIT`) since there is no prompt to fit.
 - **`handler.ts`** — `JobHandler` wraps all DB operations (log, save, complete, fail, isCanceled). Also owns `Payload`/`SiteInfo`, the `OUTPUT_FILES` allow-list, and `buildShopWorkbook()`. `SiteInfo.sellsOnline` and `fishingReport` are `boolean` — emoji conversion happens only at Excel output time. `isCanceled()` caches its answer for 1.5s because it's called per shop and per crawled page.
 - **`scraper.ts`** — HTTP fetching with retries, robots.txt parsing, email extraction (mailto → Cloudflare data-cfemail → JSON-LD → visible-text regex → contact page fetch), shop detail detection, and URL utilities.
   - **robots.txt**: directive *names* are lowercased, values are not — rule paths are case-sensitive and so is the URL path. Supports `*` wildcards, the `$` anchor, inline `#` comments, and consecutive `User-agent` lines as one group.
@@ -124,9 +129,28 @@ There is **no client-side test coverage** — the vitest environment is `node` o
 ## Environment Variables
 
 ```
-DATABASE_URL=postgresql://...   # Used by the Prisma client at runtime (supports pooling)
-DIRECT_URL=postgresql://...     # Used by Prisma migrations (must be a direct connection)
+DATABASE_URL=postgresql://...   # Prisma client at runtime (supports pooling)
+DIRECT_URL=postgresql://...     # Prisma migrations (must be a direct connection)
+SERP_API_KEY=...                # REQUIRED — every run needs it
+OPENAI_API_KEY=...              # Required only when summarize is true
 RUN_HEADLESS=true               # Set false to see the Playwright browser
+RATE_LIMIT_SALT=...             # Keeps client rate-limit hashes stable across restarts
 ```
 
-`scripts/setup.ts` and `docker-compose.yml` also define `SERP_API_KEY` and `GEMINI_API_KEY`, but **no application code reads them** — both keys come from the run form. They are kept as a local scratchpad and as scaffolding for the planned server-side key injection.
+Optional rate-limit overrides, with defaults: `RATE_LIMIT_CLIENT_HOUR` (3), `RATE_LIMIT_CLIENT_DAY` (10), `RATE_LIMIT_GLOBAL_DAY` (40), `RATE_LIMIT_GLOBAL_MONTH` (200). The monthly default is sized against a 1,000-search SerpAPI plan at 5 searches per run.
+
+## Rate limiting and abuse
+
+`POST /api/flybox` is unauthenticated and every run costs the operator 5 SerpAPI searches, an OpenAI call and a headless browser crawling up to 100 third-party sites. `src/server/rateLimit.ts` enforces per-client and global caps before a job is created. The client is identified by a **salted SHA-256 of its IP**, stored on `Job.clientHash`; the raw address is never stored. Without `RATE_LIMIT_SALT` a per-process salt is generated, so limits reset on redeploy — an unsalted hash of an IPv4 address is trivially reversible, so degrading to that is not acceptable.
+
+`src/app/robots.ts` disallows all crawlers. There is nothing to index and real cost in being crawled.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

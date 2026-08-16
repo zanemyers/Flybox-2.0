@@ -1,15 +1,17 @@
 import ExcelJS from "exceljs";
 import OpenAI from "openai";
+import { requireKey } from "@/server/config";
 import { JobStatus, prisma } from "@/server/db";
 
+/* Deliberately small. The search term and summary prompt are server-side
+   constants (see config.ts) because Flybox funds its own keys, and the API keys
+   themselves never leave the server. */
 export interface Payload {
-  serpApiKey: string;
-  openaiApiKey: string;
-  searchTerm: string;
   latitude: number;
   longitude: number;
   rivers: string[];
-  summaryPrompt: string;
+  /** When false the OpenAI call is skipped entirely and the crawled text is returned as-is. */
+  summarize: boolean;
 }
 
 export interface SiteInfo {
@@ -89,21 +91,27 @@ const OPENAI_MAX_RETRIES = 2;
 export class JobHandler {
   private static readonly CANCEL_TTL_MS = 1_500;
 
-  readonly ai: OpenAI;
+  #client: OpenAI | null = null;
+
+  /** Lazily built so a raw-text run does not require OPENAI_API_KEY at all. */
+  get ai(): OpenAI {
+    this.#client ??= new OpenAI({
+      apiKey: requireKey("OPENAI_API_KEY"),
+      timeout: OPENAI_TIMEOUT_MS,
+      maxRetries: OPENAI_MAX_RETRIES,
+    });
+    return this.#client;
+  }
 
   constructor(
     readonly id: string,
     readonly payload: Payload,
-  ) {
-    this.ai = new OpenAI({
-      apiKey: payload.openaiApiKey,
-      timeout: OPENAI_TIMEOUT_MS,
-      maxRetries: OPENAI_MAX_RETRIES,
-    });
-  }
+  ) {}
 
-  static async create(payload: Payload): Promise<JobHandler> {
-    const job = await prisma.job.create({ data: { status: JobStatus.IN_PROGRESS } });
+  /** clientHash is the salted IP hash used for rate limiting; the raw address
+      is never stored. Null when no client address could be determined. */
+  static async create(payload: Payload, clientHash: string | null = null): Promise<JobHandler> {
+    const job = await prisma.job.create({ data: { status: JobStatus.IN_PROGRESS, clientHash } });
     return new JobHandler(job.id, payload);
   }
 

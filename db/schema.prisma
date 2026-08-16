@@ -9,12 +9,20 @@ datasource db {
 }
 
 model Job {
-  id            String       @id @default(cuid())
-  status        JobStatus    @default(IN_PROGRESS)
-  createdAt     DateTime     @default(now())
+  id        String   @id @default(cuid())
+  status    JobStatus @default(IN_PROGRESS)
+  createdAt DateTime @default(now())
+
+  /// Salted SHA-256 of the client IP, used only to rate limit. The raw address
+  /// is never stored, so this cannot be read back as an identifier.
+  clientHash String?
+
   primaryFile   Bytes?
   secondaryFile Bytes?
   jobMessages   JobMessage[]
+
+  @@index([createdAt])
+  @@index([clientHash, createdAt])
 }
 
 enum JobStatus {

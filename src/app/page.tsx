@@ -11,36 +11,40 @@ export const metadata: Metadata = {
 
 const steps = [
   <>
-    Enter your <strong>SerpAPI</strong> and <strong>OpenAI</strong> keys — don&apos;t have them? See the{" "}
-    <Link className="link link-primary" href="/docs">
-      docs
-    </Link>
-    .
+    Pick a <strong>position</strong> on the map — anywhere you want shops found near.
   </>,
   <>
-    Enter a <strong>search term</strong> and pick a <strong>position</strong> on the map.
+    Optionally filter by <strong>river name</strong> — add as many as you like.
   </>,
   <>
-    Optionally filter results by <strong>river name</strong> — add as many as you like.
+    Choose whether to <strong>summarize with AI</strong> or take the raw crawled text.
   </>,
   <>
     Press <strong>Run Flybox</strong> and sit back while the pipeline runs.
   </>,
   <>
-    Your <strong>report summary</strong> and <strong>shop directory</strong> download automatically when ready.
+    Your <strong>report</strong> and <strong>shop directory</strong> download automatically when ready.
   </>,
+];
+
+const outputs = [
+  {
+    name: "report_summary.txt",
+    text: "Fishing reports from every shop that publishes them, grouped by body of water — or the raw crawled text if you turn summarization off.",
+  },
+  { name: "shop_details.xlsx", text: "Every shop found: name, website, address, phone, rating, email, socials, and whether it sells online or posts reports." },
 ];
 
 const notes = [
   {
     Icon: FiAlertTriangle,
-    label: "Cost",
-    text: "Heavy usage may incur charges — use your own API keys to stay in control of your limits.",
+    label: "Limits",
+    text: "Flybox supplies its own API keys, so runs are rate limited to keep the service available to everyone.",
   },
   {
     Icon: FiLock,
     label: "Privacy",
-    text: "Your API keys are never stored. Output files are retained temporarily to facilitate downloads.",
+    text: "No account, no keys, nothing personal stored. Output files are retained only long enough to download them.",
   },
 ];
 
@@ -55,8 +59,8 @@ export default function Home() {
           <span className="eyebrow">SerpAPI · Playwright · GPT-5.6</span>
           <h1 className="mt-2">Field report generator</h1>
           <p className="prose-measure mt-3">
-            Get a fly-fishing <strong>report summary</strong> and <strong>shop directory</strong> for any location — automatically. Flybox finds local shops,
-            identifies which ones publish fishing reports, and summarizes them with OpenAI.
+            Get a fly-fishing <strong>report summary</strong> and <strong>shop directory</strong> for any location — automatically. Pick a spot on the map and
+            press run. No API keys, no setup.
           </p>
         </div>
       </section>
@@ -73,8 +77,8 @@ export default function Home() {
             <span className="eyebrow">What it does</span>
             <hr className="my-2" />
             <p className="prose-measure text-sm">
-              Flybox searches Google Maps for shops near a position you choose, crawls each site for contact details and fishing reports, then summarizes the
-              reports it finds into one structured document.
+              Flybox searches Google Maps for fly-fishing shops near a position you choose, crawls each site for contact details and fishing reports, then
+              summarizes what it finds into one structured document.
             </p>
           </section>
 
@@ -91,12 +95,25 @@ export default function Home() {
               ))}
             </ol>
             <p className="mt-3 text-xs text-base-content/70">
-              For more detail, see the{" "}
-              <Link className="link link-primary" href="/docs?tab=Flybox">
-                Flybox documentation
+              Curious what runs under the hood? See{" "}
+              <Link className="link link-primary" href="/how-it-works">
+                how it works
               </Link>
               .
             </p>
+          </section>
+
+          <section>
+            <span className="eyebrow">What you get</span>
+            <hr className="my-2" />
+            <ul className="ms-0 list-none divide-y divide-rule">
+              {outputs.map(({ name, text }) => (
+                <li key={name} className="py-2">
+                  <span className="readout block text-xs text-mark">{name}</span>
+                  <span className="mt-0.5 block text-sm text-base-content/70">{text}</span>
+                </li>
+              ))}
+            </ul>
           </section>
         </div>
       </div>

@@ -12,7 +12,7 @@ export default function PrivacyPolicy() {
       <p>Flybox values your privacy. This Privacy Policy explains what information we collect, how we use it, and your rights regarding that information.</p>
 
       <Clause heading="Information We Collect">
-        <p>Flybox does not require users to create an account or provide personal information to use the website.</p>
+        <p>Flybox does not require an account, an API key, or any personal information to use the website.</p>
         <p>We may collect limited, non-identifying information automatically, such as:</p>
         <ul>
           <li>Browser type</li>

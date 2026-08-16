@@ -7,16 +7,17 @@ interface PreservedEnv {
   DIRECT_URL: string;
   SERP_API_KEY: string;
   OPENAI_API_KEY: string;
+  RATE_LIMIT_SALT: string;
 }
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const envPath = path.resolve(__dirname, "../.env");
 
-const keysToPreserve: (keyof PreservedEnv)[] = ["DATABASE_URL", "DIRECT_URL", "SERP_API_KEY", "OPENAI_API_KEY"];
+const keysToPreserve: (keyof PreservedEnv)[] = ["DATABASE_URL", "DIRECT_URL", "SERP_API_KEY", "OPENAI_API_KEY", "RATE_LIMIT_SALT"];
 
 function parseEnvFile(content: string): PreservedEnv {
-  const env: PreservedEnv = { DATABASE_URL: "", DIRECT_URL: "", SERP_API_KEY: "", OPENAI_API_KEY: "" };
+  const env: PreservedEnv = { DATABASE_URL: "", DIRECT_URL: "", SERP_API_KEY: "", OPENAI_API_KEY: "", RATE_LIMIT_SALT: "" };
 
   content.split(/\r?\n/).forEach((line) => {
     const [key, ...rest] = line.trim().split("=") as [keyof PreservedEnv, ...string[]];
@@ -33,7 +34,7 @@ const DEFAULT_DB_URL = "postgresql://flybox:flybox@localhost:5432/flybox";
 // Load preserved values if the file exists
 const preserved: PreservedEnv = fs.existsSync(envPath)
   ? parseEnvFile(fs.readFileSync(envPath, "utf8"))
-  : { DATABASE_URL: "", DIRECT_URL: "", SERP_API_KEY: "", OPENAI_API_KEY: "" };
+  : { DATABASE_URL: "", DIRECT_URL: "", SERP_API_KEY: "", OPENAI_API_KEY: "", RATE_LIMIT_SALT: "" };
 
 // Build new .env content
 const envContent = `# Local Environment Config
@@ -46,11 +47,14 @@ DIRECT_URL='${preserved.DIRECT_URL || DEFAULT_DB_URL}'
 # Scraper configuration
 RUN_HEADLESS=true
 
-# API keys. NOTE: no application code reads these today — Flybox takes both keys
-# from the run form. They are kept here as a scratchpad for local testing and as
-# scaffolding for the planned server-side key injection (GitHub issue #5).
+# API keys. These ARE read at runtime: Flybox supplies its own and never asks
+# the user for one. Both are required for a run to succeed.
+# RATE_LIMIT_SALT keeps client rate-limit hashes stable across restarts.
 SERP_API_KEY='${preserved.SERP_API_KEY}'
-OPENAI_API_KEY='${preserved.OPENAI_API_KEY}'`;
+OPENAI_API_KEY='${preserved.OPENAI_API_KEY}'
+
+# Rate limiting
+RATE_LIMIT_SALT='${preserved.RATE_LIMIT_SALT}'`;
 
 // Write to .env
 fs.writeFileSync(envPath, envContent, "utf8");

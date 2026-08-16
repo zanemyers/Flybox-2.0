@@ -66,21 +66,15 @@ function Feature({
 const links = [
   {
     index: "01",
-    title: "Flybox",
-    description: "Finds local fly-fishing shops, identifies which ones publish fishing reports, and summarizes them with OpenAI.",
-    href: "/docs?tab=Flybox",
+    title: "How it works",
+    description: "The five stages a run goes through, from the Maps search to the finished report — and the numbers behind each one.",
+    href: "/how-it-works",
   },
   {
     index: "02",
-    title: "SerpAPI",
-    description: "Powers the Google Maps search that finds fly-fishing shops near your chosen position.",
-    href: "/docs?tab=SerpAPI",
-  },
-  {
-    index: "03",
-    title: "OpenAI API",
-    description: "Reads and summarizes fishing reports from shop websites into a structured, easy-to-read format.",
-    href: "/docs?tab=OpenAI API",
+    title: "Rescue River",
+    description: "The organisation Flybox was built for, bringing hope and healing to survivors of trafficking and exploitation.",
+    href: "https://rescueriver.com/",
   },
 ];
 
@@ -124,7 +118,11 @@ export default function About() {
         <ul className="ms-0 mt-3 list-none divide-y divide-rule">
           {links.map(({ index, title, description, href }) => (
             <li key={title}>
-              <Link href={href} className="group flex items-baseline gap-4 py-4">
+              <Link
+                href={href}
+                {...(href.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                className="group flex items-baseline gap-4 py-4"
+              >
                 <span className="readout text-micro text-mark">{index}</span>
                 <span className="flex-1">
                   <span className="block font-semibold">{title}</span>

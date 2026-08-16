@@ -1,16 +1,15 @@
+import { hasKey } from "@/server/config";
 import { JobHandler, type Payload } from "@/server/handler";
 import { runFlybox } from "@/server/pipeline";
+import { checkRateLimit } from "@/server/rateLimit";
 
-/** Narrows the untrusted request body to a Payload, or explains what is wrong. */
+/* The payload is deliberately tiny. Flybox funds its own API keys, so the search
+   term and summary prompt are server-side constants rather than form fields —
+   an editable prompt would be a free LLM and an editable search term would be a
+   general-purpose Maps scraper, both billed to the operator. */
 function parsePayload(body: unknown): { payload: Payload } | { error: string } {
   if (typeof body !== "object" || body === null) return { error: "Expected a JSON object." };
   const b = body as Record<string, unknown>;
-
-  const required = ["serpApiKey", "openaiApiKey", "searchTerm", "summaryPrompt"] as const;
-  const text = (key: string) => (typeof b[key] === "string" ? (b[key] as string) : "");
-
-  const missing = required.filter((key) => !text(key).trim());
-  if (missing.length) return { error: `Missing or empty: ${missing.join(", ")}.` };
 
   const latitude = Number(b.latitude);
   const longitude = Number(b.longitude);
@@ -18,16 +17,15 @@ function parsePayload(body: unknown): { payload: Payload } | { error: string } {
   if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return { error: "longitude must be a number between -180 and 180." };
 
   if (!Array.isArray(b.rivers) || b.rivers.some((r) => typeof r !== "string")) return { error: "rivers must be an array of strings." };
+  if (b.rivers.length > 25) return { error: "At most 25 rivers." };
+  if (typeof b.summarize !== "boolean") return { error: "summarize must be true or false." };
 
   return {
     payload: {
-      serpApiKey: text("serpApiKey"),
-      openaiApiKey: text("openaiApiKey"),
-      searchTerm: text("searchTerm"),
       latitude,
       longitude,
-      rivers: (b.rivers as string[]).map((r) => r.trim()).filter(Boolean),
-      summaryPrompt: text("summaryPrompt"),
+      rivers: (b.rivers as string[]).map((r) => r.trim().slice(0, 60)).filter(Boolean),
+      summarize: b.summarize,
     },
   };
 }
@@ -43,8 +41,25 @@ export async function POST(request: Request) {
   const parsed = parsePayload(body);
   if ("error" in parsed) return Response.json({ error: parsed.error }, { status: 400 });
 
+  // Fail before spending anything if the server is misconfigured.
+  if (!hasKey("SERP_API_KEY")) return Response.json({ error: "Flybox is not configured for search right now." }, { status: 503 });
+  if (parsed.payload.summarize && !hasKey("OPENAI_API_KEY")) {
+    return Response.json({ error: "Summarization is unavailable right now. Re-run with summarization turned off." }, { status: 503 });
+  }
+
+  /* Every run costs the operator 5 search credits, an OpenAI call and a headless
+     browser crawling up to 100 third-party sites, and this endpoint is
+     unauthenticated. Without this, one loop drains a month of quota. */
+  const limit = await checkRateLimit(request.headers);
+  if (!limit.allowed) {
+    return Response.json(
+      { error: limit.reason },
+      { status: 429, headers: limit.retryAfterSeconds ? { "Retry-After": String(limit.retryAfterSeconds) } : undefined },
+    );
+  }
+
   try {
-    const job = await JobHandler.create(parsed.payload);
+    const job = await JobHandler.create(parsed.payload, limit.clientHash);
     runFlybox(job).catch(() => {});
     return Response.json({ jobId: job.id });
   } catch (err) {
