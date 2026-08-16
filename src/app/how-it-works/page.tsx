@@ -25,7 +25,7 @@ const stages: Stage[] = [
     detail:
       "Your map position becomes a Google Maps search for fly-fishing shops, run through SerpAPI. Results come back 20 at a time, and Flybox stops asking for pages as soon as one comes back short — a quiet location costs a single search instead of five.",
     facts: [
-      ["Provider", "SerpAPI · google_maps"],
+      ["Provider", "SerpAPI maps"],
       ["Page size", "20 results"],
       ["Max searches", "5 per run"],
     ],
@@ -37,7 +37,7 @@ const stages: Stage[] = [
       "Before touching a shop's site, Flybox reads its robots.txt and honours it — including Allow/Disallow precedence, wildcards and crawl-delay. Sites that say no are skipped and recorded in the log.",
     facts: [
       ["Respects", "robots.txt"],
-      ["Crawl-delay", "honoured, capped at 5s"],
+      ["Crawl-delay", "capped at 5s"],
     ],
   },
   {
@@ -47,8 +47,8 @@ const stages: Stage[] = [
       "Each site is fetched over plain HTTP first. If the page turns out to be a JavaScript shell or the request is blocked, Flybox retries it through a stealth headless browser. It then pulls out the email, social profiles, whether the shop sells online, and whether it publishes fishing reports.",
     facts: [
       ["Concurrency", "10 shops at once"],
-      ["Fallback", "Playwright + stealth"],
-      ["Email sources", "mailto · Cloudflare · JSON-LD · text · contact page"],
+      ["Fallback", "Playwright"],
+      ["Email lookup", "5 strategies"],
     ],
   },
   {
@@ -57,9 +57,9 @@ const stages: Stage[] = [
     detail:
       "Shops that publish reports get crawled properly: a priority queue walks each site, preferring paths that look like report archives and ignoring PDFs, privacy policies, carts and tracking-tagged duplicates. Only whole pages are kept, so nothing arrives cut off mid-sentence.",
     facts: [
-      ["Strategy", "priority queue, breadth-first"],
+      ["Strategy", "priority queue"],
       ["Concurrency", "3 sites at once"],
-      ["Skips", "binaries · legal pages · duplicates"],
+      ["Skips", "binaries, legal, dupes"],
     ],
   },
   {
@@ -107,7 +107,7 @@ export default function HowItWorks() {
                 {facts.map(([k, v]) => (
                   <div key={k} className="flex items-baseline justify-between gap-3 border-b border-rule py-1.5 last:border-b-0">
                     <dt className="eyebrow shrink-0">{k}</dt>
-                    <dd className="readout text-right text-[0.6875rem] text-base-content/70">{v}</dd>
+                    <dd className="readout text-right text-[0.6875rem] text-base-content/70 [text-wrap:nowrap]">{v}</dd>
                   </div>
                 ))}
               </dl>
