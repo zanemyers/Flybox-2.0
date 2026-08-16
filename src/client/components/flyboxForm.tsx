@@ -30,10 +30,12 @@ const DEFAULTS: FormState = {
 
 const STORAGE_KEY = "flybox-form";
 
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
+/* `label` is optional: a section holding a single, already-labeled control does
+   not need a header above its header. The rule still separates the groups. */
+function Section({ label, children }: { label?: string; children: React.ReactNode }) {
   return (
     <section className="mt-4 border-t border-rule pt-4 first:mt-0 first:border-t-0 first:pt-0">
-      <span className="eyebrow mb-2.5 block">{label}</span>
+      {label && <span className="eyebrow mb-2.5 block">{label}</span>}
       {children}
     </section>
   );
@@ -127,7 +129,7 @@ export default function FlyboxForm() {
             />
           </Section>
 
-          <Section label="Filters">
+          <Section>
             <TagInput label="Rivers" values={form.rivers} onChange={(v) => update("rivers", v)} placeholder="e.g. Madison, Snake, Yellowstone" optional />
           </Section>
 
