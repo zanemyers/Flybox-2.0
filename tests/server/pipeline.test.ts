@@ -4,60 +4,45 @@
    while staying green — which is exactly what happened to getPriority when it
    changed to match on the URL path instead of the whole absolute URL. */
 import { describe, expect, it } from "vitest";
-import { filterShopsByRivers, getPriority, getRetryDelay, paginateShops, SERP_MAX_PAGES } from "@/server/pipeline";
+import { filterShopsByRivers, getPriority, paginateShops, SERP_MAX_PAGES, shouldTryFallback } from "@/server/pipeline";
 import { normalizeUrl } from "@/server/scraper";
 
-// ── getRetryDelay ──────────────────────────────────────────────────────────────
+// ── shouldTryFallback ──────────────────────────────────────────────────────────
+// The SDK has already retried 429s and 5xxs with backoff before throwing, so the
+// only question left is whether a DIFFERENT model could plausibly succeed.
 
-describe("getRetryDelay", () => {
-  it("returns 30s for a 503 error", () => {
-    expect(getRetryDelay(new Error("503 Service Unavailable"))).toBe(30_000);
+const apiError = (status: number) => Object.assign(new Error(`HTTP ${status}`), { status });
+
+describe("shouldTryFallback", () => {
+  it("does not burn a second model on an unusable key", () => {
+    expect(shouldTryFallback(apiError(401))).toBe(false);
+    expect(shouldTryFallback(apiError(403))).toBe(false);
   });
 
-  it("returns 30s for UNAVAILABLE gRPC status", () => {
-    expect(getRetryDelay(new Error("14 UNAVAILABLE: upstream connect error"))).toBe(30_000);
+  it("does not retry a malformed request that would fail identically", () => {
+    expect(shouldTryFallback(apiError(400))).toBe(false);
+    expect(shouldTryFallback(apiError(422))).toBe(false);
   });
 
-  it("returns 30s for a 503 in a string message", () => {
-    expect(getRetryDelay("Error: 503 Gemini request timed out")).toBe(30_000);
+  it("tries the fallback when the model is unavailable to this account", () => {
+    expect(shouldTryFallback(apiError(404))).toBe(true);
   });
 
-  it("returns 30s for 429 without a retryDelay field", () => {
-    expect(getRetryDelay(new Error("429 Too Many Requests"))).toBe(30_000);
+  it("tries the fallback on rate limit — another model may have headroom", () => {
+    expect(shouldTryFallback(apiError(429))).toBe(true);
   });
 
-  it("returns 30s for RESOURCE_EXHAUSTED without a retryDelay field", () => {
-    expect(getRetryDelay(new Error("RESOURCE_EXHAUSTED quota exceeded"))).toBe(30_000);
+  it("tries the fallback on any upstream 5xx", () => {
+    for (const s of [500, 502, 503, 529]) expect(shouldTryFallback(apiError(s))).toBe(true);
   });
 
-  it("extracts retryDelay seconds from a 429 error payload", () => {
-    const err = new Error('429 RESOURCE_EXHAUSTED: {"retryDelay": "45s", "message": "quota"}');
-    expect(getRetryDelay(err)).toBe(45_000);
+  it("tries the fallback on a connection error or timeout, which carry no status", () => {
+    expect(shouldTryFallback(new Error("Connection error."))).toBe(true);
+    expect(shouldTryFallback(new Error("Request timed out."))).toBe(true);
   });
 
-  it("extracts retryDelay with varying whitespace", () => {
-    const err = new Error('429 error {"retryDelay"  :  "120s"}');
-    expect(getRetryDelay(err)).toBe(120_000);
-  });
-
-  it("returns null for a generic non-retryable error", () => {
-    expect(getRetryDelay(new Error("TypeError: Cannot read properties of undefined"))).toBeNull();
-  });
-
-  it("returns null for a network error unrelated to rate limiting", () => {
-    expect(getRetryDelay(new Error("ECONNREFUSED"))).toBeNull();
-  });
-
-  it("returns null for an empty error message", () => {
-    expect(getRetryDelay(new Error(""))).toBeNull();
-  });
-
-  it("handles a plain string error", () => {
-    expect(getRetryDelay("503 error")).toBe(30_000);
-  });
-
-  it("handles a null-ish value gracefully", () => {
-    expect(getRetryDelay(null)).toBeNull();
+  it("handles junk values without throwing", () => {
+    for (const v of [null, undefined, "", 0, {}]) expect(typeof shouldTryFallback(v)).toBe("boolean");
   });
 });
 

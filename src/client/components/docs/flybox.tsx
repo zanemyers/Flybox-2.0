@@ -28,7 +28,7 @@ const input: ListItems[] = [
     note: "Required for the tool to work.",
   },
   {
-    label: "Gemini API Key",
+    label: "OpenAI API Key",
     main: "Enter your private API key to allow Flybox to summarize fishing reports.",
     noteLabel: "Note",
     note: "Required for the tool to work.",
@@ -57,7 +57,7 @@ const input: ListItems[] = [
   },
   {
     label: "Summary Prompt",
-    main: "The instructions sent to Gemini alongside the crawled text. Edit it to change the shape of the summary.",
+    main: "The instructions sent to the model alongside the crawled text. Edit it to change the shape of the summary.",
   },
 ];
 
@@ -84,8 +84,8 @@ const disclaimers: ListItems[] = [
     main: "Some websites may prevent Flybox from accessing them. Fallback data will be used in these cases.",
   },
   {
-    label: "Gemini availability",
-    main: "Google Gemini may occasionally be unavailable. Flybox will retry automatically, but if it remains unavailable the raw crawled text will be returned instead of a summary.",
+    label: "Model availability",
+    main: "The summarization model may occasionally be unavailable. Flybox retries automatically and falls back to a second model, but if both remain unavailable the raw crawled text is returned instead of a summary.",
   },
 ];
 
@@ -101,7 +101,7 @@ export default function FlyboxDoc() {
       <h1>Flybox documentation</h1>
       <p className="prose-measure mt-3">
         Flybox finds fly-fishing shops using <strong>Google Maps</strong> via <strong>SerpAPI</strong>, scrapes their websites for fishing reports, and
-        summarizes them with <strong>Google Gemini</strong>.
+        summarizes them with <strong>OpenAI</strong>.
       </p>
 
       <nav aria-label="Contents" className="mt-6 border-y border-rule py-4">

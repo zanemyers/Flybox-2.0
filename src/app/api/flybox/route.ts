@@ -6,7 +6,7 @@ function parsePayload(body: unknown): { payload: Payload } | { error: string } {
   if (typeof body !== "object" || body === null) return { error: "Expected a JSON object." };
   const b = body as Record<string, unknown>;
 
-  const required = ["serpApiKey", "geminiApiKey", "searchTerm", "summaryPrompt"] as const;
+  const required = ["serpApiKey", "openaiApiKey", "searchTerm", "summaryPrompt"] as const;
   const text = (key: string) => (typeof b[key] === "string" ? (b[key] as string) : "");
 
   const missing = required.filter((key) => !text(key).trim());
@@ -22,7 +22,7 @@ function parsePayload(body: unknown): { payload: Payload } | { error: string } {
   return {
     payload: {
       serpApiKey: text("serpApiKey"),
-      geminiApiKey: text("geminiApiKey"),
+      openaiApiKey: text("openaiApiKey"),
       searchTerm: text("searchTerm"),
       latitude,
       longitude,

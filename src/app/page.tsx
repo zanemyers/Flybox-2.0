@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 const steps = [
   <>
-    Enter your <strong>SerpAPI</strong> and <strong>Gemini API</strong> keys — don&apos;t have them? See the{" "}
+    Enter your <strong>SerpAPI</strong> and <strong>OpenAI</strong> keys — don&apos;t have them? See the{" "}
     <Link className="link link-primary" href="/docs">
       docs
     </Link>
@@ -52,11 +52,11 @@ export default function Home() {
           <ContourField />
         </div>
         <div className="relative">
-          <span className="eyebrow">SerpAPI · Playwright · Gemini 2.5</span>
+          <span className="eyebrow">SerpAPI · Playwright · GPT-5.6</span>
           <h1 className="mt-2">Field report generator</h1>
           <p className="prose-measure mt-3">
             Get a fly-fishing <strong>report summary</strong> and <strong>shop directory</strong> for any location — automatically. Flybox finds local shops,
-            identifies which ones publish fishing reports, and summarizes them with Google Gemini.
+            identifies which ones publish fishing reports, and summarizes them with OpenAI.
           </p>
         </div>
       </section>

@@ -1,10 +1,10 @@
-import { GoogleGenAI } from "@google/genai";
 import ExcelJS from "exceljs";
+import OpenAI from "openai";
 import { JobStatus, prisma } from "@/server/db";
 
 export interface Payload {
   serpApiKey: string;
-  geminiApiKey: string;
+  openaiApiKey: string;
   searchTerm: string;
   latitude: number;
   longitude: number;
@@ -79,16 +79,27 @@ export async function buildShopWorkbook(shops: SiteInfo[]): Promise<Buffer> {
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
+/* The SDK's own timeout aborts the underlying request, unlike the hand-rolled
+   Promise.race it replaces, which left the request running and billable. It also
+   retries 429/5xx with backoff and honours Retry-After, so the pipeline does not
+   need to parse error strings to work out how long to wait. */
+const OPENAI_TIMEOUT_MS = 90_000;
+const OPENAI_MAX_RETRIES = 2;
+
 export class JobHandler {
   private static readonly CANCEL_TTL_MS = 1_500;
 
-  readonly ai: GoogleGenAI;
+  readonly ai: OpenAI;
 
   constructor(
     readonly id: string,
     readonly payload: Payload,
   ) {
-    this.ai = new GoogleGenAI({ apiKey: payload.geminiApiKey });
+    this.ai = new OpenAI({
+      apiKey: payload.openaiApiKey,
+      timeout: OPENAI_TIMEOUT_MS,
+      maxRetries: OPENAI_MAX_RETRIES,
+    });
   }
 
   static async create(payload: Payload): Promise<JobHandler> {

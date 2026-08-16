@@ -67,7 +67,7 @@ const links = [
   {
     index: "01",
     title: "Flybox",
-    description: "Finds local fly-fishing shops, identifies which ones publish fishing reports, and summarizes them with Google Gemini.",
+    description: "Finds local fly-fishing shops, identifies which ones publish fishing reports, and summarizes them with OpenAI.",
     href: "/docs?tab=Flybox",
   },
   {
@@ -78,9 +78,9 @@ const links = [
   },
   {
     index: "03",
-    title: "Gemini API",
+    title: "OpenAI API",
     description: "Reads and summarizes fishing reports from shop websites into a structured, easy-to-read format.",
-    href: "/docs?tab=Gemini API",
+    href: "/docs?tab=OpenAI API",
   },
 ];
 

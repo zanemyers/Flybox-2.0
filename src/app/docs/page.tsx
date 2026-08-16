@@ -4,7 +4,7 @@ import DocTabs from "@/client/components/docs/docTabs";
 
 export const metadata: Metadata = {
   title: "Docs — Flybox",
-  description: "Documentation for Flybox, including setup guides for SerpAPI and Google Gemini.",
+  description: "Documentation for Flybox, including setup guides for SerpAPI and OpenAI.",
 };
 
 export default function Docs() {

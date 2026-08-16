@@ -23,15 +23,15 @@ export default function TermsOfService() {
         <ul>
           <li>Business listings and metadata retrieved from Google Maps via third-party APIs (such as SerpAPI).</li>
           <li>Publicly available information from business websites, including contact details and fishing reports.</li>
-          <li>AI-generated summaries of fishing report content produced via Google Gemini.</li>
+          <li>AI-generated summaries of fishing report content produced via OpenAI.</li>
         </ul>
         <p>Flybox does not guarantee the accuracy, completeness, or timeliness of any information displayed.</p>
       </Clause>
 
       <Clause heading="API Keys and Third-Party Costs">
         <p>
-          Flybox encourages users to provide their own API keys for SerpAPI and Google Gemini to stay in control of their usage limits and any associated costs.
-          Flybox is not responsible for any charges incurred through your use of third-party APIs.
+          Flybox encourages users to provide their own API keys for SerpAPI and OpenAI to stay in control of their usage limits and any associated costs. Flybox
+          is not responsible for any charges incurred through your use of third-party APIs.
         </p>
       </Clause>
 
@@ -47,8 +47,8 @@ export default function TermsOfService() {
 
       <Clause heading="Data Sources and Third-Party Services">
         <p>
-          Flybox relies on third-party data providers including SerpAPI and Google Gemini, as well as publicly accessible websites. We are not affiliated with
-          Google, SerpAPI, or any listed businesses.
+          Flybox relies on third-party data providers including SerpAPI and OpenAI, as well as publicly accessible websites. We are not affiliated with Google,
+          SerpAPI, or any listed businesses.
         </p>
         <p>All trademarks, business names, and logos remain the property of their respective owners.</p>
       </Clause>

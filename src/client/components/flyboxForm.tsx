@@ -39,7 +39,7 @@ Rules:
 
 interface FormState {
   serpApiKey: string;
-  geminiApiKey: string;
+  openaiApiKey: string;
   searchTerm: string;
   latitude: number;
   longitude: number;
@@ -48,7 +48,7 @@ interface FormState {
 }
 
 /** Single source of truth for every non-secret default. */
-const DEFAULTS: Omit<FormState, "serpApiKey" | "geminiApiKey"> = {
+const DEFAULTS: Omit<FormState, "serpApiKey" | "openaiApiKey"> = {
   searchTerm: "Fly Fishing Shops",
   latitude: 44.427963,
   longitude: -110.588455,
@@ -70,7 +70,7 @@ function Section({ label, children }: { label: string; children: React.ReactNode
 export default function FlyboxForm() {
   const { jobId, submit, reset } = useForm();
 
-  const [form, setForm] = useState<FormState>({ serpApiKey: "", geminiApiKey: "", ...DEFAULTS });
+  const [form, setForm] = useState<FormState>({ serpApiKey: "", openaiApiKey: "", ...DEFAULTS });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
@@ -89,7 +89,7 @@ export default function FlyboxForm() {
   }, []);
 
   useEffect(() => {
-    const { serpApiKey: _s, geminiApiKey: _g, ...rest } = form;
+    const { serpApiKey: _s, openaiApiKey: _o, ...rest } = form;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(rest));
     } catch {
@@ -106,7 +106,7 @@ export default function FlyboxForm() {
     }
     setConfirmReset(false);
     localStorage.removeItem(STORAGE_KEY);
-    setForm((prev) => ({ serpApiKey: prev.serpApiKey, geminiApiKey: prev.geminiApiKey, ...DEFAULTS }));
+    setForm((prev) => ({ serpApiKey: prev.serpApiKey, openaiApiKey: prev.openaiApiKey, ...DEFAULTS }));
   };
 
   const handleSubmit = async () => {
@@ -161,10 +161,10 @@ export default function FlyboxForm() {
               />
               <TextInput
                 type="password"
-                label="Gemini API Key"
-                placeholder="Enter your Gemini API key"
-                value={form.geminiApiKey}
-                onChange={(v) => update("geminiApiKey", v)}
+                label="OpenAI API Key"
+                placeholder="Enter your OpenAI API key"
+                value={form.openaiApiKey}
+                onChange={(v) => update("openaiApiKey", v)}
               />
             </div>
           </Section>

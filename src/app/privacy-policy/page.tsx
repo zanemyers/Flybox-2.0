@@ -24,9 +24,8 @@ export default function PrivacyPolicy() {
 
       <Clause heading="API Keys">
         <p>
-          Flybox encourages users to provide their own third-party API keys (such as SerpAPI and Google Gemini) to stay in control of their usage limits and
-          costs. When provided, these keys are used only to make requests on your behalf during your session and are never stored, logged, or retained by
-          Flybox.
+          Flybox encourages users to provide their own third-party API keys (such as SerpAPI and OpenAI) to stay in control of their usage limits and costs.
+          When provided, these keys are used only to make requests on your behalf during your session and are never stored, logged, or retained by Flybox.
         </p>
       </Clause>
 

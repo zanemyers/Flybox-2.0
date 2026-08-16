@@ -1,5 +1,5 @@
 import { DocSection, ListBlock } from "@/client/components/docs";
-import { gaiApi, gaiHome, gaiKey, gaiLogin, gaiTerms, serpDash, serpHome, serpSub } from "@/client/images/docs";
+import { serpDash, serpHome, serpSub } from "@/client/images/docs";
 
 const serpSteps = [
   {
@@ -31,51 +31,55 @@ const serpSteps = [
   },
 ];
 
-const geminiSteps = [
+/* Text-only on purpose: the previous steps were screenshots of Google AI Studio,
+   which no longer match anything a user will see. */
+const openAiSteps = [
   {
     main: (
       <span>
         Go to{" "}
-        <a className="link link-primary" href="https://ai.google.dev/aistudio" target="_blank" rel="noopener noreferrer">
-          ai.google.dev
+        <a className="link link-primary" href="https://platform.openai.com/signup" target="_blank" rel="noopener noreferrer">
+          platform.openai.com
         </a>{" "}
-        and sign in with your Google account.
+        and sign in, or create an account.
       </span>
     ),
-    img: gaiLogin,
-    alt: "Login",
   },
   {
     main: (
       <span>
-        First-time users will see a welcome message; otherwise, click <code>Get API key</code>.
+        Open{" "}
+        <a className="link link-primary" href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">
+          API keys
+        </a>{" "}
+        from the dashboard sidebar.
       </span>
     ),
-    img: gaiHome,
-    alt: "Dashboard",
   },
   {
     main: (
       <span>
-        Accept the terms and conditions (first-time users only), then click <code>I accept</code>.
+        Click <code>Create new secret key</code>, give it a name such as <code>flybox</code>, and create it.
       </span>
     ),
-    img: gaiTerms,
-    alt: "Terms",
+    noteLabel: "Note",
+    note: "The key is shown once. Copy it before closing the dialog — you cannot view it again afterwards.",
   },
   {
     main: (
       <span>
-        Click <code>+ Create API key</code> or select an existing key.
+        Add credit under{" "}
+        <a className="link link-primary" href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" rel="noopener noreferrer">
+          Billing
+        </a>
+        . The API is not covered by a ChatGPT subscription and will return a quota error without it.
       </span>
     ),
-    img: gaiApi,
-    alt: "API Keys",
+    noteLabel: "Tip",
+    note: "Set a monthly usage limit at the same time. A Flybox run summarizes once, so the cost per run is a fraction of a cent.",
   },
   {
-    main: "Copy your API key and keep it safe.",
-    img: gaiKey,
-    alt: "API Key",
+    main: "Paste the key into the OpenAI API Key field in Flybox.",
   },
 ];
 
@@ -94,16 +98,16 @@ export function SerpApiDoc() {
   );
 }
 
-export function GeminiApiDoc() {
+export function OpenAiDoc() {
   return (
     <>
-      <h1>Gemini API</h1>
+      <h1>OpenAI API</h1>
       <p className="prose-measure mt-3">
-        Flybox uses <strong>Google Gemini</strong> to summarize fishing reports. You&apos;ll need a free API key to run Flybox.
+        Flybox uses <strong>OpenAI</strong> to summarize fishing reports. You&apos;ll need an API key with billing enabled to run Flybox.
       </p>
       <hr />
-      <DocSection title="Get Your Gemini API Key">
-        <ListBlock items={geminiSteps} ordered />
+      <DocSection title="Get Your OpenAI API Key">
+        <ListBlock items={openAiSteps} ordered />
       </DocSection>
     </>
   );

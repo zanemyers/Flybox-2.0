@@ -125,9 +125,18 @@ const MAX_DEPTH = 20;
 const TOKEN_CHAR_LIMIT = 50_000;
 const MIN_SITE_CHAR_BUDGET = 4_000;
 const MAX_CRAWL_DELAY_SEC = 5;
-const GEMINI_MODEL = "gemini-2.5-flash";
-const GEMINI_FALLBACK_MODEL = "gemini-2.5-flash-lite";
-const GEMINI_TIMEOUT_MS = 60_000;
+/* Luna is the cheap tier and this is structured extraction, not reasoning, so
+   reasoning effort is pinned OFF — reasoning tokens bill at the output rate and
+   the family defaults to a non-zero effort. Terra is the escape hatch: it only
+   runs if Luna has already failed every SDK retry, and it costs ~10x, so it must
+   never become the default path. */
+const OPENAI_MODEL = "gpt-5.6-luna";
+const OPENAI_FALLBACK_MODEL = "gpt-5.6-terra";
+const OPENAI_REASONING_EFFORT = "none" as const;
+
+/* Output is the majority of the per-call cost, and an unbounded digest on a
+   pathological run is the one way this gets expensive. */
+const MAX_OUTPUT_TOKENS = 6_000;
 
 /* Report content is not always filed under a fishing word. On a real crawl of
    northplatteflyfishing.com the reports lived at /news, so matching only
@@ -265,44 +274,54 @@ async function crawlSite(baseUrl: string, browser: StealthBrowser, charBudget: n
   return chunks.join("\n\n");
 }
 
-export function getRetryDelay(err: unknown): number | null {
-  const msg = String(err);
-  if (msg.includes("503") || msg.includes("UNAVAILABLE")) return 30_000;
-  if (!msg.includes("429") && !msg.includes("RESOURCE_EXHAUSTED")) return null;
-  const match = msg.match(/"retryDelay"\s*:\s*"(\d+)s"/);
-  return match ? Number(match[1]) * 1000 : 30_000;
+/* The SDK already retried 429s and 5xxs with backoff before throwing, so by the
+   time an error reaches us the question is only whether a DIFFERENT model could
+   succeed. It could not for auth, quota, or a malformed request — those fail the
+   same way on every model, and retrying just wastes time and money. */
+export function shouldTryFallback(err: unknown): boolean {
+  const status = (err as { status?: number })?.status;
+  if (typeof status === "number") {
+    if (status === 401 || status === 403) return false; // bad or unauthorised key
+    if (status === 400 || status === 422) return false; // malformed request
+    if (status === 404) return true; // model not available to this account
+    if (status === 429) return true; // rate/quota — a different model may have room
+    return status >= 500; // transient upstream
+  }
+  // No status: a connection error or an aborted timeout. Worth one other attempt.
+  return true;
 }
 
 async function summarize(prompt: string, job: JobHandler): Promise<string | null> {
-  async function tryModel(model: string): Promise<string | null> {
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const res = await Promise.race([
-          job.ai.models.generateContent({ model, contents: prompt }),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("503 Gemini request timed out")), GEMINI_TIMEOUT_MS)),
-        ]);
-        // An empty body is not a summary. Returning "" counted as success, which
-        // skipped the lite-model fallback and shipped an empty report.
-        const text = res.text?.trim();
-        if (text) return text;
-        await job.log(`[!!] Gemini returned an empty response (${model}, attempt ${attempt}/2).`);
-      } catch (err) {
-        await job.log(`[!!] Gemini error (${model}, attempt ${attempt}/2): ${String(err)}`);
-        const retryMs = getRetryDelay(err);
-        if (retryMs === null) return null;
-        if (attempt < 2) {
-          await job.log(`[..] Gemini unavailable — retrying in ${Math.ceil(retryMs / 1000)}s (attempt ${attempt}/2)…`);
-          await new Promise((r) => setTimeout(r, retryMs));
-        }
+  async function tryModel(model: string): Promise<{ text: string | null; err: unknown }> {
+    try {
+      const res = await job.ai.responses.create({
+        model,
+        input: prompt,
+        max_output_tokens: MAX_OUTPUT_TOKENS,
+        reasoning: { effort: OPENAI_REASONING_EFFORT },
+      });
+
+      if (res.status === "incomplete" && res.incomplete_details?.reason === "max_output_tokens") {
+        await job.log(`[!!] ${model} hit the ${MAX_OUTPUT_TOKENS}-token output cap; the summary may be truncated.`);
       }
+
+      // An empty body is not a summary — returning "" would skip the fallback.
+      const text = res.output_text?.trim();
+      if (text) return { text, err: null };
+      await job.log(`[!!] ${model} returned an empty response.`);
+      return { text: null, err: null };
+    } catch (err) {
+      await job.log(`[!!] ${model} failed: ${String(err)}`);
+      return { text: null, err };
     }
-    return null;
   }
 
-  const result = await tryModel(GEMINI_MODEL);
-  if (result !== null) return result;
-  await job.log(`[!!] ${GEMINI_MODEL} unavailable — falling back to ${GEMINI_FALLBACK_MODEL}…`);
-  return tryModel(GEMINI_FALLBACK_MODEL);
+  const primary = await tryModel(OPENAI_MODEL);
+  if (primary.text) return primary.text;
+  if (primary.err !== null && !shouldTryFallback(primary.err)) return null;
+
+  await job.log(`[..] Falling back to ${OPENAI_FALLBACK_MODEL}…`);
+  return (await tryModel(OPENAI_FALLBACK_MODEL)).text;
 }
 
 async function reportPhase(reportShops: SiteInfo[], job: JobHandler, browser: StealthBrowser): Promise<string> {
@@ -352,12 +371,12 @@ async function reportPhase(reportShops: SiteInfo[], job: JobHandler, browser: St
     await job.log(`[!!] Prompt budget reached — ${included} of ${texts.length} crawled site(s) fit in the summary request.`);
   }
 
-  await job.log(`[..] Summarizing ${included} site(s) with Gemini…`);
+  await job.log(`[..] Summarizing ${included} site(s) with ${OPENAI_MODEL}…`);
   const summary = await summarize(`${job.payload.summaryPrompt}\n\n${combined}`, job);
 
   if (!summary) {
-    await job.log("[!!] Gemini unavailable — returning raw crawled text.");
-    return `[Gemini unavailable]\n\n${combined}`;
+    await job.log("[!!] Summarization unavailable — returning raw crawled text.");
+    return `[Summarization unavailable]\n\n${combined}`;
   }
 
   await job.log("[OK] Summary complete.");

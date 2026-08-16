@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import type { ComponentType, ReactNode } from "react";
-import { GeminiApiDoc, SerpApiDoc } from "@/client/components/docs/apiKeyDocs";
+import { OpenAiDoc, SerpApiDoc } from "@/client/components/docs/apiKeyDocs";
 import FlyboxDoc from "@/client/components/docs/flybox";
 
 interface TabDef {
@@ -13,7 +13,7 @@ interface TabDef {
 const TABS: TabDef[] = [
   { label: "Flybox", component: FlyboxDoc },
   { label: "SerpAPI", component: SerpApiDoc },
-  { label: "Gemini API", component: GeminiApiDoc },
+  { label: "OpenAI API", component: OpenAiDoc },
 ];
 
 function Tab({ label, defaultChecked, children }: { label: string; defaultChecked: boolean; children: ReactNode }) {

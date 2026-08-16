@@ -20,7 +20,7 @@ services:
       DATABASE_URL: postgresql://flybox:flybox@db:5432/flybox
       DIRECT_URL: postgresql://flybox:flybox@db:5432/flybox
       SERP_API_KEY: ${SERP_API_KEY}
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
       RUN_HEADLESS: "true"
     ports:
       - "3000:3000"
