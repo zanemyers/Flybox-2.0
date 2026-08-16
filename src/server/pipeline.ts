@@ -129,9 +129,38 @@ const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_FALLBACK_MODEL = "gemini-2.5-flash-lite";
 const GEMINI_TIMEOUT_MS = 60_000;
 
-const CRAWL_KEYWORDS = ["report", "fishing", "fish", "conditions", "hatch", "fly"];
+/* Report content is not always filed under a fishing word. On a real crawl of
+   northplatteflyfishing.com the reports lived at /news, so matching only
+   fishing vocabulary skipped the one page that mattered. The section words
+   below are what shops actually use for their report archives. */
+const CRAWL_KEYWORDS = ["report", "fishing", "fish", "conditions", "hatch", "fly", "river", "stream", "creek", "water", "news", "blog", "journal", "update"];
 const CRAWL_JUNK_WORDS = ["/page/", "/tag/", "/category/", "?page=", "wp-admin", "/feed/"];
 const CRAWL_CLICK_PHRASES = ["read more", "view report", "see report", "full report", "more info", "learn more"];
+
+/* Paths that never carry a fishing report however the site is organised. The
+   privacy policy alone was 20% of one real 50,000-char payload. */
+const CRAWL_EXCLUDE = [
+  "privacy",
+  "terms",
+  "policy",
+  "legal",
+  "disclaimer",
+  "cart",
+  "checkout",
+  "account",
+  "login",
+  "register",
+  "wp-content",
+  "wp-json",
+  "returns",
+  "shipping",
+  "gift-card",
+];
+
+/* Non-HTML assets. A PDF fetched and handed to cheerio comes back as binary
+   noise: one real payload was 39% a single PATHFINDER_INFOSHEET.pdf, complete
+   with %PDF/endstream/endobj markers. */
+const BINARY_EXT = /\.(pdf|docx?|xlsx?|pptx?|zip|rar|gz|tar|jpe?g|png|gif|webp|svg|ico|mp4|mp3|wav|avi|mov|css|js)$/i;
 
 /** Path + query of a URL, or the input unchanged if it will not parse. Keyword
     matching must not see the hostname: on flyshop.com every link contains "fly". */
@@ -144,8 +173,22 @@ function urlPath(url: string): string {
   }
 }
 
+/** Pathname alone, with no query — for extension tests. */
+function urlPathname(url: string): string {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return url;
+  }
+}
+
 export function getPriority(currentUrl: string, href: string, text: string): number {
   const hrefPath = urlPath(href);
+
+  // Cheap, absolute exclusions first — these are never worth a fetch.
+  if (BINARY_EXT.test(urlPathname(href))) return Infinity;
+  if (includesAny(hrefPath, CRAWL_EXCLUDE)) return Infinity;
+
   const hasKeyword = includesAny(hrefPath, CRAWL_KEYWORDS);
   const hasJunk = includesAny(hrefPath, CRAWL_JUNK_WORDS);
   const hasClickPhrase = includesAny(text, CRAWL_CLICK_PHRASES);
@@ -190,8 +233,22 @@ async function crawlSite(baseUrl: string, browser: StealthBrowser, charBudget: n
     const $ = cheerio.load(result.html);
     const text = scrapeVisibleText($);
     if (text) {
-      chunks.push(`--- ${url} ---\n${text}`);
-      totalChars += text.length;
+      /* Add whole pages only. Slicing the joined result cut the last page off
+         mid-sentence, which is worse than simply not including it. If even the
+         first page overflows we keep a word-boundary-trimmed prefix, because
+         some content beats none. */
+      const chunk = `--- ${url} ---\n${text}`;
+      if (totalChars + chunk.length <= charBudget) {
+        chunks.push(chunk);
+        totalChars += chunk.length;
+      } else if (chunks.length === 0) {
+        const room = charBudget - `--- ${url} ---\n`.length;
+        const cut = text.slice(0, Math.max(0, room));
+        chunks.push(`--- ${url} ---\n${cut.slice(0, cut.lastIndexOf(" ") + 1 || cut.length).trimEnd()}`);
+        break;
+      } else {
+        break;
+      }
     }
 
     if (depth < MAX_DEPTH) {
@@ -205,7 +262,7 @@ async function crawlSite(baseUrl: string, browser: StealthBrowser, charBudget: n
     }
   }
 
-  return chunks.join("\n\n").slice(0, charBudget);
+  return chunks.join("\n\n");
 }
 
 export function getRetryDelay(err: unknown): number | null {

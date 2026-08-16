@@ -5,6 +5,7 @@
    changed to match on the URL path instead of the whole absolute URL. */
 import { describe, expect, it } from "vitest";
 import { filterShopsByRivers, getPriority, getRetryDelay, paginateShops, SERP_MAX_PAGES } from "@/server/pipeline";
+import { normalizeUrl } from "@/server/scraper";
 
 // ── getRetryDelay ──────────────────────────────────────────────────────────────
 
@@ -239,5 +240,55 @@ describe("paginateShops — how many SerpAPI searches a run costs", () => {
     expect(r.shops).toHaveLength(0);
     expect(r.searchesSpent).toBe(0);
     expect(r.stoppedEarly).toBe(true);
+  });
+});
+
+// ── Crawl targeting, pinned to a real payload ──────────────────────────────────
+// These paths and sizes come from an actual 50,020-char run against
+// northplatteflyfishing.com, where a PDF and the privacy policy consumed 60% of
+// the budget and the reports at /news were the content that mattered.
+
+const REAL_BASE = "https://northplatteflyfishing.com/grey-reef";
+const link = (path: string, text = "Read more") => getPriority(REAL_BASE, `https://northplatteflyfishing.com${path}`, text);
+
+describe("getPriority — against the pages from a real crawl", () => {
+  it("crawls the report archive even though /news has no fishing word", () => {
+    expect(link("/news")).toBeLessThan(Infinity);
+    for (const p of ["/blog", "/fishing-report", "/river-conditions", "/journal", "/updates"]) {
+      expect(link(p)).toBeLessThan(Infinity);
+    }
+  });
+
+  it("excludes the PDF that was 39% of the real payload", () => {
+    expect(link("/wp-content/uploads/2021/09/PATHFINDER_INFOSHEET.pdf")).toBe(Infinity);
+  });
+
+  it("excludes the privacy policy that was 20% of the real payload", () => {
+    expect(link("/privacy-policy")).toBe(Infinity);
+  });
+
+  it("excludes other binaries and boilerplate regardless of keywords in the name", () => {
+    for (const p of ["/fishing-report.pdf", "/fly-photo.jpg", "/river-map.zip", "/terms-of-service", "/cart", "/checkout", "/my-account"]) {
+      expect(link(p)).toBe(Infinity);
+    }
+  });
+
+  it("still ignores keywords that appear only in the hostname", () => {
+    expect(getPriority("https://flyfishingshop.test/", "https://flyfishingshop.test/about-us", "About")).toBe(Infinity);
+  });
+});
+
+describe("normalizeUrl — tracking parameters", () => {
+  it("dedupes the utm variant against the clean URL", () => {
+    const utm = normalizeUrl("https://northplatteflyfishing.com/grey-reef/?utm_source=local&utm_medium=organic&utm_campaign=grey_reef&utm_id=GMB");
+    expect(utm).toBe(normalizeUrl("https://northplatteflyfishing.com/grey-reef"));
+  });
+
+  it("keeps parameters that actually select content", () => {
+    expect(normalizeUrl("https://shop.test/reports?year=2026")).toContain("year=2026");
+  });
+
+  it("strips the common ad-click ids too", () => {
+    expect(normalizeUrl("https://shop.test/news?fbclid=abc&gclid=def")).toBe("https://shop.test/news");
   });
 });

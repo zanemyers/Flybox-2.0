@@ -99,10 +99,18 @@ export function includesAny(target: string, terms: string[]): boolean {
   return terms.some((t) => lower.includes(t));
 }
 
+/* Tracking parameters do not change the page, but they do change the string, so
+   /grey-reef and /grey-reef?utm_source=local were crawled and billed as two
+   separate pages in a real run. */
+const TRACKING_PARAMS = /^(utm_|fbclid$|gclid$|msclkid$|mc_cid$|mc_eid$|_ga$|ref$|source$)/i;
+
 export function normalizeUrl(url: string): string {
   try {
     const u = new URL(url);
     u.hash = "";
+    for (const key of [...u.searchParams.keys()]) {
+      if (TRACKING_PARAMS.test(key)) u.searchParams.delete(key);
+    }
     return u.href.replace(/\/$/, "");
   } catch {
     return url;
