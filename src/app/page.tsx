@@ -26,14 +26,6 @@ const steps = [
   </>,
 ];
 
-const outputs = [
-  {
-    name: "report_summary.txt",
-    text: "Fishing reports from every shop that publishes them, grouped by body of water — or the raw crawled text if you turn summarization off.",
-  },
-  { name: "shop_details.xlsx", text: "Every shop found: name, website, address, phone, rating, email, socials, and whether it sells online or posts reports." },
-];
-
 export default function Home() {
   return (
     <div className="shell">
@@ -78,19 +70,6 @@ export default function Home() {
               </Link>
               .
             </p>
-          </section>
-
-          <section>
-            <span className="eyebrow">What you get</span>
-            <hr className="my-2" />
-            <ul className="ms-0 list-none divide-y divide-rule">
-              {outputs.map(({ name, text }) => (
-                <li key={name} className="py-2">
-                  <span className="readout block text-xs text-mark">{name}</span>
-                  <span className="mt-0.5 block text-sm text-base-content/70">{text}</span>
-                </li>
-              ))}
-            </ul>
           </section>
         </div>
       </div>
