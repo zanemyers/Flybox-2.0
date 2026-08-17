@@ -43,8 +43,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* The form comes first in DOM order so a phone gets the tool, not the essay;
-          lg puts the explainer back on the left. */}
       {/* DOM order is visual order at every width — no `order` utilities. The form
           comes first because it is the task, and it keeps the wider track. Reversing
           them at lg made keyboard focus jump back up-and-left after the last field. */}
@@ -55,7 +53,7 @@ export default function Home() {
 
         <div className="flex min-w-0 flex-col gap-8 lg:sticky lg:top-20 lg:self-start">
           <section>
-            <span className="eyebrow">How it runs</span>
+            <h2 className="eyebrow">How it runs</h2>
             <hr className="my-2" />
             {/* The numerals are decorative — the list already numbers itself. */}
             {/* biome-ignore lint/a11y/noRedundantRoles: not redundant here — WebKit drops list semantics when list-style is none, and role="list" restores them */}

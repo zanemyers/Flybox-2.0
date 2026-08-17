@@ -112,7 +112,7 @@ export default async function Runs() {
 
           {rest.length > 0 && (
             <section className="mt-10">
-              <span className="eyebrow">Earlier</span>
+              <h2 className="eyebrow">Earlier</h2>
               <hr className="my-2" />
               <ul className="ms-0 list-none divide-y divide-rule">
                 {rest.map((run) => (

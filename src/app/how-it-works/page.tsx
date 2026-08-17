@@ -126,7 +126,7 @@ export default function HowItWorks() {
       </ol>
 
       <section className="mt-12">
-        <span className="eyebrow">The two files</span>
+        <h2 className="eyebrow">The two files</h2>
         <hr className="my-2" />
         <div className="grid gap-6 md:grid-cols-2">
           <div>

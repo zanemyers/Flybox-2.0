@@ -102,7 +102,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 <span className="h-4 w-px bg-rule" />
                 <div className="flex items-center gap-3">
                   {socialLinks.map(({ name, href, icon: Icon }) => (
-                    <a key={name} href={href} target="_blank" rel="noopener noreferrer" className="icon-btn" aria-label={name}>
+                    <a key={name} href={href} className="icon-btn" aria-label={name}>
                       <Icon className="size-4" />
                     </a>
                   ))}

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import type React from "react";
-import { FiArrowRight } from "react-icons/fi";
+import type { ReactNode } from "react";
+import { FiArrowRight, FiExternalLink } from "react-icons/fi";
 import { idea, important, serve } from "@/client/images/about";
 
 export const metadata: Metadata = {
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 const RescueRiver = () => (
-  <a className="link link-primary" href="https://rescueriver.com/" target="_blank" rel="noopener noreferrer">
+  <a className="link link-primary" href="https://rescueriver.com/">
     Rescue River
   </a>
 );
@@ -21,47 +21,38 @@ function Feature({
   heading,
   children,
   img,
-  alt,
   reverse = false,
+  priority = false,
 }: {
   index: string;
   heading: string;
-  children: React.ReactNode;
+  children: ReactNode;
   img: Parameters<typeof Image>[0]["src"];
-  alt: string;
   reverse?: boolean;
+  priority?: boolean;
 }) {
   return (
-    <section className={`flex flex-col items-center gap-8 py-12 ${reverse ? "md:flex-row-reverse" : "md:flex-row"}`}>
-      <div className="w-full">
-        {/* The line art is dark ink on white, so it sits on a paper plate in BOTH
-            themes — the old in-data-[theme=dark]:invert mix-blend-screen hack
-            mangled the artwork instead of framing it. In dark mode the plate AND
-            the image's own baked-in white background are dimmed together with one
-            filter on the wrapper, so a glaring white rectangle becomes a soft gray
-            card. brightness alone keeps hue intact and scales ink and paper by the
-            same factor, so the drawing's internal contrast is unchanged. Light mode
-            gets no filter at all. */}
-        <div className="rounded-field border border-rule bg-[oklch(97.5%_0.008_92)] p-4 in-data-[theme=dark]:brightness-[0.6]">
-          <Image src={img} alt={alt} className="h-auto max-w-full" />
+    <div className={`flex flex-col items-center gap-8 py-12 ${reverse ? "md:flex-row-reverse" : "md:flex-row"}`}>
+      <div className="w-full max-w-sm md:w-2/5 md:max-w-none">
+        {/* bg-white, not a theme token — it matches the JPEGs' own background, so object-contain leaves no seam. */}
+        <div className="rounded-field border border-rule bg-white p-4 in-data-[theme=dark]:opacity-50">
+          <Image
+            src={img}
+            alt=""
+            priority={priority}
+            sizes="(min-width: 1152px) 400px, (min-width: 768px) 40vw, 350px"
+            className="aspect-4/3 w-full object-contain"
+          />
         </div>
-        <a
-          href="https://www.freepik.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-1.5 block text-center text-xs text-base-content/70 no-underline hover:text-base-content"
-        >
-          Designed by Dooder / Freepik
-        </a>
       </div>
-      <div className="w-full">
-        {/* Numerals are salmon app-wide: same pattern as the home steps and the
-            links list below. .eyebrow would render them muted gray. */}
-        <span className="readout text-micro text-mark">{index}</span>
-        <h3 className="mt-1.5">{heading}</h3>
-        <div className="mt-3 max-w-[62ch] space-y-3">{children}</div>
+      <div className="w-full md:w-3/5">
+        <span aria-hidden="true" className="readout text-micro text-mark">
+          {index}
+        </span>
+        <h2 className="mt-1.5 text-xl">{heading}</h2>
+        <div className="prose-measure mt-3 space-y-3">{children}</div>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -83,13 +74,13 @@ const links = [
 export default function About() {
   return (
     <div className="shell py-12">
-      <section>
+      <div>
         <span className="eyebrow">About</span>
         <h1 className="mt-2 max-w-[52ch]">Helping you stay informed and ready for your next fly-fishing adventure.</h1>
         <hr className="mt-8 mb-0" />
-      </section>
+      </div>
 
-      <Feature index="01" img={idea} alt="Illustration of a person with an idea" heading="Where the idea came from">
+      <Feature index="01" img={idea} heading="Where the idea came from" priority>
         <p>
           Flybox started as an idea by one of <RescueRiver />
           &apos;s founders, both to help with marketing — so they could know which flies to make, what colors to use, and where to promote certain flies — and
@@ -97,7 +88,7 @@ export default function About() {
         </p>
       </Feature>
 
-      <Feature index="02" img={important} alt="Illustration of a person with a megaphone" heading="Why it matters" reverse>
+      <Feature index="02" img={important} heading="Why it matters" reverse priority>
         <p>Fly-fishing information is often scattered, incomplete, or outdated. Flybox consolidates up-to-date information, helping users:</p>
         <ul>
           <li>Locate shops quickly and accurately.</li>
@@ -106,7 +97,7 @@ export default function About() {
         </ul>
       </Feature>
 
-      <Feature index="03" img={serve} alt="Illustration of two people in conversation" heading="Who we serve">
+      <Feature index="03" img={serve} heading="Who we serve">
         <p>
           First and foremost, Flybox supports <RescueRiver />
           &apos;s mission to bring hope and healing to survivors of trafficking and exploitation. By organizing fly-fishing data, we help them choose which
@@ -115,30 +106,47 @@ export default function About() {
         </p>
       </Feature>
 
-      <section className="mt-4 border-t border-rule pt-8">
-        <span className="eyebrow">Learn how it works</span>
+      {/* Magnific's free license requires this attribution, worded and linked as they specify. */}
+      <p className="text-xs text-base-content/70">
+        Illustrations designed by{" "}
+        <a className="underline underline-offset-2 hover:text-base-content" href="https://www.magnific.com">
+          Magnific
+        </a>
+        .
+      </p>
+
+      <div className="mt-8 border-t border-rule pt-8">
+        <h2 className="eyebrow">Read next</h2>
         <ul className="ms-0 mt-3 list-none divide-y divide-rule">
-          {links.map(({ index, title, description, href }) => (
-            <li key={title}>
-              <Link
-                href={href}
-                {...(href.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                className="group flex items-baseline gap-4 py-4"
-              >
-                <span className="readout text-micro text-mark">{index}</span>
-                <span className="flex-1">
-                  <span className="block font-semibold">{title}</span>
-                  <span className="block text-sm text-base-content/70">{description}</span>
-                </span>
-                <span className="flex shrink-0 items-center gap-1.5 text-sm text-primary">
-                  Read more
-                  <FiArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-                </span>
-              </Link>
-            </li>
-          ))}
+          {links.map(({ index, title, description, href }) => {
+            const external = href.startsWith("http");
+            return (
+              <li key={title}>
+                <Link href={href} className="group flex items-baseline gap-4 py-4">
+                  <span aria-hidden="true" className="readout text-micro text-mark">
+                    {index}
+                  </span>
+                  <span className="flex-1">
+                    <span className="block font-semibold">{title}</span>
+                    <span className="block text-sm text-base-content/70">{description}</span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1.5 text-sm text-primary">
+                    Read more
+                    {external ? (
+                      <>
+                        <span className="sr-only">(external site)</span>
+                        <FiExternalLink className="size-3.5" />
+                      </>
+                    ) : (
+                      <FiArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+                    )}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
-      </section>
+      </div>
     </div>
   );
 }

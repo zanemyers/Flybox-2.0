@@ -130,7 +130,7 @@ export default function StatusPanel({ jobId, onClose }: { jobId: string; onClose
     <div className={`panel border-l-2 ${spineClass}`}>
       <div className="panel-head">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="eyebrow">Progress</span>
+          <h2 className="eyebrow">Progress</h2>
           <span className="readout text-micro max-w-[12ch] truncate text-base-content/70" title={jobId}>
             {jobId}
           </span>
