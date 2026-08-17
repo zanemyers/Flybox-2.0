@@ -45,20 +45,27 @@ export default function Home() {
 
       {/* The form comes first in DOM order so a phone gets the tool, not the essay;
           lg puts the explainer back on the left. */}
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,4fr)_minmax(0,6fr)]">
-        <div className="lg:order-2">
+      {/* DOM order is visual order at every width — no `order` utilities. The form
+          comes first because it is the task, and it keeps the wider track. Reversing
+          them at lg made keyboard focus jump back up-and-left after the last field. */}
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,6fr)_minmax(0,4fr)]">
+        <div className="min-w-0">
           <FlyboxForm />
         </div>
 
-        <div className="flex flex-col gap-8 lg:sticky lg:top-20 lg:order-1 lg:self-start">
+        <div className="flex min-w-0 flex-col gap-8 lg:sticky lg:top-20 lg:self-start">
           <section>
             <span className="eyebrow">How it runs</span>
             <hr className="my-2" />
-            <ol className="ms-0 grid list-none grid-cols-[2.5rem_1fr] divide-y divide-rule">
+            {/* The numerals are decorative — the list already numbers itself. */}
+            {/* biome-ignore lint/a11y/noRedundantRoles: not redundant here — WebKit drops list semantics when list-style is none, and role="list" restores them */}
+            <ol className="ms-0 grid list-none grid-cols-[2.5rem_1fr] divide-y divide-rule" role="list">
               {steps.map((step, i) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: ordered steps, index IS the identity
                 <li key={i} className="col-span-2 grid grid-cols-subgrid items-baseline py-2">
-                  <span className="readout text-micro text-mark">{String(i + 1).padStart(2, "0")}</span>
+                  <span aria-hidden="true" className="readout text-micro text-mark">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
                   <span className="text-sm">{step}</span>
                 </li>
               ))}

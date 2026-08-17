@@ -47,8 +47,8 @@ export default function Header() {
           <span className="eyebrow hidden sm:inline">/ Rescue River</span>
         </Link>
 
-        <nav className="flex h-full items-center gap-3 sm:gap-5">
-          <ul className="flex h-full list-none items-stretch gap-3 sm:gap-5">
+        <nav className="flex h-full min-w-0 items-center gap-3 sm:gap-5">
+          <ul className="flex h-full min-w-0 list-none items-stretch gap-3 overflow-x-auto overflow-y-hidden whitespace-nowrap sm:gap-5 sm:overflow-visible">
             {navLinks.map(({ label, href }) => {
               const active = currentPath === href;
               return (
@@ -59,16 +59,25 @@ export default function Header() {
                     className={`eyebrow relative flex h-full items-center transition-colors hover:text-primary ${active ? "text-primary" : ""}`}
                   >
                     {label}
-                    {active && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-primary" />}
+                    {active && <span className="absolute inset-x-0 bottom-0 h-0.5 bg-primary" />}
                   </Link>
                 </li>
               );
             })}
           </ul>
           <span className="hidden h-4 w-px bg-rule sm:block" />
-          <button type="button" onClick={toggleTheme} className="icon-btn" aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}>
-            <FiSun className={`col-start-1 row-start-1 size-4 transition-opacity ${dark ? "opacity-100" : "opacity-0"}`} />
-            <FiMoon className={`col-start-1 row-start-1 size-4 transition-opacity ${dark ? "opacity-0" : "opacity-100"}`} />
+          {/* aria-pressed carries the state; the icons cross-fade in one grid cell
+              so the button never changes size, and both are hidden from AT since
+              the label already says what pressing will do. */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-pressed={dark}
+            className="icon-btn"
+            aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
+          >
+            <FiSun aria-hidden="true" className={`col-start-1 row-start-1 size-4 transition-opacity ${dark ? "opacity-100" : "opacity-0"}`} />
+            <FiMoon aria-hidden="true" className={`col-start-1 row-start-1 size-4 transition-opacity ${dark ? "opacity-0" : "opacity-100"}`} />
           </button>
         </nav>
       </div>

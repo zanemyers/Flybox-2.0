@@ -111,22 +111,32 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
   return (
     <div className="w-full">
       {/* items-end is what aligns the button against the labeled readouts — keep it. */}
+      {/* Position is the one required input, but it is two spans and a button —
+          nothing announced when it changed. */}
+      <output aria-live="polite" className="sr-only">
+        Position {fmt(latitude)}, {fmt(longitude)}
+      </output>
       <div className="well grid grid-cols-[1fr_1fr_auto] items-end gap-x-3">
         <div>
           <span className="eyebrow mb-1 block">Latitude</span>
-          <span className="readout block text-sm text-primary">{fmt(latitude)}</span>
+          <span className="readout block text-sm text-accent">{fmt(latitude)}</span>
         </div>
         <div>
           <span className="eyebrow mb-1 block">Longitude</span>
-          <span className="readout block text-sm text-primary">{fmt(longitude)}</span>
+          <span className="readout block text-sm text-accent">{fmt(longitude)}</span>
         </div>
-        <button type="button" className="btn btn-square btn-ghost size-10 border border-stroke" onClick={() => setShow(true)} aria-label="Pick location on map">
+        <button
+          type="button"
+          className="btn btn-square btn-ghost size-10 border border-stroke"
+          onClick={() => setShow(true)}
+          aria-label={`Pick location on map. Currently ${fmt(latitude)}, ${fmt(longitude)}`}
+        >
           <FiCrosshair className="size-4 text-primary" />
         </button>
       </div>
 
       <dialog ref={dialogRef} className="modal" onClose={() => setShow(false)}>
-        <div className="modal-box panel max-h-dvh w-full max-w-none overflow-y-auto rounded-none bg-base-200 p-0 sm:w-11/12 sm:max-w-3xl sm:rounded-box">
+        <div className="modal-box panel max-h-dvh w-full max-w-none overflow-y-auto rounded-none bg-base-200 p-0 shadow-none sm:w-11/12 sm:max-w-3xl sm:rounded-box">
           <div className="panel-head">
             <span className="eyebrow">Select position</span>
             <button type="button" className="icon-btn" aria-label="Close" onClick={() => setShow(false)}>
@@ -165,7 +175,7 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
           <MapContainer
             center={position}
             zoom={10}
-            style={{ height: "clamp(20rem, 55vh, 28rem)", width: "100%" }}
+            style={{ height: "clamp(12rem, calc(100dvh - 13rem), 28rem)", width: "100%" }}
             maxBounds={[
               [-90, -180],
               [90, 180],
@@ -189,8 +199,8 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
             <FlyToLocation target={flyTo} />
           </MapContainer>
 
-          <div className="flex min-h-12 items-center justify-between gap-3 border-t border-rule px-4 sm:px-5">
-            <span className="readout text-xs text-primary">
+          <div className="panel-head border-t border-b-0">
+            <span className="readout whitespace-nowrap text-xs text-accent">
               {fmt(position[0])}, {fmt(position[1])}
             </span>
             <button type="button" className="btn btn-primary btn-sm" onClick={() => setShow(false)}>

@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { HookMark } from "@/client/components/brand";
 import TagInput from "@/client/components/inputs/tagInput";
 import StatusPanel from "@/client/components/statusPanel";
@@ -48,6 +48,17 @@ export default function FlyboxForm() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  /* Closing the status panel unmounts it and remounts this form; without this
+     focus lands on <body> and the keyboard user loses their place. Gated on the
+     close action so it never steals focus on a normal page load. */
+  const [returnedFromRun, setReturnedFromRun] = useState(false);
+
+  useEffect(() => {
+    if (!returnedFromRun) return;
+    formRef.current?.focus();
+    setReturnedFromRun(false);
+  }, [returnedFromRun]);
 
   useEffect(() => {
     // Corrupt JSON here used to throw inside the effect and blank the whole page.
@@ -81,6 +92,7 @@ export default function FlyboxForm() {
   };
 
   const handleSubmit = async () => {
+    if (submitting) return;
     setSubmitting(true);
     setSubmitError("");
     try {
@@ -98,6 +110,7 @@ export default function FlyboxForm() {
         onClose={() => {
           reset();
           setSubmitting(false);
+          setReturnedFromRun(true);
         }}
       />
     );
@@ -106,9 +119,12 @@ export default function FlyboxForm() {
   return (
     <div className="flex flex-col gap-3">
       <form
+        ref={formRef}
         id="flybox-form"
+        aria-labelledby="run-config"
+        tabIndex={-1}
         noValidate
-        className="panel"
+        className="panel focus:outline-none"
         onSubmit={(e) => {
           e.preventDefault();
           if (e.currentTarget.checkValidity()) handleSubmit();
@@ -116,8 +132,13 @@ export default function FlyboxForm() {
         }}
       >
         <div className="panel-head">
-          <span className="eyebrow">Run configuration</span>
-          <span className="readout text-micro text-base-content/70">FB-01</span>
+          <h2 id="run-config" className="eyebrow">
+            Run configuration
+          </h2>
+          {/* aria-hidden: instrument-panel decoration, not a job id or a version. */}
+          <span aria-hidden="true" className="readout text-micro uppercase tracking-[0.08em] text-base-content/70">
+            FB-01
+          </span>
         </div>
 
         <div className="panel-body">
@@ -134,23 +155,29 @@ export default function FlyboxForm() {
           </Section>
 
           <Section>
-            <label htmlFor="summarize" className="flex cursor-pointer items-start gap-3">
+            {/* The helper text is a description, not part of the name. Inside the
+                <label> it became the accessible name, which then changed wholesale
+                every time the toggle flipped. */}
+            <div className="flex items-start gap-3">
               <input
                 id="summarize"
                 type="checkbox"
+                aria-describedby="summarize-desc"
                 className="toggle toggle-primary mt-0.5 shrink-0"
                 checked={form.summarize}
                 onChange={(e) => update("summarize", e.target.checked)}
               />
-              <span>
-                <span className="block text-sm font-medium">Summarize with AI</span>
-                <span className="block text-xs text-base-content/70">
+              <div>
+                <label htmlFor="summarize" className="block cursor-pointer text-sm font-medium">
+                  Summarize with AI
+                </label>
+                <span id="summarize-desc" className="block text-xs text-base-content/70">
                   {form.summarize
                     ? "Reports are condensed into one structured document, grouped by body of water."
                     : "Skips the model entirely and returns the raw crawled text — faster, and far more of it."}
                 </span>
-              </span>
-            </label>
+              </div>
+            </div>
           </Section>
         </div>
       </form>
@@ -167,7 +194,7 @@ export default function FlyboxForm() {
           type="button"
           onClick={resetForm}
           onBlur={() => setConfirmReset(false)}
-          className={`btn h-10 w-32 ${confirmReset ? "btn-outline btn-error" : "btn-ghost border border-rule"}`}
+          className={`btn h-10 w-32 ${confirmReset ? "btn-outline btn-error" : "btn-ghost border border-stroke"}`}
         >
           {confirmReset ? "Confirm reset" : "Reset"}
         </button>

@@ -81,7 +81,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </a>
         <div className="flex min-h-dvh flex-col">
           <Header />
-          <main id="main" className="grow">
+          {/* tabIndex={-1} keeps main out of the tab sequence but lets the skip link
+              actually move focus here; without it the link was a no-op. */}
+          <main id="main" tabIndex={-1} className="grow focus:outline-none">
             {children}
           </main>
           <footer className="border-t border-rule bg-base-100">
@@ -91,9 +93,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 <HookMark className="size-3 text-primary" />
                 <span className="text-xs text-base-content/70">Built for the Rescue River team.</span>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 {legalLinks.map(({ label, href }) => (
-                  <Link key={label} href={href} className="text-xs text-base-content/70 transition-colors hover:text-base-content">
+                  <Link key={label} href={href} className="whitespace-nowrap text-xs text-base-content/70 transition-colors hover:text-base-content">
                     {label}
                   </Link>
                 ))}
