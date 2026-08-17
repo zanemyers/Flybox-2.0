@@ -55,7 +55,9 @@ function Feature({
         </a>
       </div>
       <div className="w-full">
-        <span className="eyebrow">{index}</span>
+        {/* Numerals are salmon app-wide: same pattern as the home steps and the
+            links list below. .eyebrow would render them muted gray. */}
+        <span className="readout text-micro text-mark">{index}</span>
         <h3 className="mt-1.5">{heading}</h3>
         <div className="mt-3 max-w-[62ch] space-y-3">{children}</div>
       </div>
