@@ -26,7 +26,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "cheerio": "^1.2.0",
-    "daisyui": "^5.7.4",
+    "daisyui": "^5.7.17",
     "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",
     "next": "^16.3.0",
