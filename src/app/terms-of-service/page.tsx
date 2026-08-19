@@ -1,17 +1,22 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Clause, GithubIssues, LegalPage } from "@/client/components/legalPage";
 
 export const metadata: Metadata = {
   title: "Terms of Service — Flybox",
-  description: "Terms of service for Flybox.",
+  description: "What you agree to by using Flybox: a free personal project, rate-limited runs, a public catalog of recent runs, and no warranty.",
 };
 
 export default function TermsOfService() {
   return (
-    <LegalPage title="Terms of Service" updated="August 16, 2026">
+    <LegalPage title="Terms of Service" updated="2026-08-16">
       <p>
-        Welcome to Flybox. By accessing or using this website, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do
-        not use the site.
+        Welcome to Flybox. Flybox is a personal project maintained by Zane Myers — not a company or organization — and is offered free of charge. By accessing
+        or using this website, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the site. The{" "}
+        <Link className="link link-primary" href="/privacy-policy">
+          Privacy Policy
+        </Link>{" "}
+        covers what data Flybox stores and where it goes.
       </p>
 
       <Clause heading="Description of the Service">
@@ -54,8 +59,8 @@ export default function TermsOfService() {
 
       <Clause heading="Data Sources and Third-Party Services">
         <p>
-          Flybox relies on third-party data providers including SerpAPI and OpenAI, as well as publicly accessible websites. We are not affiliated with Google,
-          SerpAPI, or any listed businesses.
+          Flybox relies on third-party services — including SerpAPI, OpenAI and OpenStreetMap — as well as publicly accessible websites. We are not affiliated
+          with any of them, nor with Google or any listed business.
         </p>
         <p>All trademarks, business names, and logos remain the property of their respective owners.</p>
       </Clause>
