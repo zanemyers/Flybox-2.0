@@ -26,6 +26,12 @@ export const limits = (): Limits => ({
   globalMonth: num("RATE_LIMIT_GLOBAL_MONTH", 200),
 });
 
+const DAY_MS = 86_400_000;
+
+/** The longest window clientHash is ever counted against. Past it the hash identifies
+    a visitor without serving the limit that justified storing it, so db_cleanup nulls it. */
+export const CLIENT_HASH_TTL_MS = DAY_MS;
+
 export interface Counts {
   clientHour: number;
   clientDay: number;
@@ -84,8 +90,8 @@ export async function checkRateLimit(headers: Headers): Promise<Decision & { cli
   const clientHash = clientHashFrom(headers);
   const now = Date.now();
   const hourAgo = new Date(now - 3_600_000);
-  const dayAgo = new Date(now - 86_400_000);
-  const monthAgo = new Date(now - 30 * 86_400_000);
+  const dayAgo = new Date(now - DAY_MS);
+  const monthAgo = new Date(now - 30 * DAY_MS);
 
   const [clientHour, clientDay, globalDay, globalMonth] = await Promise.all([
     clientHash ? prisma.job.count({ where: { clientHash, createdAt: { gte: hourAgo } } }) : Promise.resolve(0),
