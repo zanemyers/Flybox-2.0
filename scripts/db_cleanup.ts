@@ -1,49 +1,35 @@
 import { JobStatus, prisma } from "@/server/db";
-import { CATALOG_LIMIT, CLIENT_HASH_TTL_MS } from "@/server/retention";
+import { CATALOG_LIMIT, CLIENT_HASH_TTL_MS, staleCutoff } from "@/server/retention";
 
-/* Retention matches what /runs promises: the newest CATALOG_LIMIT completed runs
-   are kept in full, files included, because every listed run offers downloads.
-   Anything older is deleted outright. DETAILED_RUNS only controls how many show
-   an inline preview, so it has no bearing on retention. The windows come from
-   retention.ts so the page and the pruner cannot drift apart. */
+/* Two statements. The first names everything that does not survive; the second is separate because an update in the same statement could race the delete for a row. */
 
-async function cleanupOldJobs() {
+async function cleanup() {
   console.log("Starting cleanup...");
 
-  const failed = await prisma.job.deleteMany({
-    where: { status: { in: [JobStatus.FAILED, JobStatus.CANCELED] } },
-  });
-  console.log(`  removed ${failed.count} failed/canceled job(s)`);
+  /* Three disjoint reasons to go, so the OFFSET subquery reads the pre-delete snapshot without interference from the other two. */
+  /* Abandoned runs go outright rather than being marked FAILED first: only handler.retire() has a client watching, and this pass would delete them anyway. */
+  const deleted = await prisma.$executeRaw`
+    DELETE FROM "Job"
+    WHERE "status" IN (${JobStatus.FAILED}::"JobStatus", ${JobStatus.CANCELED}::"JobStatus")
+       OR ("status" = ${JobStatus.IN_PROGRESS}::"JobStatus" AND "heartbeatAt" < ${staleCutoff()})
+       OR "id" IN (
+            SELECT "id" FROM "Job"
+            WHERE "status" = ${JobStatus.COMPLETED}::"JobStatus"
+            ORDER BY "createdAt" DESC, "id" DESC
+            OFFSET ${CATALOG_LIMIT}
+          )
+  `;
+  console.log(`  deleted ${deleted} run(s) — failed, canceled, abandoned, or past the ${CATALOG_LIMIT}-run catalog`);
 
-  const completed = await prisma.job.findMany({
-    where: { status: JobStatus.COMPLETED },
-    orderBy: { createdAt: "desc" },
-    select: { id: true },
-  });
-
-  const keep = completed.slice(0, CATALOG_LIMIT);
-  const drop = completed.slice(CATALOG_LIMIT).map((j) => j.id);
-
-  /* Selecting ids explicitly rather than using `notIn` on the keep-list: Prisma
-     treats `notIn: []` as matching everything, so an empty keep-list would
-     delete the entire table. */
-  if (drop.length) {
-    const removed = await prisma.job.deleteMany({ where: { id: { in: drop } } });
-    console.log(`  deleted ${removed.count} run(s) past the ${CATALOG_LIMIT}-run catalog`);
-  }
-
-  /* A kept run outlives the rate-limit window by design, so the hash has to be cleared
-     separately — otherwise it sits on the row until the catalog pushes the run out. */
+  // A surviving run outlives the rate-limit window, so its hash has to be cleared on its own.
   const cleared = await prisma.job.updateMany({
     where: { clientHash: { not: null }, createdAt: { lt: new Date(Date.now() - CLIENT_HASH_TTL_MS) } },
     data: { clientHash: null },
   });
   console.log(`  cleared the client hash on ${cleared.count} run(s) past the rate-limit window`);
-
-  console.log(`Finished! Kept ${keep.length} completed run(s) with their files.`);
 }
 
-cleanupOldJobs()
+cleanup()
   .catch((err) => {
     console.error("Cleanup failed:", err);
     process.exitCode = 1;

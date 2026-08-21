@@ -58,19 +58,19 @@ interface Row {
 }
 
 export async function recentRuns(): Promise<CatalogRun[]> {
-  /* One round trip, not two. Readiness is asked of the database rather than by
-     selecting blobs, and only the newest rows detoast a bounded head for the preview. */
+  /* One round trip, not two: readiness is asked of the database, and only the newest rows detoast a bounded head for the preview. */
+  /* The id tiebreaker must match db_cleanup's, or a tie at the boundary lets this list a run the pruner deleted. */
   const rows = await prisma.$queryRaw<Row[]>`
     SELECT "id", "createdAt", "locationName", "latitude", "longitude", "rivers", "summarized",
            ("primaryFile"   IS NOT NULL) AS "hasSummary",
            ("rawFile"       IS NOT NULL) AS "hasRaw",
            ("secondaryFile" IS NOT NULL) AS "hasShops",
-           CASE WHEN row_number() OVER (ORDER BY "createdAt" DESC) <= ${DETAILED_RUNS}
+           CASE WHEN row_number() OVER (ORDER BY "createdAt" DESC, "id" DESC) <= ${DETAILED_RUNS}
                 THEN substring("primaryFile" from 1 for ${SNIPPET_HEAD_BYTES})
            END AS "head"
     FROM "Job"
     WHERE "status" = ${JobStatus.COMPLETED}::"JobStatus"
-    ORDER BY "createdAt" DESC
+    ORDER BY "createdAt" DESC, "id" DESC
     LIMIT ${CATALOG_LIMIT}
   `;
 
