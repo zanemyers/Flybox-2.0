@@ -37,6 +37,7 @@ later change superseded an earlier one, only the outcome is listed.
 - Added `debian-openssl-3.0.x` Prisma binary target for Docker/Render (Ubuntu Noble)
 - `useForm.tsx` renamed to `useForm.ts` (no JSX)
 - `setup.ts` updated: added `DIRECT_URL` and `RATE_LIMIT_SALT`, removed unused `PORT` and `CONCURRENCY`
+- `setup.ts` now appends only the settings missing from `.env` instead of rebuilding the file from a template. The old version carried five named keys across and dropped everything else, so it silently reset `RUN_HEADLESS=false`, discarded `RATE_LIMIT_*` overrides, and turned a double-quoted value into one with the quotes baked in
 - Copyright year updated to 2026
 - `/privacy-policy` and `/terms-of-service` rewritten to match what the app actually does, including disclosing that the run catalog is public
 

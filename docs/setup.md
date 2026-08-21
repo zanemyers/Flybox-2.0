@@ -14,13 +14,13 @@ Both keys are server-side. Flybox supplies its own and never asks the user for o
 
 ```bash
 npm install
-npx tsx scripts/setup.ts    # creates .env with default values
+npx tsx scripts/setup.ts    # add any missing .env settings
 npx prisma generate         # generate the Prisma client
 npx prisma migrate dev      # run DB migrations
 npm run dev                 # start dev server at http://localhost:3000
 ```
 
-`setup.ts` preserves existing API keys in `.env` on re-runs.
+`setup.ts` only appends what is missing. Re-running it never rewrites or removes a line, so keys you set by hand — `RUN_HEADLESS=false`, a `RATE_LIMIT_*` override — survive.
 
 ## Environment Variables
 

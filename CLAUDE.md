@@ -41,7 +41,7 @@ npx prisma studio           # Open DB browser
 
 Setup scripts:
 ```bash
-npx tsx scripts/setup.ts       # Create/update .env with default values
+npx tsx scripts/setup.ts       # Append missing .env settings; never rewrites existing lines
 npx tsx scripts/db_cleanup.ts  # Delete old jobs from the database
 ```
 

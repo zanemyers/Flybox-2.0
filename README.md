@@ -18,7 +18,7 @@ Recent runs are listed publicly at `/runs`, where anyone can download their outp
 
 ```bash
 npm install
-npx tsx scripts/setup.ts       # creates .env with default values
+npx tsx scripts/setup.ts       # add any missing .env settings
 npx prisma migrate dev         # run DB migrations
 npm run dev                    # start dev server (Turbopack)
 ```
