@@ -119,7 +119,7 @@ export default function HowItWorks() {
                 {facts.map(([k, v]) => (
                   <div key={k} className="flex items-baseline justify-between gap-3 border-b border-rule py-1.5 last:border-b-0">
                     <dt className="eyebrow shrink-0">{k}</dt>
-                    <dd className="readout text-accent text-right text-[0.6875rem] [text-wrap:nowrap]">{v}</dd>
+                    <dd className="readout text-accent text-right text-micro text-nowrap">{v}</dd>
                   </div>
                 ))}
               </dl>
