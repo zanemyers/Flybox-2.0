@@ -13,6 +13,11 @@ model Job {
   status    JobStatus @default(IN_PROGRESS)
   createdAt DateTime @default(now())
 
+  /// Last moment the pipeline proved it was still running. Touched by the cancel
+  /// check, which already runs per shop and per crawled page. A run whose process
+  /// died leaves this frozen, which is the only way to tell it apart from a slow one.
+  heartbeatAt DateTime @default(now())
+
   /// Salted SHA-256 of the client IP, used only to rate limit. The raw address
   /// is never stored, so this cannot be read back as an identifier.
   clientHash String?
@@ -37,6 +42,7 @@ model Job {
 
   @@index([createdAt])
   @@index([clientHash, createdAt])
+  @@index([status, heartbeatAt])
 }
 
 enum JobStatus {

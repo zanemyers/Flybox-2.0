@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import OpenAI from "openai";
 import { requireKey } from "@/server/config";
 import { JobStatus, prisma } from "@/server/db";
+import { STALE_AFTER_MS, staleCutoff } from "@/server/retention";
 
 /* Deliberately small. The search term and summary prompt are server-side
    constants (see config.ts) because Flybox funds its own keys, and the API keys
@@ -89,6 +90,13 @@ export async function buildShopWorkbook(shops: SiteInfo[]): Promise<Buffer> {
 const OPENAI_TIMEOUT_MS = 90_000;
 const OPENAI_MAX_RETRIES = 2;
 
+export const STALE_MESSAGE = "[!!] This run stopped without finishing — the server was likely restarted mid-run. Start a new one.";
+
+/** A job still marked in-flight that nothing has stamped since the cutoff: its process is gone. */
+export function isStale(job: { status: JobStatus; heartbeatAt: Date }, now: number = Date.now()): boolean {
+  return job.status === JobStatus.IN_PROGRESS && now - job.heartbeatAt.getTime() > STALE_AFTER_MS;
+}
+
 export class JobHandler {
   private static readonly CANCEL_TTL_MS = 1_500;
 
@@ -142,8 +150,8 @@ export class JobHandler {
      GET /api/flybox/[id]/files/[name]. */
   static async getUpdates(id: string) {
     const [rows, messages] = await Promise.all([
-      prisma.$queryRaw<{ status: JobStatus; createdAt: Date; hasPrimary: boolean; hasSecondary: boolean; hasRaw: boolean }[]>`
-        SELECT "status", "createdAt",
+      prisma.$queryRaw<{ status: JobStatus; createdAt: Date; heartbeatAt: Date; hasPrimary: boolean; hasSecondary: boolean; hasRaw: boolean }[]>`
+        SELECT "status", "createdAt", "heartbeatAt",
                ("primaryFile"   IS NOT NULL) AS "hasPrimary",
                ("secondaryFile" IS NOT NULL) AS "hasSecondary",
                ("rawFile"       IS NOT NULL) AS "hasRaw"
@@ -160,12 +168,31 @@ export class JobHandler {
     if (job.hasSecondary) files.push({ name: "shop_details.xlsx" });
     if (job.hasRaw) files.push({ name: "report_raw.txt" });
 
+    const lines = messages.map((m) => m.message);
+    let status = job.status;
+
+    // Whoever polls an abandoned run is the only one who will ever ask about it, so the poll retires it. db_cleanup catches the unwatched.
+    if (isStale(job)) {
+      status = JobStatus.FAILED;
+      if (await JobHandler.retire(id)) await prisma.jobMessage.create({ data: { jobId: id, message: STALE_MESSAGE } });
+      lines.push(STALE_MESSAGE);
+    }
+
     return {
-      message: messages.map((m) => m.message).join("\n"),
-      status: job.status,
+      message: lines.join("\n"),
+      status,
       createdAt: job.createdAt.toISOString(),
       files,
     };
+  }
+
+  /** Re-checks the stamp, so concurrent pollers cannot both log the explanation and a run that turns out alive keeps its real outcome. */
+  private static async retire(id: string): Promise<boolean> {
+    const { count } = await prisma.job.updateMany({
+      where: { id, status: JobStatus.IN_PROGRESS, heartbeatAt: { lt: staleCutoff() } },
+      data: { status: JobStatus.FAILED },
+    });
+    return count > 0;
   }
 
   static async getFile(id: string, name: OutputName): Promise<Uint8Array | null> {
@@ -194,8 +221,11 @@ export class JobHandler {
     const now = Date.now();
     if (now - this.canceledCheckedAt < JobHandler.CANCEL_TTL_MS) return false;
     this.canceledCheckedAt = now;
-    const job = await prisma.job.findUnique({ where: { id: this.id }, select: { status: true } });
-    this.canceled = job?.status === JobStatus.CANCELED;
+    // Stamps the heartbeat in the round trip the check already made. UPDATE..RETURNING, not job.update: a row deleted mid-run must read as not-canceled, not throw.
+    const rows = await prisma.$queryRaw<{ status: JobStatus }[]>`
+      UPDATE "Job" SET "heartbeatAt" = now() WHERE "id" = ${this.id} RETURNING "status"
+    `;
+    this.canceled = rows[0]?.status === JobStatus.CANCELED;
     return this.canceled;
   }
 

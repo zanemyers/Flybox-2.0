@@ -1,7 +1,9 @@
 import ExcelJS from "exceljs";
 import { describe, expect, it } from "vitest";
+import { JobStatus } from "@/server/db";
 import type { SiteInfo } from "@/server/handler";
-import { buildShopWorkbook, isOutputName, OUTPUT_FILES, SHOP_COLUMNS } from "@/server/handler";
+import { buildShopWorkbook, isOutputName, isStale, OUTPUT_FILES, SHOP_COLUMNS } from "@/server/handler";
+import { STALE_AFTER_MS } from "@/server/retention";
 
 const SAMPLE_SHOP: SiteInfo = {
   name: "Trout & About Fly Shop",
@@ -131,5 +133,37 @@ describe("isOutputName", () => {
     expect(OUTPUT_FILES["shop_details.xlsx"].column).toBe("secondaryFile");
     expect(OUTPUT_FILES["report_summary.txt"].contentType).toContain("text/plain");
     expect(OUTPUT_FILES["shop_details.xlsx"].contentType).toContain("spreadsheet");
+  });
+});
+
+// ── isStale ────────────────────────────────────────────────────────────────────
+
+describe("isStale", () => {
+  const NOW = Date.UTC(2026, 7, 21, 12, 0, 0);
+  const beat = (msAgo: number) => new Date(NOW - msAgo);
+
+  it("leaves a run alone while its heartbeat is current", () => {
+    expect(isStale({ status: JobStatus.IN_PROGRESS, heartbeatAt: beat(0) }, NOW)).toBe(false);
+    expect(isStale({ status: JobStatus.IN_PROGRESS, heartbeatAt: beat(60_000) }, NOW)).toBe(false);
+  });
+
+  it("holds off right up to the threshold", () => {
+    expect(isStale({ status: JobStatus.IN_PROGRESS, heartbeatAt: beat(STALE_AFTER_MS) }, NOW)).toBe(false);
+    expect(isStale({ status: JobStatus.IN_PROGRESS, heartbeatAt: beat(STALE_AFTER_MS + 1) }, NOW)).toBe(true);
+  });
+
+  it("clears the longest silence a live run can have — a full summarization retry sequence", () => {
+    // 90s timeout x 3 attempts, twice if the fallback model also has to run.
+    expect(isStale({ status: JobStatus.IN_PROGRESS, heartbeatAt: beat(2 * 3 * 90_000) }, NOW)).toBe(false);
+  });
+
+  /* The reaper must never touch a job that already reached a terminal state:
+     COMPLETED runs sit in the catalog for as long as retention allows, and their
+     heartbeat stops the moment they finish. */
+  it("never reaps a job that already finished, however old", () => {
+    const ancient = beat(400 * 24 * 3_600_000);
+    for (const status of [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELED]) {
+      expect(isStale({ status, heartbeatAt: ancient }, NOW)).toBe(false);
+    }
   });
 });
