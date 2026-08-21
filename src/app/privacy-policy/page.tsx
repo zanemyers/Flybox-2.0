@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Clause, GithubIssues, LegalPage } from "@/client/components/legalPage";
-import { CATALOG_LIMIT } from "@/server/catalog";
+import { CATALOG_LIMIT } from "@/server/retention";
 
 export const metadata: Metadata = {
   title: "Privacy Policy — Flybox",

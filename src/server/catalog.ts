@@ -1,10 +1,8 @@
 import { JobStatus, prisma } from "@/server/db";
+import { CATALOG_LIMIT } from "@/server/retention";
 
-/* The catalog keeps CATALOG_LIMIT runs, all of them downloadable. The newest
-   DETAILED_RUNS additionally show a snippet of the report inline; the rest are
-   compact rows. scripts/db_cleanup.ts deletes past CATALOG_LIMIT. */
+/** How many of the listed runs show a snippet inline. Display only — retention lives in retention.ts. */
 export const DETAILED_RUNS = 5;
-export const CATALOG_LIMIT = 15;
 
 const SNIPPET_CHARS = 420;
 

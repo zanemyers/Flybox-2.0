@@ -28,10 +28,6 @@ export const limits = (): Limits => ({
 
 const DAY_MS = 86_400_000;
 
-/** The longest window clientHash is ever counted against. Past it the hash identifies
-    a visitor without serving the limit that justified storing it, so db_cleanup nulls it. */
-export const CLIENT_HASH_TTL_MS = DAY_MS;
-
 export interface Counts {
   clientHour: number;
   clientDay: number;

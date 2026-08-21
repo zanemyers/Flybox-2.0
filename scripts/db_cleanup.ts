@@ -1,12 +1,11 @@
-import { CATALOG_LIMIT } from "@/server/catalog";
 import { JobStatus, prisma } from "@/server/db";
-import { CLIENT_HASH_TTL_MS } from "@/server/rateLimit";
+import { CATALOG_LIMIT, CLIENT_HASH_TTL_MS } from "@/server/retention";
 
 /* Retention matches what /runs promises: the newest CATALOG_LIMIT completed runs
    are kept in full, files included, because every listed run offers downloads.
    Anything older is deleted outright. DETAILED_RUNS only controls how many show
-   an inline preview, so it has no bearing on retention. The constant is imported
-   rather than duplicated so the page and the pruner cannot drift apart. */
+   an inline preview, so it has no bearing on retention. The windows come from
+   retention.ts so the page and the pruner cannot drift apart. */
 
 async function cleanupOldJobs() {
   console.log("Starting cleanup...");
