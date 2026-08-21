@@ -22,8 +22,8 @@ export default function NotFound() {
         </div>
 
         <div className="justify-self-center md:justify-self-end">
-          <div className="rounded-box border border-rule bg-[oklch(97.6%_0.011_90)] p-3">
-            <Image src={calvinFishing} alt="A cartoon of someone fishing" className="h-auto w-full max-w-[18rem] rounded-field" unoptimized />
+          <div className="rounded-box border border-rule bg-white p-3 in-data-[theme=dark]:opacity-50">
+            <Image src={calvinFishing} alt="" className="h-auto w-full max-w-[18rem] rounded-field" unoptimized />
           </div>
         </div>
       </div>

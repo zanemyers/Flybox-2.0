@@ -3,7 +3,7 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import { FiAlertTriangle, FiFile, FiFileText } from "react-icons/fi";
 import { ContourField } from "@/client/components/brand";
-import { details } from "@/client/images/docs";
+import { details } from "@/client/images/bts";
 
 export const metadata: Metadata = {
   title: "How it works — Flybox",
@@ -92,7 +92,8 @@ export default function HowItWorks() {
           <ContourField />
         </div>
         <div className="relative">
-          <h1 className="max-w-[46ch]">What happens after you press run</h1>
+          <span className="eyebrow">Behind the scenes</span>
+          <h1 className="mt-2 max-w-[46ch]">What happens after you press run</h1>
           <p className="prose-measure mt-3">
             Flybox is a five-stage pipeline. You give it a position; it comes back with a report and a spreadsheet. This is everything in between — no setup
             required, but worth a look if you want to know what it is doing on your behalf.
@@ -147,8 +148,13 @@ export default function HowItWorks() {
               One row per shop: name, website, address, phone, rating, review count, category, email, social profiles, and whether it sells online or publishes
               reports.
             </p>
-            <div className="mt-3 rounded-field border border-rule bg-base-100 p-2 in-data-[theme=dark]:brightness-[0.6]">
-              <Image src={details} alt="The shop directory spreadsheet, one row per shop" className="h-auto max-w-full" />
+            <div className="mt-3 rounded-field border border-rule bg-base-100 p-2 in-data-[theme=dark]:opacity-75">
+              <Image
+                src={details}
+                alt="The shop directory spreadsheet, one row per shop"
+                sizes="(min-width: 1152px) 540px, (min-width: 768px) 45vw, 100vw"
+                className="h-auto max-w-full"
+              />
             </div>
           </div>
         </div>
