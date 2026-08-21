@@ -116,7 +116,8 @@ export default function About() {
 
       <div className="mt-8 border-t border-rule pt-8">
         <h2 className="eyebrow">Read next</h2>
-        <ul className="ms-0 mt-3 list-none divide-y divide-rule">
+        {/* biome-ignore lint/a11y/noRedundantRoles: not redundant here — WebKit drops list semantics when list-style is none, and role="list" restores them */}
+        <ul role="list" className="ms-0 mt-3 list-none divide-y divide-rule">
           {links.map(({ index, title, description, href }) => {
             const external = href.startsWith("http");
             return (

@@ -101,11 +101,14 @@ export default function HowItWorks() {
         </div>
       </section>
 
-      <ol className="ms-0 list-none">
+      {/* biome-ignore lint/a11y/noRedundantRoles: not redundant here — WebKit drops list semantics when list-style is none, and role="list" restores them */}
+      <ol role="list" className="ms-0 list-none">
         {stages.map(({ code, title, detail, facts }) => (
           <li key={code} className="border-t border-rule py-8 last:border-b">
             <div className="grid gap-6 md:grid-cols-[3rem_minmax(0,1fr)_16rem]">
-              <span className="readout text-mark text-sm">{code}</span>
+              <span aria-hidden="true" className="readout text-mark text-sm">
+                {code}
+              </span>
 
               <div>
                 <h2 className="text-xl">{title}</h2>

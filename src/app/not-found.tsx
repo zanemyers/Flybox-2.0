@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ContourField } from "@/client/components/brand";
 import calvinFishing from "@/client/images/calvin-fishing.gif";
+
+export const metadata: Metadata = {
+  title: "Page not found — Flybox",
+  description: "That page does not exist.",
+};
 
 export default function NotFound() {
   return (
@@ -14,7 +20,9 @@ export default function NotFound() {
         <div className="max-w-[46ch]">
           <span className="eyebrow">Error 404 · Page not found</span>
           <h1 className="mt-2">Gone fishing</h1>
-          <p className="readout mt-3 text-xs text-base-content/70">LAT --.------ LON ---.------</p>
+          <p aria-hidden="true" className="readout mt-3 text-xs text-base-content/70">
+            LAT --.------ LON ---.------
+          </p>
           <p className="mt-4">Looks like the page you were trying to find has drifted downstream.</p>
           <Link href="/" className="btn btn-primary mt-6 h-10">
             Cast a line back home

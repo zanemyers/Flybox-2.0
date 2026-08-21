@@ -9,6 +9,12 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
     console.error(error);
   }, [error]);
 
+  // Set imperatively because a client component cannot export metadata, so the
+  // tab would otherwise keep the title of whichever page just failed.
+  useEffect(() => {
+    document.title = "Something went wrong — Flybox";
+  }, []);
+
   return (
     <div className="shell relative overflow-hidden py-16">
       <div className="pointer-events-none absolute inset-0">
@@ -33,7 +39,7 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
             <button type="button" className="btn btn-primary h-10" onClick={reset}>
               Try again
             </button>
-            <Link href="/" className="btn btn-ghost h-10 border border-rule">
+            <Link href="/" className="btn btn-ghost h-10 border border-stroke">
               Back to home
             </Link>
           </div>

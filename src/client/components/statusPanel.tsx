@@ -169,7 +169,8 @@ export default function StatusPanel({ jobId, onClose }: { jobId: string; onClose
 
         <div className="border-t border-rule pt-3">
           <span className="eyebrow mb-1 block">Output</span>
-          <ul className="ms-0 list-none divide-y divide-rule">
+          {/* biome-ignore lint/a11y/noRedundantRoles: not redundant here — WebKit drops list semantics when list-style is none, and role="list" restores them */}
+          <ul role="list" className="ms-0 list-none divide-y divide-rule">
             {EXPECTED_OUTPUTS.map(({ name, type, Icon }) => {
               const available = ready.has(name);
               return (

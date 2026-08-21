@@ -48,7 +48,11 @@ export default function Header() {
         </Link>
 
         <nav className="flex h-full min-w-0 items-center gap-3 sm:gap-5">
-          <ul className="flex h-full min-w-0 list-none items-stretch gap-3 overflow-x-auto overflow-y-hidden whitespace-nowrap sm:gap-5 sm:overflow-visible">
+          <ul
+            // biome-ignore lint/a11y/noRedundantRoles: not redundant here — WebKit drops list semantics when list-style is none, and role="list" restores them
+            role="list"
+            className="flex h-full min-w-0 list-none items-stretch gap-3 overflow-x-auto overflow-y-hidden whitespace-nowrap sm:gap-5 sm:overflow-visible"
+          >
             {navLinks.map(({ label, href }) => {
               const active = currentPath === href;
               return (
