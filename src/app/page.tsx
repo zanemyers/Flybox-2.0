@@ -69,7 +69,7 @@ export default function Home() {
               ))}
             </ol>
             <p className="mt-3 text-xs text-base-content/70">
-              Curious what runs under the hood? See{" "}
+              Curious what happens after you press run? See{" "}
               <Link className="link link-primary" href="/how-it-works">
                 how it works
               </Link>

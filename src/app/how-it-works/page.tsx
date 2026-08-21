@@ -92,8 +92,7 @@ export default function HowItWorks() {
           <ContourField />
         </div>
         <div className="relative">
-          <span className="eyebrow">Behind the scenes</span>
-          <h1 className="mt-2 max-w-[46ch]">What happens after you press run</h1>
+          <h1 className="max-w-[46ch]">What happens after you press run</h1>
           <p className="prose-measure mt-3">
             Flybox is a five-stage pipeline. You give it a position; it comes back with a report and a spreadsheet. This is everything in between — no setup
             required, but worth a look if you want to know what it is doing on your behalf.

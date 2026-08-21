@@ -75,8 +75,7 @@ export default function About() {
   return (
     <div className="shell py-12">
       <div>
-        <span className="eyebrow">About</span>
-        <h1 className="mt-2 max-w-[52ch]">Helping you stay informed and ready for your next fly-fishing adventure.</h1>
+        <h1 className="max-w-[52ch]">Helping you stay informed and ready for your next fly-fishing adventure.</h1>
         <hr className="mt-8 mb-0" />
       </div>
 

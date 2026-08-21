@@ -65,8 +65,7 @@ export default async function Runs() {
   return (
     <div className="shell py-12">
       <section>
-        <span className="eyebrow">Catalog</span>
-        <h1 className="mt-2">Recent runs</h1>
+        <h1>Recent runs</h1>
         <p className="prose-measure mt-3">
           The last {runs.length || "few"} completed runs, all of them downloadable. The newest {DETAILED_RUNS} also show a preview of the report.
         </p>
