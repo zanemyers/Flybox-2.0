@@ -1,6 +1,6 @@
 # Flybox Docs
 
-Tools built for [Rescue River](https://rescueriver.com) to find fly-fishing shops, scrape their sites for fishing reports, and summarize them with Google Gemini.
+Tools built for [Rescue River](https://rescueriver.com) to find fly-fishing shops, scrape their sites for fishing reports, and summarize them with OpenAI.
 
 ---
 

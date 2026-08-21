@@ -26,7 +26,7 @@ Add to `.vscode/settings.json`:
 
 ## Path Aliases
 
-`@/*` maps to `src/*` — configured in `tsconfig.json`. All imports should use this alias rather than relative paths.
+`@/*` maps to `src/*` — configured in `tsconfig.json`. Use the alias for anything crossing directories. Relative paths are fine for an asset sitting next to the module that re-exports it, as in `src/client/images/*/index.ts`.
 
 ## Prisma
 
@@ -36,4 +36,8 @@ After any schema change in `db/schema.prisma`, regenerate the client:
 npx prisma generate
 ```
 
-The generated client outputs to `generated/prisma/`. It is regenerated automatically during `npm run build` and inside the Docker build.
+The generated client outputs to `generated/prisma/`, which is gitignored — so a fresh clone needs this before `npm run typecheck` or `npm run build` will pass. Neither script regenerates it; the `Dockerfile` runs `npx prisma generate` explicitly before building.
+
+## Type Checking
+
+Biome does not type-check. `npm run typecheck` runs `tsc --noEmit` over `src/`; the test tree has its own `tests/tsconfig.json`, which the root config excludes.

@@ -6,6 +6,8 @@ Tools built for **[Rescue River](https://rescueriver.com/)** to find fly-fishing
 
 Pick a location on the map, optionally filter by river, and press run. Flybox searches Google Maps for fly-fishing shops, scrapes contact info and fishing reports, and produces a summarized report plus a shop directory as downloadable files. No API keys or account required — Flybox supplies its own, and runs are rate limited.
 
+Recent runs are listed publicly at `/runs`, where anyone can download their outputs — see the [privacy policy](src/app/privacy-policy/page.tsx).
+
 ## Requirements
 
 - **SerpAPI key** — for Google Maps shop search (server-side)
@@ -63,6 +65,13 @@ npm run check   # lint + typecheck + tests
 ```
 
 `npm run lint` is Biome only and does not type-check; `npm run typecheck` runs `tsc`.
+
+## Docs
+
+- [Overview](docs/overview.md) — pipeline, job system, rate limits, tech stack
+- [Setup](docs/setup.md) — local dev, Docker Compose, Render deployment
+- [IDE](docs/ide.md) — extensions and editor configuration
+- [Changelog](docs/CHANGELOG.md)
 
 ## License
 
