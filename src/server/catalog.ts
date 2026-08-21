@@ -8,6 +8,10 @@ export const CATALOG_LIMIT = 15;
 
 const SNIPPET_CHARS = 420;
 
+/* Generous head: the separator strip below can eat most of what it reads, and a
+   byte cut can land mid-character, so take far more than SNIPPET_CHARS needs. */
+const SNIPPET_HEAD_BYTES = 4_000;
+
 export interface CatalogRun {
   id: string;
   createdAt: Date;
@@ -29,6 +33,7 @@ function toSnippet(bytes: Uint8Array | null): string | null {
   if (!bytes?.length) return null;
   const text = Buffer.from(bytes)
     .toString("utf-8")
+    .replace(/\uFFFD+$/, "")
     // Older runs used the Gemini-era wording; strip both.
     .replace(/^\[(?:Summarization|Gemini) unavailable[^\]]*\]\s*/i, "")
     .replace(/^(====|---) .*$/gm, "")
@@ -51,31 +56,29 @@ interface Row {
   hasSummary: boolean;
   hasRaw: boolean;
   hasShops: boolean;
+  head: Uint8Array | null;
 }
 
 export async function recentRuns(): Promise<CatalogRun[]> {
-  /* Every listed run offers downloads, so all of them need file readiness — but
-     readiness is a boolean, and selecting the blobs to answer it would pull
-     megabytes to render a list. Ask the database instead. */
+  /* One round trip, not two. Readiness is asked of the database rather than by
+     selecting blobs, and only the newest rows detoast a bounded head for the preview. */
   const rows = await prisma.$queryRaw<Row[]>`
     SELECT "id", "createdAt", "locationName", "latitude", "longitude", "rivers", "summarized",
            ("primaryFile"   IS NOT NULL) AS "hasSummary",
            ("rawFile"       IS NOT NULL) AS "hasRaw",
-           ("secondaryFile" IS NOT NULL) AS "hasShops"
+           ("secondaryFile" IS NOT NULL) AS "hasShops",
+           CASE WHEN row_number() OVER (ORDER BY "createdAt" DESC) <= ${DETAILED_RUNS}
+                THEN substring("primaryFile" from 1 for ${SNIPPET_HEAD_BYTES})
+           END AS "head"
     FROM "Job"
     WHERE "status" = ${JobStatus.COMPLETED}::"JobStatus"
     ORDER BY "createdAt" DESC
     LIMIT ${CATALOG_LIMIT}
   `;
 
-  // Only the newest few show a preview, so only those bodies get read.
-  const detailedIds = rows.slice(0, DETAILED_RUNS).map((r) => r.id);
-  const bodies = detailedIds.length ? await prisma.job.findMany({ where: { id: { in: detailedIds } }, select: { id: true, primaryFile: true } }) : [];
-  const snippetById = new Map(bodies.map((b) => [b.id, toSnippet(b.primaryFile)]));
-
-  return rows.map((r, i) => ({
+  return rows.map(({ head, ...r }, i) => ({
     ...r,
     detailed: i < DETAILED_RUNS,
-    snippet: snippetById.get(r.id) ?? null,
+    snippet: toSnippet(head),
   }));
 }
