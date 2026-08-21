@@ -53,11 +53,13 @@ All pipeline runs are tracked as `Job` records in PostgreSQL.
 3. Downloads stream from `GET /api/flybox/[id]/files/[name]`, against an allow-list. File bytes are deliberately kept out of the poll: base64-encoding a several-hundred-KB xlsx every two seconds dominated both the query and the response.
 4. `POST /api/flybox/[id]/cancel` sets a flag the pipeline checks between steps and inside the crawl loop. It only moves an `IN_PROGRESS` job, so it cannot overwrite a terminal status.
 
+A run proves it is alive by stamping `Job.heartbeatAt` on the same cancel check, which already runs per shop and per crawled page. A process that dies mid-run — a deploy, a crash — leaves that stamp frozen, and after `STALE_AFTER_MS` (`retention.ts`) the run is abandoned: the next poll marks it `FAILED` so a watching client is told, and `scripts/db_cleanup.ts` deletes the ones nobody is watching. Total age cannot stand in for this, because a legitimate raw-mode crawl of one large site has no tight upper bound.
+
 Output files are stored as `Bytes` on the `Job` row and streamed to the client — nothing is written to disk. The job also stores the coordinates, rivers, and a `locationName` reverse-geocoded once at creation (Nominatim, best-effort, null on failure) so a run can be described after the fact.
 
 ## The Run Catalog
 
-`/runs` lists the newest 15 completed runs, all downloadable; the newest 5 also show a snippet of the report. Both constants live in `src/server/catalog.ts` and are imported by `scripts/db_cleanup.ts`, so retention and display cannot drift apart.
+`/runs` lists the newest 15 completed runs, all downloadable; the newest 5 also show a snippet of the report. The retention window lives in `src/server/retention.ts` and is read by the page, the privacy policy, and `scripts/db_cleanup.ts` alike, so what is promised and what is pruned cannot drift apart.
 
 **The catalog is public** — anyone can see the location and download the outputs of any recent run. This is disclosed in the privacy policy; keep it that way if the retention or the listing changes.
 
@@ -100,7 +102,8 @@ The client is identified by a **salted SHA-256 of its IP**, stored on `Job.clien
 | `handler.ts`   | `JobHandler` — every DB write, plus `OUTPUT_FILES` and the workbook builder |
 | `scraper.ts`   | HTTP fetching, robots.txt, email extraction, shop detail detection |
 | `browser.ts`   | Playwright stealth wrapper and `needsPlaywright()` |
-| `catalog.ts`   | The `/runs` query and its retention constants |
+| `catalog.ts`   | The `/runs` query |
+| `retention.ts` | How long data lives. Imports nothing, so the pruner can read it without loading the app |
 | `rateLimit.ts` | Per-client and global caps |
 | `geocode.ts`   | Reverse geocoding at job creation |
 | `config.ts`    | The search term, the summary prompt, and key access |

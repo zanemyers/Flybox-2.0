@@ -31,6 +31,7 @@ later change superseded an earlier one, only the outcome is listed.
 - The character budget is now split per site (`TOKEN_CHAR_LIMIT / siteCount`, floored at 4,000); one global cap applied twice meant a single greedy site starved every other
 - File bytes moved out of the 2s poll into `GET /api/flybox/[id]/files/[name]`, behind an allow-list
 - Renamed server files: `flybox.ts` → `pipeline.ts`, `scrapingUtils.ts` → `scraper.ts`, `handlers.ts` → `handler.ts`
+- Retention windows extracted to `src/server/retention.ts`, which imports nothing: `scripts/db_cleanup.ts` was pulling in ExcelJS and the OpenAI SDK, and the privacy policy was pulling in Prisma, to read three numbers
 - `SiteInfo.sellsOnline` and `fishingReport` changed from string to `boolean`; emoji conversion happens at Excel output time only
 - `JobMessage` Prisma relation renamed to `jobMessages` (camelCase convention)
 - Added `debian-openssl-3.0.x` Prisma binary target for Docker/Render (Ubuntu Noble)
@@ -45,6 +46,7 @@ later change superseded an earlier one, only the outcome is listed.
 - Email extraction rejects asset lookalikes (`logo@2x.png`) and matches against visible text
 - SerpAPI paging stops as soon as a page comes back short instead of paying for all five; a failed request also stops, rather than being read as "no more results"
 - Cancel only moves an `IN_PROGRESS` job, so it can no longer overwrite a terminal status
+- A run interrupted mid-flight (a deploy, a crash) stayed `IN_PROGRESS` forever: the client polled it indefinitely and no cleanup path would ever match it. Runs now stamp `Job.heartbeatAt` on the cancel check they were already making; a frozen stamp means the run is abandoned, so the next poll reports `FAILED` and `db_cleanup` deletes it
 - `Job.clientHash` is cleared once it can no longer affect a limit
 - The theme script is an inline `<script>` in `<head>`, not `next/script` with `beforeInteractive`, which was queued into `self.__next_s` and flashed the light theme on every load
 - Leaflet helper components moved to module scope; as inner functions they were new component types every render, so React remounted them and re-fired `flyTo`

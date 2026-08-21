@@ -75,7 +75,7 @@ npx tsx scripts/db_cleanup.ts   # delete failed/canceled jobs, and completed run
 npx prisma studio               # open DB browser
 ```
 
-`db_cleanup.ts` imports `CATALOG_LIMIT` from `src/server/catalog.ts`, so it keeps exactly the runs `/runs` promises to list — currently the newest 15 completed. Everything older, plus every failed or canceled job, is deleted outright.
+`db_cleanup.ts` reads its windows from `src/server/retention.ts`, so it keeps exactly the runs `/runs` promises to list — currently the newest 15 completed. Everything older, plus every failed or canceled job, is deleted outright, and any run abandoned mid-flight is retired first so it does not linger.
 
 ## Checks
 
