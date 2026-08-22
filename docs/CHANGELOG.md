@@ -24,6 +24,7 @@ later change superseded an earlier one, only the outcome is listed.
 - Leaflet marker icons served locally from `public/leaflet/` (removed unpkg CDN dependency)
 
 ### Changed
+- The Docker runtime stage drops to the base image's `pwuser` instead of staying root. `.next` is copied to that user because `next start` writes optimized images into `.next/cache` on demand
 - Unified ShopReel, FishTales, and SiteScout into a single `/api/flybox` pipeline
 - Summarization moved from Google Gemini to OpenAI: `gpt-5.6-luna` primary, `gpt-5.6-terra` fallback only after the SDK's retries are exhausted, `reasoning.effort` pinned to `none`, output capped at 6,000 tokens, and an empty response treated as failure
 - Aborting and backoff left to the OpenAI SDK's `timeout`/`maxRetries` — the old `Promise.race` timeout billed for requests nobody read

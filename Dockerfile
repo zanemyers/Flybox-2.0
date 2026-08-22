@@ -28,7 +28,8 @@ ENV NODE_ENV=production \
     RUN_HEADLESS=true
 
 COPY --from=prod-deps /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
+# Owned by the runtime user, unlike the rest: next start writes optimized images into .next/cache on demand.
+COPY --from=builder --chown=pwuser:pwuser /app/.next ./.next
 COPY --from=builder /app/generated ./generated
 COPY --from=builder /app/public ./public
 COPY package.json ./
@@ -36,6 +37,9 @@ COPY package.json ./
 # pre-deploy step — without the schema and its config that command fails.
 COPY db ./db
 COPY prisma.config.ts ./
+
+# Root is not needed past this line. pwuser ships with the base image; Chromium under /ms-playwright is world-readable, and no output is written to disk.
+USER pwuser
 
 EXPOSE 3000
 CMD ["node_modules/.bin/next", "start"]
