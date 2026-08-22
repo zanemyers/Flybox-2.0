@@ -56,19 +56,29 @@ Render's **native Node environment** — no Docker, no image.
 
 1. Create a **Web Service** pointed at this repo, with **Node** as the environment
 2. Set `DATABASE_URL`, `DIRECT_URL`, `SERP_API_KEY`, `OPENAI_API_KEY`, and `RATE_LIMIT_SALT`
-3. Build command:
-
-   ```
-   npm install && npx prisma generate && npx playwright install chromium && npx prisma migrate deploy && npm run build
-   ```
-
+3. Build command: `npm run render:build`
 4. Start command: `npm start`
 
-> **`npx prisma generate` has to be in that build command.** `generated/` is
-> gitignored and nothing else produces it, but `src/server/db.ts` imports from it.
-> Leave it out and the build fails on any clean checkout — it will appear to work
-> for as long as Render's build cache still holds a `generated/` from a previous
-> deploy.
+`render:build` is one npm script so the dashboard holds a name instead of a chain,
+and so changes to the chain show up in a diff:
+
+```
+npm install && npx prisma generate && npx playwright install chromium && npx prisma migrate deploy && npm run build
+```
+
+> **`prisma generate` has to stay in it.** `generated/` is gitignored and nothing
+> else produces it, but `src/server/db.ts` imports from it. Leave it out and the
+> build fails on any clean checkout — it will appear to work for as long as
+> Render's build cache still holds a `generated/` from a previous deploy.
+
+> **Running `npm run render:build` locally will migrate.** The `migrate deploy`
+> step uses whatever `DIRECT_URL` is in scope, and in a normal `.env` that is the
+> hosted database, not a local one. If you want the local database migrated, run
+> `npx prisma migrate deploy` with the local URLs set explicitly.
+
+Migrations could equally live in Render's pre-deploy command instead, which would
+keep the build free of database access. Left in the build for now because that is
+where it already was.
 
 `npx playwright install chromium` downloads the browser but not system libraries;
 `--with-deps` needs root, which the build does not have. It works on Render's

@@ -20,7 +20,12 @@ npm run format     # Format files (biome format --write)
 npm run typecheck  # tsc --noEmit — the only thing that type-checks
 npm test           # Vitest (run once); npm run test:watch to watch
 npm run check      # lint + typecheck + test, i.e. everything CI should run
+npm run render:build  # what Render runs: install, generate, chromium, migrate, build
 ```
+
+**`npm run render:build` migrates.** It ends up pointed at whatever `DIRECT_URL`
+is in scope, and locally that is not a local database — check before running it by
+hand.
 
 `npm run lint` is Biome only. Biome is not a type checker, so **run `npm run typecheck` too** — or just `npm run check`.
 
@@ -52,11 +57,13 @@ npx tsx scripts/db_cleanup.ts  # Delete old jobs from the database
 Deployed on Render's **native Node environment** — there is no Dockerfile and no app image. Chromium comes from `npx playwright install chromium` in the build, so `RUN_HEADLESS` needs no value in production: `browser.ts` reads `process.env.RUN_HEADLESS !== "false"`, so unset means headless.
 
 ```
-Build:  npm install && npx prisma generate && npx playwright install chromium && npx prisma migrate deploy && npm run build
+Build:  npm run render:build
 Start:  npm start
 ```
 
-**`npx prisma generate` must stay in that build command.** `generated/` is gitignored and nothing else creates it, while `src/server/db.ts` imports from it — so a build without it fails on a clean checkout and only survives on a warm build cache.
+`render:build` is `npm install && npx prisma generate && npx playwright install chromium && npx prisma migrate deploy && npm run build`. It lives in `package.json` so the dashboard holds a name rather than a chain, and so the chain is reviewable in a diff.
+
+**`prisma generate` must stay in it.** `generated/` is gitignored and nothing else creates it, while `src/server/db.ts` imports from it — so a build without it fails on a clean checkout and only survives on a warm build cache.
 
 `docker-compose.yml` runs a Postgres container and nothing else, for local development. Credentials: `postgresql://flybox:flybox@localhost:5432/flybox`.
 

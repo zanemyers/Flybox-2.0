@@ -47,16 +47,20 @@ supplies its own keys and never asks the user for one.
 Native Node environment, no Docker.
 
 ```
-Build:  npm install && npx prisma generate && npx playwright install chromium && npx prisma migrate deploy && npm run build
+Build:  npm run render:build
 Start:  npm start
 ```
+
+`render:build` chains install, `prisma generate`, `playwright install chromium`,
+`prisma migrate deploy` and `next build`. Note that it migrates, against whatever
+`DIRECT_URL` is in scope — do not run it locally without checking.
 
 Environment variables: `DATABASE_URL` (supports a pooler), `DIRECT_URL` (direct
 connection, used by migrations), `SERP_API_KEY`, `OPENAI_API_KEY`, and
 `RATE_LIMIT_SALT` — without the salt, client rate limits reset on every deploy.
 
-> `npx prisma generate` must stay in the build command. `generated/` is gitignored
-> and nothing else creates it, so a build without it fails on a clean checkout.
+> `prisma generate` must stay in that chain. `generated/` is gitignored and nothing
+> else creates it, so a build without it fails on a clean checkout.
 
 ## Checks
 

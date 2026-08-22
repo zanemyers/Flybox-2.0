@@ -55,9 +55,10 @@ certainly because Render's build cache still holds a `generated/` from an earlie
 deploy — which means the failure appears whenever that cache is cleared, or on a
 new service, and it will look unrelated to whatever change happens to be in flight.
 
-**Fix:** add `npx prisma generate` after `npm install`. It is idempotent, so this
-is safe whether or not the diagnosis above is right. This is a dashboard change,
-not a commit.
+**Fix:** set the build command to `npm run render:build`. That script exists as of
+2026-08-21 and already includes `npx prisma generate`; `generate` is idempotent,
+so this is safe whether or not the diagnosis above is right. Dashboard change,
+not a commit — nothing in the repo can make it take effect.
 
 ### 3. No Content-Security-Policy
 
