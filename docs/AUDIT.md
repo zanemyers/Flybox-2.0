@@ -109,27 +109,7 @@ Origin inventory, already worked out: tiles from
 Note that dev and production differ here — `next dev` needs `'unsafe-eval'` for
 HMR — so a policy that passes locally is not evidence it passes in production.
 
-### 4. `/runs` timestamps render in the server's timezone
-
-`src/app/runs/page.tsx:13`
-
-`fmtDate` calls `toLocaleString("en-US", …)` inside a server component, so on
-Render every run is stamped in UTC with nothing indicating it. A user in Denver
-reads a time six hours off.
-
-**Fix:** format client-side, or state the zone explicitly.
-
-### 5. Client and server disagree about rivers
-
-`src/app/api/flybox/route.ts:21,28` vs `src/client/components/inputs/tagInput.tsx`
-
-The route caps rivers at 25 entries and silently truncates each to 60 characters.
-`TagInput` enforces neither, so a user who adds 30 tags finds out by having the
-run rejected after they press Run.
-
-**Fix:** cap in `TagInput` too, from a shared constant so they cannot drift.
-
-### 6. Reverse geocoding blocks the POST
+### 4. Reverse geocoding blocks the POST
 
 `src/app/api/flybox/route.ts:65`
 
@@ -143,7 +123,7 @@ pressing Run.
 
 ## Cleanliness
 
-### 7. CLAUDE.md has drifted, and one line is actively misleading
+### 5. CLAUDE.md has drifted, and one line is actively misleading
 
 `CLAUDE.md:72,76,92,102`
 
@@ -161,16 +141,7 @@ This is the file that steers every future change, and the `docs/` refresh in
 - `:92` lists the `Job` schema without `rawFile`, `clientHash`, or the six
   catalog columns.
 
-### 8. The river tag is duplicated
-
-`src/app/runs/page.tsx:101`, `src/client/components/inputs/tagInput.tsx:73`
-
-Same six utilities in both places, and both still on `rounded-[2px]` rather than
-the `rounded-xs` the rest of the app moved to.
-
-**Fix:** a `.tag` primitive in `globals.css`, next to `.chip`.
-
-### 9. `OUTPUT_FILES` is re-encoded by hand
+### 6. `OUTPUT_FILES` is re-encoded by hand
 
 `src/server/handler.ts`
 
@@ -182,7 +153,7 @@ The rest of what this item used to list is done: the dead `Job`/`JobMessage`
 re-exports in `db.ts`, the "two fixed outputs" docstring on the files route, the
 ES2017 `tsconfig` target, and the missing `catalog.ts` tiebreaker.
 
-### 10. `output: "standalone"` would shrink the image
+### 7. `output: "standalone"` would shrink the image
 
 `next.config.ts`
 
@@ -212,12 +183,14 @@ Docker → native-Node switch, and it does not foreclose that switch.
 ## Suggested order
 
 1. Items **1, 2** — one is exploitable, the other blocks deploying anything at all.
-2. Items **4, 5, 6** — small correctness and latency fixes.
-3. Item **7** — near-free, and actively misdirects future work.
-4. Items **3, 8, 9, 10** — hardening and cleanup. The CSP is the largest thing left.
+2. Item **5** — near-free, and actively misdirects future work.
+3. Item **4** — a small latency fix.
+4. Items **3, 6, 7** — hardening and cleanup. The CSP is the largest thing left.
 
 Fixed on 2026-08-21, from the original list: abandoned `IN_PROGRESS` runs living
 forever, the third file auto-downloading with no row in the panel, swallowed
 pipeline failures, the missing security headers, and the container running as
 root, the eight duplicated lint suppressions, and the small drift in `db.ts`,
-the files route, `tsconfig.json` and `catalog.ts`. See the changelog.
+the files route, `tsconfig.json` and `catalog.ts`, the unlabelled catalog
+timestamps, the rivers cap the form did not enforce, and the duplicated river
+tag. See the changelog.
