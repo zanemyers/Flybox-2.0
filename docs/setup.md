@@ -3,8 +3,8 @@
 ## Prerequisites
 
 - Node.js 22+
-- Docker (for local full-stack dev or deployment)
-- A PostgreSQL database (local via Docker Compose, or hosted)
+- Docker (optional — only to run the local Postgres container)
+- A PostgreSQL database (local via `docker compose`, or hosted)
 - [SerpAPI key](https://serpapi.com/) — free tier available
 - [OpenAI API key](https://platform.openai.com/) — required only when summarizing
 
@@ -37,36 +37,46 @@ Without `RATE_LIMIT_SALT` a per-process salt is generated, so limits reset on ev
 
 Optional rate-limit overrides, with defaults: `RATE_LIMIT_CLIENT_HOUR` (3), `RATE_LIMIT_CLIENT_DAY` (10), `RATE_LIMIT_GLOBAL_DAY` (40), `RATE_LIMIT_GLOBAL_MONTH` (200).
 
-## Docker Compose (full-stack local)
+## Local Postgres
 
-Runs the app and a Postgres container with a persistent volume. Use this to test the full stack before deploying.
+`docker-compose.yml` runs a Postgres container and nothing else — the app itself runs on the host with `npm run dev`.
 
 ```bash
-npm run docker:up           # start Postgres + app
-npx prisma migrate deploy   # run migrations against the local DB (first time only)
-npm run docker:down         # stop containers, keep DB data
-npm run docker:reset        # stop containers and wipe DB
+npm run docker:up           # start the container
+npx prisma migrate deploy   # migrate once it is accepting connections
+npm run docker:down         # stop it, keep the data
+npm run docker:reset        # stop it and wipe the volume
 ```
 
-Start the containers first, then migrate in a second shell once Postgres is accepting connections. Compose credentials are `postgresql://flybox:flybox@localhost:5432/flybox`.
-
-`SERP_API_KEY` and `OPENAI_API_KEY` are passed through from your `.env` file automatically.
+Credentials are `postgresql://flybox:flybox@localhost:5432/flybox`, which is what `scripts/setup.ts` writes into `.env` by default.
 
 ## Render Deployment
 
-1. Create a **Web Service** on Render pointed at this repo, with **Docker** as the environment
-2. Set `DATABASE_URL`, `DIRECT_URL`, `SERP_API_KEY`, `OPENAI_API_KEY`, and `RATE_LIMIT_SALT` in the Render dashboard
-3. Add a **pre-deploy command**: `npx prisma migrate deploy`
+Render's **native Node environment** — no Docker, no image.
 
-`RUN_HEADLESS=true` is baked into the Docker image — no need to set it manually.
+1. Create a **Web Service** pointed at this repo, with **Node** as the environment
+2. Set `DATABASE_URL`, `DIRECT_URL`, `SERP_API_KEY`, `OPENAI_API_KEY`, and `RATE_LIMIT_SALT`
+3. Build command:
 
-The `Dockerfile` is a 4-stage build (deps → prod-deps → builder → runner). The runner is based on `mcr.microsoft.com/playwright:v1.62.0-noble`, which ships Chromium and its system dependencies, and it drops to that image's `pwuser` rather than staying root. `.next` and `node_modules` are copied to that user because both are written at runtime: `next start` writes optimized images into `.next/cache`, and `prisma migrate deploy` needs `node_modules/@prisma/engines` writable even though the engine binary is baked in at build time.
+   ```
+   npm install && npx prisma generate && npx playwright install chromium && npx prisma migrate deploy && npm run build
+   ```
 
-> **The runner image tag must track the `playwright` version in `package-lock.json`.** The image ships only the Chromium build its Playwright release expects; a mismatch fails at launch with `Executable doesn't exist at /ms-playwright/chromium-*`. Bump both together.
+4. Start command: `npm start`
 
-The runner also copies `db/` and `prisma.config.ts`, because the pre-deploy command needs the schema.
+> **`npx prisma generate` has to be in that build command.** `generated/` is
+> gitignored and nothing else produces it, but `src/server/db.ts` imports from it.
+> Leave it out and the build fails on any clean checkout — it will appear to work
+> for as long as Render's build cache still holds a `generated/` from a previous
+> deploy.
 
-**Planned:** move to Render's native Node environment to shrink the image, with a build command of `npx prisma migrate deploy && npx playwright install chromium && npm run build`.
+`npx playwright install chromium` downloads the browser but not system libraries;
+`--with-deps` needs root, which the build does not have. It works on Render's
+current build image, so a Playwright upgrade that wants a newer system library is
+the thing to watch.
+
+`RUN_HEADLESS` needs no value in production. `browser.ts` reads
+`process.env.RUN_HEADLESS !== "false"`, so unset means headless.
 
 ## Database Maintenance
 

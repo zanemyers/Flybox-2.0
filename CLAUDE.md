@@ -26,17 +26,17 @@ npm run check      # lint + typecheck + test, i.e. everything CI should run
 
 **`biome.json` is strict JSON — a comment in it is a parse error, and Biome answers a parse error by silently falling back to its default config** rather than failing. The symptom is Biome suddenly checking 500+ files instead of 52, because every exclude in the file stopped applying.
 
-Docker (full-stack local):
+Local Postgres (the app itself runs on the host):
 ```bash
-npm run docker:up     # Start Postgres + app via Docker Compose
-npm run docker:down   # Stop containers, keep DB volume
-npm run docker:reset  # Stop containers and wipe DB volume
+npm run docker:up     # Start the Postgres container
+npm run docker:down   # Stop it, keep the volume
+npm run docker:reset  # Stop it and wipe the volume
 ```
 
 Prisma:
 ```bash
 npx prisma migrate dev      # Run DB migrations (dev)
-npx prisma migrate deploy   # Run DB migrations (prod/Docker)
+npx prisma migrate deploy   # Run DB migrations (prod)
 npx prisma generate         # Regenerate Prisma client (outputs to generated/prisma/)
 npx prisma studio           # Open DB browser
 ```
@@ -49,15 +49,16 @@ npx tsx scripts/db_cleanup.ts  # Delete old jobs from the database
 
 ## Deployment
 
-Currently deployed on Render using Docker. The `Dockerfile` is a 4-stage build (deps → prod-deps → builder → runner). The runner stage is based on `mcr.microsoft.com/playwright:v1.62.0-noble`, which has Chromium and all system dependencies pre-installed. `RUN_HEADLESS=true` is baked into the image.
+Deployed on Render's **native Node environment** — there is no Dockerfile and no app image. Chromium comes from `npx playwright install chromium` in the build, so `RUN_HEADLESS` needs no value in production: `browser.ts` reads `process.env.RUN_HEADLESS !== "false"`, so unset means headless.
 
-**The runner image tag must track the `playwright` version in `package-lock.json`.** The image ships only the Chromium build that its Playwright release expects; a mismatch fails at launch with `Executable doesn't exist at /ms-playwright/chromium-*`. Bump both together.
+```
+Build:  npm install && npx prisma generate && npx playwright install chromium && npx prisma migrate deploy && npm run build
+Start:  npm start
+```
 
-The runner also copies `db/` and `prisma.config.ts`, because the documented pre-deploy command is `npx prisma migrate deploy` and that needs the schema.
+**`npx prisma generate` must stay in that build command.** `generated/` is gitignored and nothing else creates it, while `src/server/db.ts` imports from it — so a build without it fails on a clean checkout and only survives on a warm build cache.
 
-**Planned:** Switch to Render's native Node environment (no Docker) to reduce image size. Build command would be `npx prisma migrate deploy && npx playwright install chromium && npm run build`.
-
-For local full-stack testing, `docker-compose.yml` runs both the app and a Postgres container with a named volume (`db_data`). Compose credentials: `postgresql://flybox:flybox@localhost:5432/flybox`.
+`docker-compose.yml` runs a Postgres container and nothing else, for local development. Credentials: `postgresql://flybox:flybox@localhost:5432/flybox`.
 
 ## Architecture
 

@@ -17,14 +17,12 @@ later change superseded an earlier one, only the outcome is listed.
 - `report_raw.txt` (`Job.rawFile`) — the crawled source text, kept in both modes so a summarized run can still offer what it was built from
 - "Sounder" design system: two hand-built DaisyUI themes (`light`/`dark`), navy chassis with a single olive accent, verified contrast, no shadows, one animation
 - `tests/server/scraper.regressions.test.ts` pinning the scraper defects fixed below, plus `catalog.test.ts`, `rateLimit.test.ts`, and a `tests/tsconfig.json` that type-checks the test tree
-- `Dockerfile` (4-stage build) and `.dockerignore` for Render deployment
-- `docker-compose.yml` with a persistent Postgres volume for local full-stack dev
-- `npm run docker:up/down/reset` and `npm run check` commands
+- `docker-compose.yml` running a local Postgres, and `npm run docker:up/down/reset` to drive it
+- `npm run check`
 - MIT `LICENSE`
 - Leaflet marker icons served locally from `public/leaflet/` (removed unpkg CDN dependency)
 
 ### Changed
-- The Docker runtime stage drops to the base image's `pwuser` instead of staying root. `.next` and `node_modules` are copied to that user, since `next start` writes optimized images into `.next/cache` and `prisma migrate deploy` requires `node_modules/@prisma/engines` to be writable
 - Unified ShopReel, FishTales, and SiteScout into a single `/api/flybox` pipeline
 - Summarization moved from Google Gemini to OpenAI: `gpt-5.6-luna` primary, `gpt-5.6-terra` fallback only after the SDK's retries are exhausted, `reasoning.effort` pinned to `none`, output capped at 6,000 tokens, and an empty response treated as failure
 - Aborting and backoff left to the OpenAI SDK's `timeout`/`maxRetries` — the old `Promise.race` timeout billed for requests nobody read
@@ -40,7 +38,7 @@ later change superseded an earlier one, only the outcome is listed.
 - Retention windows extracted to `src/server/retention.ts`, which imports nothing: `scripts/db_cleanup.ts` was pulling in ExcelJS and the OpenAI SDK, and the privacy policy was pulling in Prisma, to read three numbers
 - `SiteInfo.sellsOnline` and `fishingReport` changed from string to `boolean`; emoji conversion happens at Excel output time only
 - `JobMessage` Prisma relation renamed to `jobMessages` (camelCase convention)
-- Added `debian-openssl-3.0.x` Prisma binary target for Docker/Render (Ubuntu Noble)
+- Added `debian-openssl-3.0.x` Prisma binary target for Render (Linux)
 - `useForm.tsx` renamed to `useForm.ts` (no JSX)
 - `setup.ts` updated: added `DIRECT_URL` and `RATE_LIMIT_SALT`, removed unused `PORT` and `CONCURRENCY`
 - `setup.ts` now appends only the settings missing from `.env` instead of rebuilding the file from a template. The old version carried five named keys across and dropped everything else, so it silently reset `RUN_HEADLESS=false`, discarded `RATE_LIMIT_*` overrides, and turned a double-quoted value into one with the quotes baked in
@@ -68,8 +66,9 @@ later change superseded an earlier one, only the outcome is listed.
 - The error and 404 pages had no title of their own
 
 ### Removed
+- `Dockerfile` and `.dockerignore`. Deployment is Render's native Node environment, so no app image was ever built from them; `docker-compose.yml` was the only remaining consumer and now runs Postgres alone. This also retires the constraint that the runner image tag had to track the `playwright` version, and the plan to move off Docker, which had already happened
 - `GEMINI_API_KEY`, the Gemini SDK, and the Gemini terms screenshot from the legal pages
 - Decorative emoji (14 of them) and the page-header eyebrows that only repeated the page name
-- `scripts/start.sh` (replaced by Docker `CMD`)
+- `scripts/start.sh`
 - `Justfile` (redundant with npm scripts)
 - Three-tool architecture (ShopReel, FishTales, SiteScout)

@@ -23,40 +23,40 @@ npx prisma migrate dev         # run DB migrations
 npm run dev                    # start dev server (Turbopack)
 ```
 
-## Docker (full-stack local)
+## Local Postgres
 
-Spins up the app and a Postgres container with a persistent volume:
-
-```bash
-npm run docker:up      # start Postgres + app
-npm run docker:down    # stop (keeps DB data)
-npm run docker:reset   # stop and wipe DB
-```
-
-Start the containers first, then migrate against the running database:
+`docker-compose.yml` runs a Postgres container and nothing else — the app runs on the host.
 
 ```bash
-npm run docker:up                 # in one shell
-npx prisma migrate deploy         # in another, once Postgres is accepting connections
+npm run docker:up      # start it
+npm run docker:down    # stop (keeps data)
+npm run docker:reset   # stop and wipe the volume
 ```
 
-`SERP_API_KEY` and `OPENAI_API_KEY` are passed through from your `.env` file and are
-read at runtime — Flybox supplies its own keys and never asks the user for one.
+Then migrate once it is accepting connections:
+
+```bash
+npx prisma migrate deploy
+```
+
+`SERP_API_KEY` and `OPENAI_API_KEY` are read at runtime from `.env` — Flybox
+supplies its own keys and never asks the user for one.
 
 ## Deployment (Render)
 
-1. Create a **Web Service** on Render pointed at this repo, with **Docker** as the environment
-2. Set environment variables in the Render dashboard:
-   - `DATABASE_URL` — supports a connection pooler
-   - `DIRECT_URL` — must be a direct connection (used by Prisma migrations)
-   - `SERP_API_KEY`, `OPENAI_API_KEY`, `RATE_LIMIT_SALT`
-3. Add a **pre-deploy command**: `npx prisma migrate deploy`
+Native Node environment, no Docker.
 
-Both API keys are server-side, so they must be set in the deployment environment.
-Set `RATE_LIMIT_SALT` too, or client rate limits reset on every deploy.
+```
+Build:  npm install && npx prisma generate && npx playwright install chromium && npx prisma migrate deploy && npm run build
+Start:  npm start
+```
 
-> The runner image tag in the `Dockerfile` must match the `playwright` version in
-> `package-lock.json` — the image only ships the Chromium build that release expects.
+Environment variables: `DATABASE_URL` (supports a pooler), `DIRECT_URL` (direct
+connection, used by migrations), `SERP_API_KEY`, `OPENAI_API_KEY`, and
+`RATE_LIMIT_SALT` — without the salt, client rate limits reset on every deploy.
+
+> `npx prisma generate` must stay in the build command. `generated/` is gitignored
+> and nothing else creates it, so a build without it fails on a clean checkout.
 
 ## Checks
 
@@ -69,7 +69,7 @@ npm run check   # lint + typecheck + tests
 ## Docs
 
 - [Overview](docs/overview.md) — pipeline, job system, rate limits, tech stack
-- [Setup](docs/setup.md) — local dev, Docker Compose, Render deployment
+- [Setup](docs/setup.md) — local dev, local Postgres, Render deployment
 - [IDE](docs/ide.md) — extensions and editor configuration
 - [Changelog](docs/CHANGELOG.md)
 

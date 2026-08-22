@@ -1,7 +1,7 @@
 # Production Readiness Audit
 
 **Snapshot:** 2026-08-21, last revised against `fc7a852` on `redesign/tailwater`.
-**Scope:** all of `src/`, `scripts/`, `db/`, plus `Dockerfile`, `next.config.ts`, `biome.json`, `tsconfig.json` — about 5,200 lines.
+**Scope:** all of `src/`, `scripts/`, `db/`, plus `next.config.ts`, `biome.json`, `tsconfig.json` — about 5,200 lines.
 
 This is a working list, not reference documentation. It goes stale as items are
 fixed; check the commit above before trusting any line of it. When an item is
@@ -10,7 +10,7 @@ work belongs.
 
 State of the tree: `npm run check` green (Biome clean, `tsc` clean, 169 server
 tests passing), no `any`, no non-null assertions, `strict` on, no dead exports.
-Note that green here says nothing about the Docker build — see item 2.
+Note that green here is measured on macOS and says nothing about a Linux build — see item 2.
 
 ---
 
@@ -35,42 +35,29 @@ the app, so verify against a real request's headers before committing to a rule.
 Do not simply prefer `x-real-ip`; a client can send that too, and whether the
 proxy overwrites it needs checking.
 
-### 2. The Docker build cannot currently succeed
+### 2. The Render build command omits `npx prisma generate`
 
-`package-lock.json`, `prisma.config.ts` / `Dockerfile`
+Render dashboard, not a file in this repo.
 
-Two independent failures, both found by running `docker build .` on 2026-08-21.
-Both predate the work of that day and neither is caused by it. The image that is
-deployed today most likely predates the current lockfile.
-
-**`npm ci` fails in the `deps` stage.**
+The build command is:
 
 ```
-Missing: @emnapi/runtime@1.11.3 from lock file
-Missing: @emnapi/core@1.11.3 from lock file
+npm install && npx playwright install chromium && npx prisma migrate deploy && npm run build
 ```
 
-`@emnapi/*` are transitive dependencies of the Linux `@img/sharp-*` binaries that
-Next's image optimizer pulls in. The lockfile was generated on macOS, where those
-variants never resolve, so it has no entry for them: `npm ci --dry-run` reports
-"up to date" locally and the same command fails on Linux. This will bite on
-Render too, which builds on Linux. The fix is a lockfile regeneration that
-resolves the full cross-platform optional tree — worth diffing carefully, since
-it can move transitive versions across the whole graph.
+`generated/` is gitignored, `git ls-files generated` returns nothing, no
+`postinstall` anywhere produces it, and `prisma migrate deploy` does not generate
+a client. But `src/server/db.ts` imports `../../generated/prisma/client`, so
+`npm run build` needs it to exist.
 
-**`npx prisma generate` fails in the `builder` stage.**
+That build therefore cannot succeed on a clean checkout. It succeeds today almost
+certainly because Render's build cache still holds a `generated/` from an earlier
+deploy — which means the failure appears whenever that cache is cleared, or on a
+new service, and it will look unrelated to whatever change happens to be in flight.
 
-```
-PrismaConfigEnvError: Cannot resolve environment variable: DIRECT_URL.
-```
-
-`prisma.config.ts` calls `env("DIRECT_URL")`, which throws when unset, and
-`.dockerignore` excludes `.env*`. `generate` is offline and needs no real
-database, only a config that loads — so either an `ARG`/`ENV` placeholder in the
-builder stage, or making the datasource url lazy so `generate` does not demand it.
-
-Both were worked around with a throwaway Dockerfile to verify the non-root
-change; see the changelog entry for that commit for what the workaround was.
+**Fix:** add `npx prisma generate` after `npm install`. It is idempotent, so this
+is safe whether or not the diagnosis above is right. This is a dashboard change,
+not a commit.
 
 ### 3. No Content-Security-Policy
 
@@ -127,21 +114,8 @@ The rest of what this item used to list is done: the dead `Job`/`JobMessage`
 re-exports in `db.ts`, the "two fixed outputs" docstring on the files route, the
 ES2017 `tsconfig` target, and the missing `catalog.ts` tiebreaker.
 
-### 6. `output: "standalone"` would shrink the image
-
-`next.config.ts`
-
-The runner copies the full production `node_modules`. Standalone output prunes it
-to what the build actually reaches — a much smaller change than the planned
-Docker → native-Node switch, and it does not foreclose that switch.
-
----
-
 ## Checked and ruled out
 
-- **Playwright browsers are not downloaded twice during the Docker build.**
-  Neither `playwright` nor `playwright-core` has a postinstall hook in the
-  current lockfile.
 - **`/runs` is not statically cached.** `export const dynamic = "force-dynamic"`
   is present (`runs/page.tsx:11`).
 - **The browser-direct OpenStreetMap call is disclosed.** The privacy policy
@@ -151,22 +125,20 @@ Docker → native-Node switch, and it does not foreclose that switch.
   `geocode.ts`, so it is the path most likely to get rate-limited by Nominatim.
 - **No unhandled rejection from the fire-and-forget pipeline**, and it is no
   longer silent — the `.catch` in `route.ts` logs with the job id.
-- **`pwuser` exists in the Playwright base image.** Settled by the `docker build`
-  run on 2026-08-21, which also turned up that `node_modules` needs the same
-  `--chown` as `.next`, because `prisma migrate deploy` writes to
-  `node_modules/@prisma/engines`. One residual unknown, not worth chasing until
-  a deploy is attempted: the pre-deploy command is `npx prisma migrate deploy`,
-  and `npx` wants a writable `HOME`. `node_modules/.bin/prisma migrate deploy`
-  would sidestep its cache directory, but changing it means editing the Render
-  dashboard.
+- **The lockfile's missing `@emnapi/runtime` and `@emnapi/core` entries do not
+  affect deploys.** They break `npm ci`, which only the deleted Dockerfile ran;
+  the Render build uses `npm install`, which resolves them. They are needed by
+  the wasm32 fallbacks `@img/sharp-wasm32` and `@tailwindcss/oxide-wasm32-wasi`,
+  not by the Linux `sharp` binaries — all sixteen of those are in the lockfile.
+  Worth a lockfile regeneration eventually, but it blocks nothing.
 
 ---
 
 ## Suggested order
 
-1. Items **1, 2** — one is exploitable, the other blocks deploying anything at all.
+1. Items **1, 2** — one is exploitable, the other is a deploy that only works while a cache holds.
 2. Item **4** — a small latency fix.
-3. Items **3, 5, 6** — hardening and cleanup. The CSP is the largest thing left.
+3. Items **3, 5** — hardening and cleanup. The CSP is the largest thing left.
 
 ## Fixed and removed from this list
 
@@ -182,3 +154,7 @@ All on 2026-08-21. The changelog carries the detail.
 - The river tag duplicated across two files
 - Four wrong claims in `CLAUDE.md`, one of which sent styling work at the wrong `--color-primary`
 - Small drift in `db.ts`, the files route, `tsconfig.json`, and `catalog.ts`
+
+Removed rather than fixed, once Docker stopped being the deploy path: the broken
+`docker build`, and `output: "standalone"` — which existed only to shrink an image
+that no longer gets built.
