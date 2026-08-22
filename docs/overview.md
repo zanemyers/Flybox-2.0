@@ -76,6 +76,14 @@ Output files are stored as `Bytes` on the `Job` row and streamed to the client �
 
 The client is identified by a **salted SHA-256 of its IP**, stored on `Job.clientHash`; the raw address is never stored. The address comes from counting in from the right of `x-forwarded-for` by `RATE_LIMIT_TRUSTED_PROXIES` (default 1), since only the rightmost entries were written by a proxy rather than by the caller. `src/app/robots.ts` disallows all crawlers — there is nothing to index and real cost in being crawled.
 
+## Response Headers
+
+`next.config.ts` sets `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy` and `Strict-Transport-Security` on everything, and turns off `X-Powered-By`.
+
+The Content-Security-Policy is separate, in `src/proxy.ts`, because it needs a per-request nonce: `script-src` is `'self' 'nonce-…' 'strict-dynamic'`, so an injected script cannot run whatever its origin. `connect-src` is our own origin plus Nominatim, `img-src` adds the OpenStreetMap tile hosts, and `style-src-attr` stays `'unsafe-inline'` because Leaflet positions tiles with inline style attributes. `'unsafe-eval'` is added in development only — React uses `eval` there to rebuild server stack traces.
+
+The nonce is why no page is prerendered: it cannot exist at build time. API routes are outside the matcher and carry only the static headers.
+
 ## Tech Stack
 
 | Layer       | Tech                                                          |

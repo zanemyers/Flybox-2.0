@@ -1,6 +1,6 @@
 # Production Readiness Audit
 
-**Snapshot:** 2026-08-21, last revised against `547686b` on `redesign/tailwater`.
+**Snapshot:** 2026-08-21, last revised against `faa9857` on `redesign/tailwater`.
 **Scope:** all of `src/`, `scripts/`, `db/`, plus `next.config.ts`, `biome.json`, `tsconfig.json` — about 5,200 lines.
 
 This is a working list, not reference documentation. It goes stale as items are
@@ -8,37 +8,26 @@ fixed; check the commit above before trusting any line of it. When an item is
 done, delete it rather than marking it done — the changelog is where finished
 work belongs.
 
-State of the tree: `npm run check` green (Biome clean, `tsc` clean, 169 server
+State of the tree: `npm run check` green (Biome clean, `tsc` clean, 178 server
 tests passing), no `any`, no non-null assertions, `strict` on, no dead exports.
-Note that green here is measured on macOS and against a local Postgres; it says nothing about a Render build.
+`npm run check` is measured on macOS against a local Postgres, so it says nothing
+about a Render build — but `npm run render:build` has been run locally and passes.
 
 ---
 
-## Hardening
+## Open
 
-### 1. No Content-Security-Policy
+Nothing from the original audit. One thing noticed in passing while verifying the
+CSP, too small to have been worth an audit pass of its own:
 
-`next.config.ts`
+### 1. The map's search input has no `id` or `name`
 
-Everything else on this front is done — `X-Content-Type-Options`,
-`Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`,
-`Strict-Transport-Security`, and `poweredByHeader: false`.
+`src/client/components/inputs/mapInput.tsx:150`
 
-A CSP is the piece left, and it is its own project: it needs a nonce pipeline
-rather than a static header, because Next streams inline scripts of its own, the
-theme script in `layout.tsx` must run before first paint, and Leaflet writes
-inline `style` attributes.
-
-Origin inventory, already worked out: tiles from
-`https://*.tile.openstreetmap.org` (`img-src`), the map search box hitting
-`https://nominatim.openstreetmap.org` (`connect-src`), fonts self-hosted under
-`/_next` by `next/font` (`font-src 'self'`). `frame-ancestors`, `base-uri` and
-`form-action` could land first at low risk, ahead of the script-src work.
-
-Note that dev and production differ here — `next dev` needs `'unsafe-eval'` for
-HMR — so a policy that passes locally is not evidence it passes in production.
-
----
+Chrome reports it as an issue. It has an `aria-label`, so it is announced
+correctly and nothing is broken; the missing attribute only costs autofill
+heuristics. It sits in a `<dialog>` rather than a form, so `name` has no
+submission role either. One attribute if anyone cares.
 
 ## Checked and ruled out
 
@@ -62,12 +51,13 @@ HMR — so a policy that passes locally is not evidence it passes in production.
 
 ## Suggested order
 
-One item left, and it is the only one: the CSP. No production risks are open and
-nothing on the cleanliness side remains.
+Every item from the original audit is closed. What is left is one cosmetic
+attribute, above.
 
-It is deliberately not started here. `next dev` needs `'unsafe-eval'` for HMR, so
-a policy that passes locally is no evidence it passes in production — this wants a
-deployed target to verify against, which makes it work for after the merge.
+The concern this file carried about the CSP — that `next dev` needs
+`'unsafe-eval'`, so passing locally proves nothing about production — turned out
+to be answerable without a deployment: `next build && next start` runs the real
+production policy, which is how it was verified.
 
 **Carried, not a risk:** Render's build and pre-deploy fields still hold the raw
 command chains. `npx prisma generate` has been added to the build, so nothing is
@@ -92,6 +82,7 @@ All on 2026-08-21. The changelog carries the detail.
 - A Render build command with no `npx prisma generate`, which could only succeed while the build cache held a `generated/` from an earlier deploy
 - A per-client rate limit that any caller could bypass by rotating `x-forwarded-for`
 - `OUTPUT_FILES` restated by hand in two other places, the worse half being a `switch` whose `default` served the workbook for any output it did not know
+- No Content-Security-Policy — now nonce-based in `src/proxy.ts`, verified against a production build
 
 Removed rather than fixed, once Docker stopped being the deploy path: the broken
 `docker build`, and `output: "standalone"` — which existed only to shrink an image

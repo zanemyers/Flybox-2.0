@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import { headers } from "next/headers";
 import Link from "next/link";
 import type React from "react";
 import { FaFacebook, FaGlobe, FaInstagram, FaLinkedinIn } from "react-icons/fa";
@@ -59,7 +60,11 @@ const socialLinks = [
   { name: "Instagram", href: "https://www.instagram.com/rescueriverco/", icon: FaInstagram },
 ];
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  /* Next stamps its own script tags with the nonce from proxy.ts, but the theme script below is ours, so it has to be
+     attached by hand. Reading a header here is also what opts every page into the dynamic rendering a nonce requires. */
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     /* The font variables MUST live on <html>, not <body>: Tailwind's @theme emits
        --font-sans/--font-mono on :root, and a custom property is resolved on the
@@ -70,7 +75,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" className={`${plexSans.variable} ${plexMono.variable}`} suppressHydrationWarning>
       <head>
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static string, must execute before first paint */}
-        <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>
       <body className="antialiased bg-base-100 text-base-content">
         <a

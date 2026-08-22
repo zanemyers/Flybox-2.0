@@ -6,6 +6,7 @@ This section is the net delta since the last release, not a running log — wher
 later change superseded an earlier one, only the outcome is listed.
 
 ### Added
+- A Content-Security-Policy in `src/proxy.ts`, nonce-based so `script-src` can be `'self' 'nonce-…' 'strict-dynamic'` rather than `'unsafe-inline'`. `connect-src` and `img-src` name only the OpenStreetMap origins the map actually uses, and a fetch to anywhere else is blocked. The cost is static rendering: a nonce is per-request, so five previously prerendered pages now render on demand
 - Security headers on every response, set in `next.config.ts`: `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, and `Strict-Transport-Security`, plus `poweredByHeader: false`. No CSP yet — it needs a nonce pipeline, not a header
 - Flybox now supplies its own API keys: no key fields, no account, no bring-your-own-key flow
 - `src/server/rateLimit.ts` — per-client (3/hour, 10/day) and global (40/day, 200/30 days) caps enforced before a job is created; client identified by a salted SHA-256 of its IP on `Job.clientHash`
