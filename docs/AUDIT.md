@@ -161,19 +161,7 @@ This is the file that steers every future change, and the `docs/` refresh in
 - `:92` lists the `Job` schema without `rawFile`, `clientHash`, or the six
   catalog columns.
 
-### 8. Eight copies of the same `biome-ignore` comment
-
-`src/app/page.tsx`, `about/page.tsx`, `how-it-works/page.tsx`, `runs/page.tsx` (×3),
-`header.tsx`, `statusPanel.tsx`
-
-Every list in this app is `list-none`, which means `noRedundantRoles` is wrong
-here every single time it fires. Eight copies of the same 130-character
-suppression is the rule telling us it does not apply to this codebase.
-
-**Fix:** turn `noRedundantRoles` off once in `biome.json` with one comment
-explaining why, and delete all eight.
-
-### 9. The river tag is duplicated
+### 8. The river tag is duplicated
 
 `src/app/runs/page.tsx:101`, `src/client/components/inputs/tagInput.tsx:73`
 
@@ -182,16 +170,19 @@ the `rounded-xs` the rest of the app moved to.
 
 **Fix:** a `.tag` primitive in `globals.css`, next to `.chip`.
 
-### 10. Smaller items
+### 9. `OUTPUT_FILES` is re-encoded by hand
 
-- `src/server/db.ts:7` re-exports `Job` and `JobMessage` types that nothing
-  imports.
-- `src/server/handler.ts:158` and `:172` each re-encode the `OUTPUT_FILES`
-  mapping by hand instead of iterating it — three places now know the file list.
-- `src/app/api/flybox/[id]/files/[name]/route.ts:3` says "two fixed outputs."
-- `tsconfig.json` targets ES2017 on a Node 22 / Next 16 app.
+`src/server/handler.ts`
 
-### 11. `output: "standalone"` would shrink the image
+`getUpdates` builds its readiness map by naming each output and its column again,
+and `getFile` switches over the same mapping a third time, rather than iterating
+`OUTPUT_FILES`. Adding a fourth output means editing three places.
+
+The rest of what this item used to list is done: the dead `Job`/`JobMessage`
+re-exports in `db.ts`, the "two fixed outputs" docstring on the files route, the
+ES2017 `tsconfig` target, and the missing `catalog.ts` tiebreaker.
+
+### 10. `output: "standalone"` would shrink the image
 
 `next.config.ts`
 
@@ -222,10 +213,11 @@ Docker → native-Node switch, and it does not foreclose that switch.
 
 1. Items **1, 2** — one is exploitable, the other blocks deploying anything at all.
 2. Items **4, 5, 6** — small correctness and latency fixes.
-3. Items **7** — near-free, and actively misdirects future work.
-4. Items **3, 9, 10, 11** — hardening and cleanup. The CSP is the largest thing left.
+3. Item **7** — near-free, and actively misdirects future work.
+4. Items **3, 8, 9, 10** — hardening and cleanup. The CSP is the largest thing left.
 
 Fixed on 2026-08-21, from the original list: abandoned `IN_PROGRESS` runs living
 forever, the third file auto-downloading with no row in the panel, swallowed
 pipeline failures, the missing security headers, and the container running as
-root. See the changelog.
+root, the eight duplicated lint suppressions, and the small drift in `db.ts`,
+the files route, `tsconfig.json` and `catalog.ts`. See the changelog.

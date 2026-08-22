@@ -10,7 +10,10 @@ export const metadata: Metadata = {
 // Reads the jobs table on every request; a cached page would always be stale.
 export const dynamic = "force-dynamic";
 
-const fmtDate = (d: Date) => d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+/* Formatted on the server, so the zone is the server's and not the reader's — UTC on Render. Label it rather than
+   implying local time, and carry the exact instant in dateTime for anything reading the page rather than looking at it. */
+const fmtDate = (d: Date) =>
+  `${d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" })} UTC`;
 
 const fmtCoords = (lat: number | null, lon: number | null) => (lat === null || lon === null ? null : `${lat.toFixed(6)}, ${lon.toFixed(6)}`);
 
@@ -86,7 +89,9 @@ export default async function Runs() {
                       <Location run={run} />
                       <div className="flex shrink-0 items-center gap-2">
                         {!run.summarized && <span className="chip border-rule text-base-content/70">Raw</span>}
-                        <span className="readout text-micro text-base-content/70">{fmtDate(run.createdAt)}</span>
+                        <time dateTime={run.createdAt.toISOString()} className="readout text-micro text-base-content/70">
+                          {fmtDate(run.createdAt)}
+                        </time>
                       </div>
                     </div>
 
@@ -122,7 +127,9 @@ export default async function Runs() {
                     <div className="flex shrink-0 flex-col items-end gap-2">
                       <div className="flex items-center gap-2">
                         {!run.summarized && <span className="chip border-rule text-base-content/70">Raw</span>}
-                        <span className="readout text-micro text-base-content/70">{fmtDate(run.createdAt)}</span>
+                        <time dateTime={run.createdAt.toISOString()} className="readout text-micro text-base-content/70">
+                          {fmtDate(run.createdAt)}
+                        </time>
                       </div>
                       <Downloads run={run} compact />
                     </div>
