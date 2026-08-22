@@ -1,7 +1,7 @@
 import * as cheerio from "cheerio";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { StealthBrowser } from "@/server/browser";
-import { extractAnchors, includesAny, isAllowedByRobots, normalizeUrl, sameDomain, scrapeShopDetails, scrapeVisibleText } from "@/server/scraper";
+import { extractAnchors, httpFetch, includesAny, isAllowedByRobots, normalizeUrl, sameDomain, scrapeShopDetails, scrapeVisibleText } from "@/server/scraper";
 
 // ── includesAny ────────────────────────────────────────────────────────────────
 
@@ -473,5 +473,101 @@ describe("scrapeShopDetails — email extraction", () => {
     const $ = cheerio.load(html);
     const details = await scrapeShopDetails($, "https://prefer-mailto.test", makeMockBrowser());
     expect(details.email).toBe("preferred@flyshop.com");
+  });
+});
+
+// ── httpFetch: what it refuses to read ────────────────────────────────────────
+
+/** Real Response, so headers.get and the body stream behave as they do in production.
+    Passing no headers means no content-type at all, which a Response built from a string cannot do. */
+function streamResponse(body: string, headers: Record<string, string> = {}, status = 200) {
+  const bytes = new TextEncoder().encode(body);
+  return new Response(
+    new ReadableStream({
+      start(c) {
+        c.enqueue(bytes);
+        c.close();
+      },
+    }),
+    { status, headers },
+  );
+}
+
+describe("httpFetch body guards", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("refuses a PDF served from an extensionless URL, which BINARY_EXT cannot catch", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(streamResponse("%PDF-1.4 endstream endobj", { "content-type": "application/pdf" })));
+    const result = await httpFetch("https://shop.test/pathfinder-infosheet");
+    expect(result.html).toBeNull();
+    expect(result.error).toContain("application/pdf");
+  });
+
+  it("refuses stylesheets and scripts even though they are text/*", async () => {
+    for (const type of ["text/css", "text/javascript", "image/png"]) {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(streamResponse("body{}", { "content-type": type })));
+      expect((await httpFetch("https://shop.test/asset")).html).toBeNull();
+    }
+  });
+
+  it("reads markup, and the declared charset is honored", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(streamResponse("<html><body>Caddis</body></html>", { "content-type": "text/html; charset=utf-8" })));
+    expect((await httpFetch("https://shop.test/report")).html).toContain("Caddis");
+  });
+
+  it("still reads a body when the server declares no content-type at all", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(streamResponse("<html><body>no type</body></html>")));
+    expect((await httpFetch("https://shop.test/")).html).toContain("no type");
+  });
+
+  it("caps an oversized body, including when it arrives as one chunk", async () => {
+    const huge = `<html>${"x".repeat(3_000_000)}</html>`;
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(streamResponse(huge, { "content-type": "text/html" })));
+    const result = await httpFetch("https://shop.test/huge");
+    expect(result.html).not.toBeNull();
+    expect(result.html?.length).toBeLessThanOrEqual(2_000_000);
+  });
+
+  it("treats a 403 as blocked without reading its body", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(streamResponse("Access Denied", { "content-type": "text/html" }, 403)));
+    const result = await httpFetch("https://shop.test/blocked");
+    expect(result.blocked).toBe(true);
+    expect(result.html).toBeNull();
+  });
+});
+
+// ── robots.txt fetching, not parsing ──────────────────────────────────────────
+
+describe("robots.txt is fetched once per origin", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("collapses concurrent misses on one origin into a single request", async () => {
+    const spy = vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve("User-agent: *\nDisallow: /admin\n") });
+    vi.stubGlobal("fetch", spy);
+
+    const results = await Promise.all([
+      isAllowedByRobots("https://one-fetch.test/a"),
+      isAllowedByRobots("https://one-fetch.test/b"),
+      isAllowedByRobots("https://one-fetch.test/admin"),
+    ]);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(results.map((r) => r.allowed)).toEqual([true, true, false]);
+  });
+
+  it("serves later pages from cache rather than refetching per page", async () => {
+    const spy = vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve("User-agent: *\nCrawl-delay: 2\n") });
+    vi.stubGlobal("fetch", spy);
+
+    const first = await isAllowedByRobots("https://cached-robots.test/page-1");
+    for (const n of [2, 3, 4, 5]) await isAllowedByRobots(`https://cached-robots.test/page-${n}`);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    // A robots.txt with only Crawl-delay has no rules but still asks for the delay.
+    expect(first.crawlDelay).toBe(2);
   });
 });

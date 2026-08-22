@@ -158,6 +158,68 @@ export function isReportPath(pathname: string): boolean {
 const MOUNT_POINT = /<[a-z]+[^>]*\sid=["'](?:root|app|__next)["']/i;
 const stripTags = (html: string) => html.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ");
 
+/* A crawler aimed at arbitrary third-party sites is eventually handed something enormous. Nothing
+   above this could survive the per-site text budget anyway, and ten of these run at once. */
+const MAX_BODY_BYTES = 2_000_000;
+
+/* Markup only, screened by what the response IS rather than what its URL is called. BINARY_EXT in
+   pipeline.ts tests the pathname, so a PDF served from an extensionless URL still reached cheerio
+   as binary noise — one real payload was 39% exactly that. text/css and text/javascript are
+   excluded deliberately: they are text/*, and never worth parsing. */
+const HTML_TYPE = /^\s*(?:text\/(?:html|plain|xml)|application\/(?:xhtml\+xml|xml))\s*(?:;|$)/i;
+
+/** Frees the connection when we have decided not to read a body. */
+async function discard(res: Response): Promise<void> {
+  try {
+    await res.body?.cancel();
+  } catch {
+    /* already closed */
+  }
+}
+
+/* res.text(), which this replaces, honored the declared charset, and windows-1252 pages are not
+   rare on small business sites. An unknown or absent label falls back to utf-8. */
+function decoderFor(contentType: string): TextDecoder {
+  const label = /charset=([\w-]+)/i.exec(contentType)?.[1];
+  try {
+    return new TextDecoder(label ?? "utf-8", { fatal: false });
+  } catch {
+    return new TextDecoder("utf-8", { fatal: false });
+  }
+}
+
+/** Reads at most MAX_BODY_BYTES and then stops pulling. Truncated markup still parses — cheerio is
+    lenient — so a capped read of a huge page beats refusing it outright. */
+async function readCapped(res: Response, contentType: string): Promise<string> {
+  if (!res.body) return res.text();
+
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  while (total < MAX_BODY_BYTES) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    total += value.byteLength;
+  }
+  // Stopped on the cap rather than on end-of-stream, so the rest is never pulled.
+  if (total >= MAX_BODY_BYTES) await discard(res);
+
+  /* Clamped, because the loop above stops BETWEEN chunks: one chunk larger than the cap would
+     otherwise sail past it whole, and a body can arrive as a single chunk. */
+  const capped = Math.min(total, MAX_BODY_BYTES);
+  const body = new Uint8Array(capped);
+  let at = 0;
+  for (const chunk of chunks) {
+    if (at >= capped) break;
+    const take = Math.min(chunk.byteLength, capped - at);
+    body.set(chunk.subarray(0, take), at);
+    at += take;
+  }
+  return decoderFor(contentType).decode(body);
+}
+
 export async function httpFetch(url: string, retries = 2): Promise<FetchResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10_000);
@@ -172,21 +234,35 @@ export async function httpFetch(url: string, retries = 2): Promise<FetchResult> 
       },
       redirect: "follow",
     });
-    const html = await res.text();
-    clearTimeout(timeout);
-    const blocked = res.status === 403 || res.status === 429 || BLOCKED_OR_FORBIDDEN.some((phrase) => html.includes(phrase));
+
+    // Knowable from the status alone, and the body of a 403 was never content worth reading.
+    if (res.status === 403 || res.status === 429) {
+      await discard(res);
+      return { html: null, status: res.status, blocked: true, jsRendered: false };
+    }
+
+    /* Absent content-type is not treated as a refusal — plenty of small sites omit it — and the
+       byte cap still bounds whatever comes back. Returning rather than throwing matters: the
+       retry below is for transport failures, and a PDF will still be a PDF next time. */
+    const contentType = res.headers.get("content-type") ?? "";
+    if (contentType && !HTML_TYPE.test(contentType)) {
+      await discard(res);
+      return { html: null, status: res.status, blocked: false, jsRendered: false, error: `skipped ${contentType.split(";")[0].trim()}` };
+    }
+
+    const html = await readCapped(res, contentType);
+    const blocked = BLOCKED_OR_FORBIDDEN.some((phrase) => html.includes(phrase));
     const jsRendered = !blocked && MOUNT_POINT.test(html) && stripTags(html).trim().length < 200;
     return { html, status: res.status, blocked, jsRendered };
   } catch (err) {
-    clearTimeout(timeout);
     if (retries > 0) return httpFetch(url, retries - 1);
     return { html: null, status: 0, blocked: false, jsRendered: false, error: String(err) };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
 // ── robots.txt ───────────────────────────────────────────────────────────────
-
-const robotsCache = new Map<string, string>();
 
 export interface RobotsResult {
   allowed: boolean;
@@ -256,42 +332,98 @@ export function robotsMatchLength(pattern: string, pathname: string): number {
   }
 }
 
-export async function isAllowedByRobots(url: string): Promise<RobotsResult> {
+interface RobotsEntry {
+  rules: RobotsRule[];
+  crawlDelay: number;
+  fetchedAt: number;
+}
+
+/* Caches the PARSED rules, not the raw text: parseRobots ran again for every page crawled on a
+   site, and the crawler consults robots for every URL it visits.
+
+   Bounded and expiring because this is module-level state in a long-lived server. Unbounded it
+   grew with every origin ever crawled, and a permanent entry means a site that starts disallowing
+   us never takes effect. Real crawlers re-read robots.txt roughly daily. */
+const ROBOTS_TTL_MS = 6 * 60 * 60_000;
+const ROBOTS_CACHE_MAX = 500;
+const robotsCache = new Map<string, RobotsEntry>();
+
+/* In-flight fetches, so ten shops starting on one origin at once make one request rather than ten.
+   Concurrent misses used to each fetch the same robots.txt. */
+const robotsInFlight = new Map<string, Promise<RobotsEntry>>();
+
+const ALLOW_ALL: RobotsEntry = { rules: [], crawlDelay: 0, fetchedAt: 0 };
+
+function cacheRobots(origin: string, entry: RobotsEntry): void {
+  robotsCache.set(origin, entry);
+  /* Map iterates in insertion order, so the first key is the oldest. FIFO rather than LRU: a crawl
+     visits one origin's pages together, so recency and insertion order barely differ here. */
+  while (robotsCache.size > ROBOTS_CACHE_MAX) {
+    const oldest = robotsCache.keys().next().value;
+    if (oldest === undefined) break;
+    robotsCache.delete(oldest);
+  }
+}
+
+/** Never rejects: an unreachable or unparseable robots.txt means no rules, which means allowed. */
+async function fetchRobots(origin: string): Promise<RobotsEntry> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5_000);
   try {
-    const { origin, pathname } = new URL(url);
+    const res = await fetch(`${origin}/robots.txt`, { signal: controller.signal });
+    const text = res.ok ? await res.text() : "";
+    return { ...parseRobots(text), fetchedAt: Date.now() };
+  } catch {
+    return { ...ALLOW_ALL, fetchedAt: Date.now() };
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
-    if (!robotsCache.has(origin)) {
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 5_000);
-        const res = await fetch(`${origin}/robots.txt`, { signal: controller.signal });
-        clearTimeout(timer);
-        robotsCache.set(origin, res.ok ? await res.text() : "");
-      } catch {
-        robotsCache.set(origin, "");
-      }
-    }
+async function robotsFor(origin: string): Promise<RobotsEntry> {
+  const cached = robotsCache.get(origin);
+  if (cached && Date.now() - cached.fetchedAt < ROBOTS_TTL_MS) return cached;
 
-    const robotsTxt = robotsCache.get(origin) ?? "";
-    if (!robotsTxt) return { allowed: true, crawlDelay: 0 };
+  const inFlight = robotsInFlight.get(origin);
+  if (inFlight) return inFlight;
 
-    const { rules, crawlDelay } = parseRobots(robotsTxt);
+  const pending = fetchRobots(origin).then((entry) => {
+    cacheRobots(origin, entry);
+    return entry;
+  });
+  robotsInFlight.set(origin, pending);
+  try {
+    return await pending;
+  } finally {
+    robotsInFlight.delete(origin);
+  }
+}
 
-    // Most specific rule wins; Allow beats Disallow on equal specificity.
-    let longestAllow = -1;
-    let longestDisallow = -1;
-    for (const rule of rules) {
-      const len = robotsMatchLength(rule.pattern, pathname);
-      if (len < 0) continue;
-      if (rule.allow) longestAllow = Math.max(longestAllow, len);
-      else longestDisallow = Math.max(longestDisallow, len);
-    }
-
-    const allowed = longestDisallow < 0 || longestAllow >= longestDisallow;
-    return { allowed, crawlDelay };
+export async function isAllowedByRobots(url: string): Promise<RobotsResult> {
+  let origin: string;
+  let pathname: string;
+  try {
+    ({ origin, pathname } = new URL(url));
   } catch {
     return { allowed: true, crawlDelay: 0 };
   }
+
+  const { rules, crawlDelay } = await robotsFor(origin);
+  // Still returns the delay: a robots.txt carrying only Crawl-delay has no rules but does ask.
+  if (rules.length === 0) return { allowed: true, crawlDelay };
+
+  // Most specific rule wins; Allow beats Disallow on equal specificity.
+  let longestAllow = -1;
+  let longestDisallow = -1;
+  for (const rule of rules) {
+    const len = robotsMatchLength(rule.pattern, pathname);
+    if (len < 0) continue;
+    if (rule.allow) longestAllow = Math.max(longestAllow, len);
+    else longestDisallow = Math.max(longestDisallow, len);
+  }
+
+  const allowed = longestDisallow < 0 || longestAllow >= longestDisallow;
+  return { allowed, crawlDelay };
 }
 
 // ── Scraping ─────────────────────────────────────────────────────────────────
@@ -311,9 +443,9 @@ function getContactLink($: CheerioAPI, baseUrl: string): string | null {
   }
 }
 
-// Extracts an email from a page using four strategies in order of reliability.
-// If baseUrl is provided and all strategies fail, falls back to fetching the
-// contact page (baseUrl is omitted on that recursive call to prevent loops).
+// Extracts an email from a page using five strategies in order of reliability.
+// The fifth needs baseUrl: it fetches the contact page and retries the first four
+// there (baseUrl is omitted on that recursive call to prevent loops).
 async function extractEmail($: CheerioAPI, baseUrl: string, browser: StealthBrowser): Promise<string> {
   let email = "";
 
