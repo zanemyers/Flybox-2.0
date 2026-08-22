@@ -35,7 +35,44 @@ the app, so verify against a real request's headers before committing to a rule.
 Do not simply prefer `x-real-ip`; a client can send that too, and whether the
 proxy overwrites it needs checking.
 
-### 2. No Content-Security-Policy
+### 2. The Docker build cannot currently succeed
+
+`package-lock.json`, `prisma.config.ts` / `Dockerfile`
+
+Two independent failures, both found by running `docker build .` on 2026-08-21.
+Both predate the work of that day and neither is caused by it. The image that is
+deployed today most likely predates the current lockfile.
+
+**`npm ci` fails in the `deps` stage.**
+
+```
+Missing: @emnapi/runtime@1.11.3 from lock file
+Missing: @emnapi/core@1.11.3 from lock file
+```
+
+`@emnapi/*` are transitive dependencies of the Linux `@img/sharp-*` binaries that
+Next's image optimizer pulls in. The lockfile was generated on macOS, where those
+variants never resolve, so it has no entry for them: `npm ci --dry-run` reports
+"up to date" locally and the same command fails on Linux. This will bite on
+Render too, which builds on Linux. The fix is a lockfile regeneration that
+resolves the full cross-platform optional tree — worth diffing carefully, since
+it can move transitive versions across the whole graph.
+
+**`npx prisma generate` fails in the `builder` stage.**
+
+```
+PrismaConfigEnvError: Cannot resolve environment variable: DIRECT_URL.
+```
+
+`prisma.config.ts` calls `env("DIRECT_URL")`, which throws when unset, and
+`.dockerignore` excludes `.env*`. `generate` is offline and needs no real
+database, only a config that loads — so either an `ARG`/`ENV` placeholder in the
+builder stage, or making the datasource url lazy so `generate` does not demand it.
+
+Both were worked around with a throwaway Dockerfile to verify the non-root
+change; see the changelog entry for that commit for what the workaround was.
+
+### 3. No Content-Security-Policy
 
 `next.config.ts`
 
@@ -72,7 +109,7 @@ Origin inventory, already worked out: tiles from
 Note that dev and production differ here — `next dev` needs `'unsafe-eval'` for
 HMR — so a policy that passes locally is not evidence it passes in production.
 
-### 3. `/runs` timestamps render in the server's timezone
+### 4. `/runs` timestamps render in the server's timezone
 
 `src/app/runs/page.tsx:13`
 
@@ -82,7 +119,7 @@ reads a time six hours off.
 
 **Fix:** format client-side, or state the zone explicitly.
 
-### 4. Client and server disagree about rivers
+### 5. Client and server disagree about rivers
 
 `src/app/api/flybox/route.ts:21,28` vs `src/client/components/inputs/tagInput.tsx`
 
@@ -92,7 +129,7 @@ run rejected after they press Run.
 
 **Fix:** cap in `TagInput` too, from a shared constant so they cannot drift.
 
-### 5. Reverse geocoding blocks the POST
+### 6. Reverse geocoding blocks the POST
 
 `src/app/api/flybox/route.ts:65`
 
@@ -106,7 +143,7 @@ pressing Run.
 
 ## Cleanliness
 
-### 6. CLAUDE.md has drifted, and one line is actively misleading
+### 7. CLAUDE.md has drifted, and one line is actively misleading
 
 `CLAUDE.md:72,76,92,102`
 
@@ -124,7 +161,7 @@ This is the file that steers every future change, and the `docs/` refresh in
 - `:92` lists the `Job` schema without `rawFile`, `clientHash`, or the six
   catalog columns.
 
-### 7. Eight copies of the same `biome-ignore` comment
+### 8. Eight copies of the same `biome-ignore` comment
 
 `src/app/page.tsx`, `about/page.tsx`, `how-it-works/page.tsx`, `runs/page.tsx` (×3),
 `header.tsx`, `statusPanel.tsx`
@@ -136,7 +173,7 @@ suppression is the rule telling us it does not apply to this codebase.
 **Fix:** turn `noRedundantRoles` off once in `biome.json` with one comment
 explaining why, and delete all eight.
 
-### 8. The river tag is duplicated
+### 9. The river tag is duplicated
 
 `src/app/runs/page.tsx:101`, `src/client/components/inputs/tagInput.tsx:73`
 
@@ -145,7 +182,7 @@ the `rounded-xs` the rest of the app moved to.
 
 **Fix:** a `.tag` primitive in `globals.css`, next to `.chip`.
 
-### 9. Smaller items
+### 10. Smaller items
 
 - `src/server/db.ts:7` re-exports `Job` and `JobMessage` types that nothing
   imports.
@@ -154,7 +191,7 @@ the `rounded-xs` the rest of the app moved to.
 - `src/app/api/flybox/[id]/files/[name]/route.ts:3` says "two fixed outputs."
 - `tsconfig.json` targets ES2017 on a Node 22 / Next 16 app.
 
-### 10. `output: "standalone"` would shrink the image
+### 11. `output: "standalone"` would shrink the image
 
 `next.config.ts`
 
@@ -183,10 +220,10 @@ Docker → native-Node switch, and it does not foreclose that switch.
 
 ## Suggested order
 
-1. Item **1** — exploitable, and the last of the original high-severity three.
-2. Items **6, 7** — near-free, and the first actively misdirects future work.
-3. Items **3, 4, 5** — small correctness and latency fixes.
-4. Items **2, 8, 9, 10** — hardening and cleanup. The CSP is the largest thing left.
+1. Items **1, 2** — one is exploitable, the other blocks deploying anything at all.
+2. Items **4, 5, 6** — small correctness and latency fixes.
+3. Items **7** — near-free, and actively misdirects future work.
+4. Items **3, 9, 10, 11** — hardening and cleanup. The CSP is the largest thing left.
 
 Fixed on 2026-08-21, from the original list: abandoned `IN_PROGRESS` runs living
 forever, the third file auto-downloading with no row in the panel, swallowed

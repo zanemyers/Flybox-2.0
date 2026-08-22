@@ -9,12 +9,18 @@ export default function TagInput({
   onChange,
   placeholder,
   optional = false,
+  max = Number.POSITIVE_INFINITY,
+  maxLength,
 }: {
   label: string;
   values: string[];
   onChange: (values: string[]) => void;
   placeholder?: string;
   optional?: boolean;
+  /** Refused past this many. The server rejects the run otherwise, which the user only found out after pressing Run. */
+  max?: number;
+  /** slice(0, undefined) is the whole string, so leaving this off means no limit. */
+  maxLength?: number;
 }) {
   const inputId = useId();
   const [draft, setDraft] = useState("");
@@ -23,11 +29,11 @@ export default function TagInput({
   const add = (raw: string) => {
     const names = raw
       .split(",")
-      .map((n) => n.trim())
+      .map((n) => n.trim().slice(0, maxLength))
       .filter(Boolean);
     if (names.length) {
       const merged = [...values];
-      for (const name of names) if (!merged.includes(name)) merged.push(name);
+      for (const name of names) if (!merged.includes(name) && merged.length < max) merged.push(name);
       onChange(merged);
     }
     setDraft("");
@@ -58,6 +64,11 @@ export default function TagInput({
         {optional && (
           <span id={`${inputId}-opt`} className="chip border-rule text-base-content/70">
             Optional
+          </span>
+        )}
+        {values.length >= max && (
+          <span id={`${inputId}-max`} className="chip border-warning text-warning">
+            Max {max}
           </span>
         )}
       </div>
@@ -92,7 +103,7 @@ export default function TagInput({
           }}
           placeholder={values.length === 0 ? placeholder : ""}
           id={inputId}
-          aria-describedby={optional ? `${inputId}-opt` : undefined}
+          aria-describedby={[optional ? `${inputId}-opt` : null, values.length >= max ? `${inputId}-max` : null].filter(Boolean).join(" ") || undefined}
           className="min-w-32 flex-1 self-stretch bg-transparent text-base outline-none placeholder:text-base-content/70 sm:text-sm"
         />
       </div>

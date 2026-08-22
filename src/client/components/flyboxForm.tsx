@@ -6,6 +6,7 @@ import { HookMark } from "@/client/components/brand";
 import TagInput from "@/client/components/inputs/tagInput";
 import StatusPanel from "@/client/components/statusPanel";
 import { useForm } from "@/client/hooks/useForm";
+import { MAX_RIVER_CHARS, MAX_RIVERS } from "@/shared/limits";
 
 const MapInput = dynamic(() => import("@/client/components/inputs/mapInput"), {
   ssr: false,
@@ -189,7 +190,15 @@ export default function FlyboxForm() {
           </Section>
 
           <Section>
-            <TagInput label="Rivers" values={form.rivers} onChange={(v) => update("rivers", v)} placeholder="e.g. Madison, Snake, Yellowstone" optional />
+            <TagInput
+              label="Rivers"
+              values={form.rivers}
+              onChange={(v) => update("rivers", v)}
+              placeholder="e.g. Madison, Snake, Yellowstone"
+              optional
+              max={MAX_RIVERS}
+              maxLength={MAX_RIVER_CHARS}
+            />
           </Section>
 
           <Section>

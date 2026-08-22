@@ -3,6 +3,7 @@ import { reverseGeocode } from "@/server/geocode";
 import { JobHandler, type Payload } from "@/server/handler";
 import { runFlybox } from "@/server/pipeline";
 import { checkRateLimit } from "@/server/rateLimit";
+import { MAX_RIVER_CHARS, MAX_RIVERS } from "@/shared/limits";
 
 /* The payload is deliberately tiny. Flybox funds its own API keys, so the search
    term and summary prompt are server-side constants rather than form fields —
@@ -18,7 +19,7 @@ function parsePayload(body: unknown): { payload: Payload } | { error: string } {
   if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return { error: "longitude must be a number between -180 and 180." };
 
   if (!Array.isArray(b.rivers) || b.rivers.some((r) => typeof r !== "string")) return { error: "rivers must be an array of strings." };
-  if (b.rivers.length > 25) return { error: "At most 25 rivers." };
+  if (b.rivers.length > MAX_RIVERS) return { error: `At most ${MAX_RIVERS} rivers.` };
   if (typeof b.summarize !== "boolean") return { error: "summarize must be true or false." };
   // Absent means true: a tab holding the bundle from before this option existed still submits a valid run.
   if (b.shopDirectory !== undefined && typeof b.shopDirectory !== "boolean") return { error: "shopDirectory must be true or false." };
@@ -27,7 +28,7 @@ function parsePayload(body: unknown): { payload: Payload } | { error: string } {
     payload: {
       latitude,
       longitude,
-      rivers: (b.rivers as string[]).map((r) => r.trim().slice(0, 60)).filter(Boolean),
+      rivers: (b.rivers as string[]).map((r) => r.trim().slice(0, MAX_RIVER_CHARS)).filter(Boolean),
       summarize: b.summarize,
       shopDirectory: b.shopDirectory ?? true,
     },
