@@ -8,8 +8,10 @@ const envPath = fileURLToPath(new URL("../.env", import.meta.url));
 const LOCAL_DB = "postgresql://flybox:flybox@localhost:5432/flybox";
 
 const REQUIRED: [key: string, fallback: string, note?: string][] = [
-  ["DATABASE_URL", LOCAL_DB, "Runtime connection. May point at a pooler."],
-  ["DIRECT_URL", LOCAL_DB, "Prisma migrations. Must be a direct connection."],
+  /* The local container serves no TLS, so the defaults below carry no sslmode. A hosted URL must:
+     pg reads 'require' as verify-full today and will read it as unverified in v9, silently. */
+  ["DATABASE_URL", LOCAL_DB, "Runtime connection. May point at a pooler. Hosted: end it with ?sslmode=verify-full."],
+  ["DIRECT_URL", LOCAL_DB, "Prisma migrations. Must be a direct connection. Hosted: sslmode=verify-full here too."],
   ["RUN_HEADLESS", "true", "Set false to watch the Playwright browser work."],
   ["SERP_API_KEY", "", "Every run needs this. Flybox supplies its own keys and never asks the user for one."],
   ["OPENAI_API_KEY", "", "Needed only when summarizing."],

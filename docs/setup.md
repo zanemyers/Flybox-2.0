@@ -61,14 +61,20 @@ Render's **native Node environment** — no Docker, no image.
 3. Build command: `npm run render:build`
 4. Pre-deploy command: `npm run render:migrate`
 5. Start command: `npm start`
+6. Cron job: `npm run render:cleanup`, on whatever schedule you want retention enforced
 
-Both are npm scripts so the dashboard holds names instead of chains, and so a
-change to either shows up in a diff:
+All three are npm scripts so the dashboard holds names instead of chains, and so a
+change to any of them shows up in a diff:
 
 ```
 render:build    npm install && npx prisma generate && npx playwright install chromium && npm run build
 render:migrate  npx prisma migrate deploy
+render:cleanup  npx tsx scripts/db_cleanup.ts
 ```
+
+The cron matters more than a tidy dashboard: it is what actually enforces the
+retention the privacy policy promises, and it prunes `RunLedger` on its own window
+rather than the catalog's, which is what keeps the rate limits countable.
 
 Migrations sit in pre-deploy rather than in the build for two reasons: a build
 that fails partway cannot leave the database ahead of the code it was migrating
@@ -80,9 +86,10 @@ for, and the build opens no database connection at all, which makes
 > build fails on any clean checkout — it will appear to work for as long as
 > Render's build cache still holds a `generated/` from a previous deploy.
 
-> **`npm run render:migrate` is not a local command.** It migrates whatever
-> `DIRECT_URL` is in scope, and in a normal `.env` that is the hosted database. To
-> migrate a local database, set the local URLs explicitly on the command.
+> **`npm run render:migrate` and `npm run render:cleanup` are not local commands.**
+> They act on whatever `DIRECT_URL` and `DATABASE_URL` are in scope, and in a normal
+> `.env` that is the hosted database. To use a local one, set the local URLs
+> explicitly on the command.
 
 `npx playwright install chromium` downloads the browser but not system libraries;
 `--with-deps` needs root, which the build does not have. It works on Render's

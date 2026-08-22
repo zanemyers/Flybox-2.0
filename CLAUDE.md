@@ -22,11 +22,12 @@ npm test           # Vitest (run once); npm run test:watch to watch
 npm run check      # lint + typecheck + test, i.e. everything CI should run
 npm run render:build    # Render's build command: install, generate, chromium, next build
 npm run render:migrate  # Render's pre-deploy command: prisma migrate deploy
+npm run render:cleanup  # Render's cron command: prune per src/server/retention.ts
 ```
 
 `render:build` touches no database, so it is safe to run locally.
-`render:migrate` is not — it migrates whatever `DIRECT_URL` is in scope, which in
-a normal `.env` is the hosted database.
+`render:migrate` and `render:cleanup` are not — they act on whatever `DIRECT_URL`
+and `DATABASE_URL` are in scope, which in a normal `.env` is the hosted database.
 
 `npm run lint` is Biome only. Biome is not a type checker, so **run `npm run typecheck` too** — or just `npm run check`.
 
@@ -50,7 +51,7 @@ npx prisma studio           # Open DB browser
 Setup scripts:
 ```bash
 npx tsx scripts/setup.ts       # Append missing .env settings; never rewrites existing lines
-npx tsx scripts/db_cleanup.ts  # Delete old jobs from the database
+npx tsx scripts/db_cleanup.ts  # Prune jobs and the run ledger, each on its own window
 ```
 
 ## Deployment
@@ -60,10 +61,11 @@ Deployed on Render's **native Node environment** — there is no Dockerfile and 
 ```
 Build:       npm run render:build
 Pre-deploy:  npm run render:migrate
+Cron:        npm run render:cleanup
 Start:       npm start
 ```
 
-Both live in `package.json` so the dashboard holds names rather than chains, and so a change to either shows up in a diff. Migrations are in pre-deploy, not build, so a build that fails cannot leave the database ahead of the code — and so the build itself never opens a database connection.
+All three live in `package.json` so the dashboard holds names rather than chains, and so a change to any of them shows up in a diff. Migrations are in pre-deploy, not build, so a build that fails cannot leave the database ahead of the code — and so the build itself never opens a database connection. The cron is named here for the same reason plus one more: it is what enforces the retention the privacy policy promises, so it should not be a command that exists only in a dashboard.
 
 **`prisma generate` must stay in it.** `generated/` is gitignored and nothing else creates it, while `src/server/db.ts` imports from it — so a build without it fails on a clean checkout and only survives on a warm build cache.
 
@@ -81,7 +83,7 @@ Both live in `package.json` so the dashboard holds names rather than chains, and
 
 ### Server Layer (`src/server/`)
 
-Nine files, each with a single responsibility. Beyond the four described below: `catalog.ts` (the `/runs` query), `rateLimit.ts` (per-client and global caps), `geocode.ts` (reverse geocoding at job creation), `retention.ts` (how long data lives; imports nothing so `scripts/db_cleanup.ts` can read it without loading the app), and `config.ts` (the search term, the summary prompt, key access).
+Ten files, each with a single responsibility. Beyond the five described below: `catalog.ts` (the `/runs` query), `rateLimit.ts` (per-client and global caps), `geocode.ts` (reverse geocoding at job creation), `retention.ts` (how long data lives; imports nothing so `scripts/db_cleanup.ts` can read it without loading the app), and `config.ts` (the search term, the summary prompt, key access).
 
 - **`pipeline.ts`** — `runFlybox()` orchestrates the full job in two phases:
   - *Shop phase*: fetches 5 SerpAPI pages (offsets 0–80), dedupes, concurrently scrapes each shop (robots check → HTTP → Playwright fallback → `scrapeShopDetails`)
@@ -101,8 +103,9 @@ Nine files, each with a single responsibility. Beyond the four described below: 
 
 PostgreSQL via Prisma. Schema in `db/schema.prisma`, generated client in `generated/prisma/`.
 
-- **Job** — `id` (cuid), `status` (IN_PROGRESS | COMPLETED | CANCELED | FAILED), `createdAt`, `heartbeatAt` (last proof the pipeline was alive), `clientHash` (salted IP hash, rate limiting only), what the run was for (`latitude`, `longitude`, `locationName`, `rivers`, `summarized`, `shopDirectory`), and the outputs: `primaryFile` (report TXT), `secondaryFile` (shop directory XLSX), `rawFile` (crawled source, summarized runs only)
+- **Job** — `id` (cuid), `status` (IN_PROGRESS | COMPLETED | CANCELED | FAILED), `createdAt`, `heartbeatAt` (last proof the pipeline was alive), `clientHash` (salted IP hash; **no longer read** — `RunLedger` counts now, and this column goes next release), what the run was for (`latitude`, `longitude`, `locationName`, `rivers`, `summarized`, `shopDirectory`), and the outputs: `primaryFile` (report TXT), `secondaryFile` (shop directory XLSX), `rawFile` (crawled source, summarized runs only)
 - **JobMessage** — progress messages attached to a job (`jobMessages` relation); cascades on delete
+- **RunLedger** — `id`, `createdAt`, `clientHash`. One row per admitted run and the only thing the rate limiter counts. Holds no location, payload, status or outcome, because the global caps need a timestamp and nothing more. **Pruned by `RATE_LIMIT_WINDOW_MS`, never by the catalog window** — that coupling is exactly what made every cap uncountable.
 
 All file output is stored as `Bytes` in the DB, never written to disk.
 
@@ -169,7 +172,7 @@ Because every listed run offers downloads, readiness for all 15 is answered with
 
 ## Rate limiting and abuse
 
-`POST /api/flybox` is unauthenticated and every run costs the operator 5 SerpAPI searches, an OpenAI call and a headless browser crawling up to 100 third-party sites. `src/server/rateLimit.ts` enforces per-client and global caps before a job is created. The client is identified by a **salted SHA-256 of its IP**, stored on `Job.clientHash`; the raw address is never stored. That IP is read by **counting in from the right** of `x-forwarded-for`, because each proxy appends the peer it heard from — so the rightmost entries are infrastructure's and anything further left may have been typed by the caller. Reading the leftmost, the usual "client IP" convention, made the header a free identity. Without `RATE_LIMIT_SALT` a per-process salt is generated, so limits reset on redeploy — an unsalted hash of an IPv4 address is trivially reversible, so degrading to that is not acceptable.
+`POST /api/flybox` is unauthenticated and every run costs the operator 5 SerpAPI searches, an OpenAI call and a headless browser crawling up to 100 third-party sites. `src/server/rateLimit.ts` counts and records a run in one locked transaction before the job is created. **Counts come from `RunLedger`, never from `Job`** — retention deletes `Job` rows on the catalog's schedule, so counting them shortened every cap to whatever survived the last prune, monthly cap included. `RATE_LIMIT_WINDOW_MS` in `retention.ts` is read by both the count and the prune so they cannot drift again, and admission holds `pg_advisory_xact_lock` because counting then inserting let a parallel burst bypass the caps entirely. The client is identified by a **salted SHA-256 of its IP** on `RunLedger.clientHash`; the raw address is never stored. That IP is read by **counting in from the right** of `x-forwarded-for`, because each proxy appends the peer it heard from — so the rightmost entries are infrastructure's and anything further left may have been typed by the caller. Reading the leftmost, the usual "client IP" convention, made the header a free identity. Without `RATE_LIMIT_SALT` a per-process salt is generated, so limits reset on redeploy — an unsalted hash of an IPv4 address is trivially reversible, so degrading to that is not acceptable.
 
 `src/app/robots.ts` disallows all crawlers. There is nothing to index and real cost in being crawled.
 

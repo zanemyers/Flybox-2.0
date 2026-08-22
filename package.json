@@ -7,6 +7,7 @@
     "build": "next build",
     "render:build": "npm install && npx prisma generate && npx playwright install chromium && npm run build",
     "render:migrate": "npx prisma migrate deploy",
+    "render:cleanup": "npx tsx scripts/db_cleanup.ts",
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
