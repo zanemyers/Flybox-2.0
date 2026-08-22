@@ -27,8 +27,9 @@ WORKDIR /app
 ENV NODE_ENV=production \
     RUN_HEADLESS=true
 
-COPY --from=prod-deps /app/node_modules ./node_modules
-# Owned by the runtime user, unlike the rest: next start writes optimized images into .next/cache on demand.
+# Both --chown because both are written at runtime: prisma migrate deploy needs node_modules/@prisma/engines writable
+# even though the binary is baked in, and next start writes optimized images into .next/cache on demand.
+COPY --from=prod-deps --chown=pwuser:pwuser /app/node_modules ./node_modules
 COPY --from=builder --chown=pwuser:pwuser /app/.next ./.next
 COPY --from=builder /app/generated ./generated
 COPY --from=builder /app/public ./public

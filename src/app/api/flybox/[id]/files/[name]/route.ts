@@ -1,7 +1,7 @@
 import { isOutputName, JobHandler, OUTPUT_FILES } from "@/server/handler";
 
-/** Streams one of a job's two fixed outputs. Split out of the 2s poll so the
-    blobs are read once, on download, instead of on every update. */
+/** Streams one of a job's outputs. Split out of the 2s poll so the blobs are
+    read once, on download, instead of on every update. */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string; name: string }> }) {
   const { id, name } = await params;
 

@@ -60,7 +60,7 @@ Start the containers first, then migrate in a second shell once Postgres is acce
 
 `RUN_HEADLESS=true` is baked into the Docker image — no need to set it manually.
 
-The `Dockerfile` is a 4-stage build (deps → prod-deps → builder → runner). The runner is based on `mcr.microsoft.com/playwright:v1.62.0-noble`, which ships Chromium and its system dependencies, and it drops to that image's `pwuser` rather than staying root. `.next` is copied to that user because `next start` writes optimized images into `.next/cache` on demand; everything else stays read-only.
+The `Dockerfile` is a 4-stage build (deps → prod-deps → builder → runner). The runner is based on `mcr.microsoft.com/playwright:v1.62.0-noble`, which ships Chromium and its system dependencies, and it drops to that image's `pwuser` rather than staying root. `.next` and `node_modules` are copied to that user because both are written at runtime: `next start` writes optimized images into `.next/cache`, and `prisma migrate deploy` needs `node_modules/@prisma/engines` writable even though the engine binary is baked in at build time.
 
 > **The runner image tag must track the `playwright` version in `package-lock.json`.** The image ships only the Chromium build its Playwright release expects; a mismatch fails at launch with `Executable doesn't exist at /ms-playwright/chromium-*`. Bump both together.
 
