@@ -24,6 +24,8 @@ npm run check      # lint + typecheck + test, i.e. everything CI should run
 
 `npm run lint` is Biome only. Biome is not a type checker, so **run `npm run typecheck` too** — or just `npm run check`.
 
+**`biome.json` is strict JSON — a comment in it is a parse error, and Biome answers a parse error by silently falling back to its default config** rather than failing. The symptom is Biome suddenly checking 500+ files instead of 52, because every exclude in the file stopped applying.
+
 Docker (full-stack local):
 ```bash
 npm run docker:up     # Start Postgres + app via Docker Compose
@@ -63,17 +65,17 @@ For local full-stack testing, `docker-compose.yml` runs both the app and a Postg
 
 1. **Client form** (`flyboxForm.tsx`) → `useForm` hook → `POST /api/flybox` as a **JSON body**
 2. **API route** validates the payload, creates a `Job` in PostgreSQL, fires off the pipeline async, returns `{ jobId }`. Invalid input gets a 400 with a specific message — it never starts a doomed job.
-3. **Client polls** `GET /api/flybox/[id]/updates` every 2 seconds — `statusPanel.tsx` renders messages and the output manifest. The poll response carries `{ message, status, createdAt, files }`, where `files` lists only the **names** that are ready.
+3. **Client polls** `GET /api/flybox/[id]/updates` every 2 seconds — `statusPanel.tsx` renders messages and the output manifest. The poll response carries `{ message, status, createdAt, expected, files }`: `expected` is the manifest this run promised, decided by its options, and `files` is readiness for those names only. The panel renders rows from `expected` and auto-downloads only what `files` reports, so nothing arrives that the caller did not ask for.
 4. **Downloads** come from `GET /api/flybox/[id]/files/[name]`, which streams the bytes. File blobs are deliberately kept out of the 2s poll: reading and base64-encoding a several-hundred-KB xlsx every two seconds dominated both the query and the response.
 5. **Cancel** — `POST /api/flybox/[id]/cancel` sets a DB flag; the pipeline checks `isCanceled()` between steps *and* inside the crawl loop. Cancel only moves an `IN_PROGRESS` job, so it can't overwrite a terminal status.
 
 ### Server Layer (`src/server/`)
 
-Five files, each with a single responsibility:
+Nine files, each with a single responsibility. Beyond the four described below: `catalog.ts` (the `/runs` query), `rateLimit.ts` (per-client and global caps), `geocode.ts` (reverse geocoding at job creation), `retention.ts` (how long data lives; imports nothing so `scripts/db_cleanup.ts` can read it without loading the app), and `config.ts` (the search term, the summary prompt, key access).
 
 - **`pipeline.ts`** — `runFlybox()` orchestrates the full job in two phases:
   - *Shop phase*: fetches 5 SerpAPI pages (offsets 0–80), dedupes, concurrently scrapes each shop (robots check → HTTP → Playwright fallback → `scrapeShopDetails`)
-  - *Report phase*: filters shops where `fishingReport: true`, dedupes by hostname, crawls each site with a priority queue (BFS, depth-limited), feeds text to Gemini for summarization
+  - *Report phase*: filters shops where `fishingReport: true`, dedupes by hostname, crawls each site with a priority queue (BFS, depth-limited), feeds text to OpenAI for summarization
   - **Each site gets a share of the prompt budget** (`TOKEN_CHAR_LIMIT / siteCount`, floored at 4k chars). Don't reintroduce a single global cap applied twice — that silently dropped every site after the first.
   - OpenAI primary model: `gpt-5.6-luna`; fallback: `gpt-5.6-terra` (~10x the price, so it must only run after the primary has exhausted the SDK's retries). `max_output_tokens` is capped and `reasoning: { effort: "none" }` is pinned — this is structured extraction, and reasoning tokens bill at the output rate. The SDK's own `timeout` and `maxRetries` handle aborting and backoff; do NOT reintroduce a `Promise.race` timeout, which billed for abandoned requests. An **empty** response is treated as failure, not success.
   - `summarize: false` skips the model entirely and returns the crawled text, with a much larger char budget (`RAW_CHAR_LIMIT`) since there is no prompt to fit.
@@ -89,7 +91,7 @@ Five files, each with a single responsibility:
 
 PostgreSQL via Prisma. Schema in `db/schema.prisma`, generated client in `generated/prisma/`.
 
-- **Job** — `id` (cuid), `status` (IN_PROGRESS | COMPLETED | CANCELED | FAILED), `createdAt`, `primaryFile Bytes?` (report summary TXT), `secondaryFile Bytes?` (shop directory XLSX)
+- **Job** — `id` (cuid), `status` (IN_PROGRESS | COMPLETED | CANCELED | FAILED), `createdAt`, `heartbeatAt` (last proof the pipeline was alive), `clientHash` (salted IP hash, rate limiting only), what the run was for (`latitude`, `longitude`, `locationName`, `rivers`, `summarized`, `shopDirectory`), and the outputs: `primaryFile` (report TXT), `secondaryFile` (shop directory XLSX), `rawFile` (crawled source, summarized runs only)
 - **JobMessage** — progress messages attached to a job (`jobMessages` relation); cascades on delete
 
 All file output is stored as `Bytes` in the DB, never written to disk.
@@ -99,10 +101,10 @@ All file output is stored as `Bytes` in the DB, never written to disk.
 The whole visual language lives in `src/client/styles/globals.css`. Read it before styling anything; it is short and every value is deliberate.
 
 - **Two hand-built DaisyUI themes**, `light` and `dark`, declared with `@plugin "daisyui/theme"`. The stock themes are switched off. **The names must stay exactly `light` and `dark`** — the inline theme script in `layout.tsx` and the header toggle both write those strings.
-- **Navy** (hue 255) is the chassis: surfaces and ink. **Olive** (hue 112) is the single brand accent, `--color-primary`. State uses `info` / `success` / `warning` / `error`; `success` means COMPLETED.
-- **Contrast is verified, not guessed.** Ink is 13–14.5:1 on every surface, the accent 6.3–8.4:1. There is one alpha floor: **nothing below `/70` may carry information** (text or border). `base-content/60` measures 4.12:1 in light and fails AA. Never put alpha on the focus ring.
+- **Blue leads, cream carries.** In light the ground is cream (hue 90) under deep blue ink (hue 225); in dark the ground is that same blue family (hue 222). `--color-primary` is the brand teal-blue `#0d667a`. `--color-secondary` is salmon and is **fills and marks only** — it measures 3.55:1 on cream, so use `text-mark` whenever salmon has to be text. `--color-accent` is olive. State uses `info` / `success` / `warning` / `error`; `success` means COMPLETED.
+- **Contrast is verified, not guessed.** Ink clears 11:1 on every surface, and the measured ratio sits beside each value in `globals.css` — read it there rather than restating it here. There is one alpha floor: **nothing below `/70` may carry information** (text or border). `base-content/60` measures 4.12:1 in light and fails AA. Never put alpha on the focus ring.
 - **Two hairline tokens, and they are not interchangeable.** `--color-rule` is decorative only (~1.3:1). `--color-stroke` carries every interactive boundary and clears WCAG 1.4.11's 3:1 on all four surfaces a control can sit on. Inputs use `.field`, never `border-base-content/20`.
-- **Primitives**: `.shell` (the one page container), `.panel` / `.panel-head` / `.panel-body` (the one card), `.field`, `.chip`, `.eyebrow` (11px tracked mono caps — our labels only, never prose or user data), `.readout` (tabular mono for every number), `.console`, `.well`, `.run-bar`, `.prose-measure`.
+- **Primitives**: `.shell` (the one page container), `.panel` / `.panel-head` / `.panel-body` (the one card), `.field`, `.chip` (our labels, mono caps), `.tag` (a value the user typed), `.eyebrow` (11px tracked mono caps — our labels only, never prose or user data), `.readout` (tabular mono for every number), `.console`, `.well`, `.run-bar`, `.prose-measure`.
 - **Flat by construction**: `--depth: 0`, `--noise: 0`, 1px borders, 3–4px radii, no shadows anywhere.
 - **One animation app-wide**, `.run-bar`, removed under `prefers-reduced-motion`. It is indeterminate on purpose — the updates endpoint returns no phase or count, so any percentage would be invented.
 - Fonts are IBM Plex Sans + IBM Plex Mono via `next/font/google`, wired through `@theme`. Tailwind's preflight picks them up from `--font-sans`/`--font-mono`; don't add a `body { font-family }` override.
