@@ -1,6 +1,6 @@
 # Production Readiness Audit
 
-**Snapshot:** 2026-08-21, last revised against `c5645a4` on `redesign/tailwater`.
+**Snapshot:** 2026-08-21, last revised against `32f647d` on `redesign/tailwater`.
 **Scope:** all of `src/`, `scripts/`, `db/`, plus `next.config.ts`, `biome.json`, `tsconfig.json` — about 5,200 lines.
 
 This is a working list, not reference documentation. It goes stale as items are
@@ -10,7 +10,7 @@ work belongs.
 
 State of the tree: `npm run check` green (Biome clean, `tsc` clean, 169 server
 tests passing), no `any`, no non-null assertions, `strict` on, no dead exports.
-Note that green here says nothing about the Render build, which is item 2.
+Note that green here is measured on macOS and against a local Postgres; it says nothing about a Render build.
 
 ---
 
@@ -35,33 +35,7 @@ the app, so verify against a real request's headers before committing to a rule.
 Do not simply prefer `x-real-ip`; a client can send that too, and whether the
 proxy overwrites it needs checking.
 
-### 2. The Render build command omits `npx prisma generate`
-
-Render dashboard, not a file in this repo.
-
-The build command is:
-
-```
-npm install && npx playwright install chromium && npx prisma migrate deploy && npm run build
-```
-
-`generated/` is gitignored, `git ls-files generated` returns nothing, no
-`postinstall` anywhere produces it, and `prisma migrate deploy` does not generate
-a client. But `src/server/db.ts` imports `../../generated/prisma/client`, so
-`npm run build` needs it to exist.
-
-That build therefore cannot succeed on a clean checkout. It succeeds today almost
-certainly because Render's build cache still holds a `generated/` from an earlier
-deploy — which means the failure appears whenever that cache is cleared, or on a
-new service, and it will look unrelated to whatever change happens to be in flight.
-
-**Fix:** two dashboard fields. Build becomes `npm run render:build`, which
-includes the missing `npx prisma generate`; pre-deploy becomes
-`npm run render:migrate`. Both scripts exist as of 2026-08-21. `generate` is
-idempotent, so this is safe whether or not the diagnosis above is right. Nothing
-in the repo can make it take effect.
-
-### 3. No Content-Security-Policy
+### 2. No Content-Security-Policy
 
 `next.config.ts`
 
@@ -87,7 +61,7 @@ HMR — so a policy that passes locally is not evidence it passes in production.
 
 ## Cleanliness
 
-### 4. `OUTPUT_FILES` is re-encoded by hand
+### 3. `OUTPUT_FILES` is re-encoded by hand
 
 `src/server/handler.ts:205` and the readiness map above it
 
@@ -127,8 +101,13 @@ ES2017 `tsconfig` target, and the missing `catalog.ts` tiebreaker.
 
 ## Suggested order
 
-1. Items **1, 2** — one is exploitable, the other is a deploy that only works while a cache holds.
-2. Items **3, 4** — hardening and cleanup. The CSP is the largest thing left.
+1. Item **1** — the only exploitable one left, and the only remaining production risk.
+2. Items **2, 3** — hardening and cleanup. The CSP is the largest thing left.
+
+**Carried, not a risk:** Render's build and pre-deploy fields still hold the raw
+command chains. `npx prisma generate` has been added to the build, so nothing is
+broken; switching the two fields to `npm run render:build` and
+`npm run render:migrate` is planned for when `redesign/tailwater` merges.
 
 ## Fixed and removed from this list
 
@@ -145,6 +124,7 @@ All on 2026-08-21. The changelog carries the detail.
 - Four wrong claims in `CLAUDE.md`, one of which sent styling work at the wrong `--color-primary`
 - Small drift in `db.ts`, the files route, `tsconfig.json`, and `catalog.ts`
 - Reverse geocoding blocking the POST for up to 5s — it runs in the pipeline now, overlapping the shop phase
+- A Render build command with no `npx prisma generate`, which could only succeed while the build cache held a `generated/` from an earlier deploy
 
 Removed rather than fixed, once Docker stopped being the deploy path: the broken
 `docker build`, and `output: "standalone"` — which existed only to shrink an image
