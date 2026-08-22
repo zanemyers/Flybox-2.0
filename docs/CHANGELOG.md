@@ -19,7 +19,8 @@ later change superseded an earlier one, only the outcome is listed.
 - `tests/server/scraper.regressions.test.ts` pinning the scraper defects fixed below, plus `catalog.test.ts`, `rateLimit.test.ts`, and a `tests/tsconfig.json` that type-checks the test tree
 - `docker-compose.yml` running a local Postgres, and `npm run docker:up/down/reset` to drive it
 - `npm run check`
-- `npm run render:build` — the whole Render build chain as one script, so the dashboard holds a name rather than five commands and the chain is reviewable in a diff. It also adds the `prisma generate` step the dashboard command was missing
+- `npm run render:build` and `npm run render:migrate` — Render's build and pre-deploy commands as scripts, so the dashboard holds names rather than chains and a change to either shows up in a diff. `render:build` also adds the `prisma generate` step the dashboard command was missing
+- Migrations moved out of the build and into pre-deploy: a build that fails partway can no longer leave the database ahead of the code, and the build opens no database connection, which makes it safe to run locally
 - MIT `LICENSE`
 - Leaflet marker icons served locally from `public/leaflet/` (removed unpkg CDN dependency)
 

@@ -57,28 +57,30 @@ Render's **native Node environment** — no Docker, no image.
 1. Create a **Web Service** pointed at this repo, with **Node** as the environment
 2. Set `DATABASE_URL`, `DIRECT_URL`, `SERP_API_KEY`, `OPENAI_API_KEY`, and `RATE_LIMIT_SALT`
 3. Build command: `npm run render:build`
-4. Start command: `npm start`
+4. Pre-deploy command: `npm run render:migrate`
+5. Start command: `npm start`
 
-`render:build` is one npm script so the dashboard holds a name instead of a chain,
-and so changes to the chain show up in a diff:
+Both are npm scripts so the dashboard holds names instead of chains, and so a
+change to either shows up in a diff:
 
 ```
-npm install && npx prisma generate && npx playwright install chromium && npx prisma migrate deploy && npm run build
+render:build    npm install && npx prisma generate && npx playwright install chromium && npm run build
+render:migrate  npx prisma migrate deploy
 ```
+
+Migrations sit in pre-deploy rather than in the build for two reasons: a build
+that fails partway cannot leave the database ahead of the code it was migrating
+for, and the build opens no database connection at all, which makes
+`npm run render:build` safe to run on a dev machine.
 
 > **`prisma generate` has to stay in it.** `generated/` is gitignored and nothing
 > else produces it, but `src/server/db.ts` imports from it. Leave it out and the
 > build fails on any clean checkout — it will appear to work for as long as
 > Render's build cache still holds a `generated/` from a previous deploy.
 
-> **Running `npm run render:build` locally will migrate.** The `migrate deploy`
-> step uses whatever `DIRECT_URL` is in scope, and in a normal `.env` that is the
-> hosted database, not a local one. If you want the local database migrated, run
-> `npx prisma migrate deploy` with the local URLs set explicitly.
-
-Migrations could equally live in Render's pre-deploy command instead, which would
-keep the build free of database access. Left in the build for now because that is
-where it already was.
+> **`npm run render:migrate` is not a local command.** It migrates whatever
+> `DIRECT_URL` is in scope, and in a normal `.env` that is the hosted database. To
+> migrate a local database, set the local URLs explicitly on the command.
 
 `npx playwright install chromium` downloads the browser but not system libraries;
 `--with-deps` needs root, which the build does not have. It works on Render's

@@ -47,13 +47,14 @@ supplies its own keys and never asks the user for one.
 Native Node environment, no Docker.
 
 ```
-Build:  npm run render:build
-Start:  npm start
+Build:       npm run render:build     # install, prisma generate, chromium, next build
+Pre-deploy:  npm run render:migrate   # prisma migrate deploy
+Start:       npm start
 ```
 
-`render:build` chains install, `prisma generate`, `playwright install chromium`,
-`prisma migrate deploy` and `next build`. Note that it migrates, against whatever
-`DIRECT_URL` is in scope — do not run it locally without checking.
+Migrations are in pre-deploy, so a failed build cannot leave the database ahead of
+the code. `render:migrate` targets whatever `DIRECT_URL` is in scope — it is not a
+local command.
 
 Environment variables: `DATABASE_URL` (supports a pooler), `DIRECT_URL` (direct
 connection, used by migrations), `SERP_API_KEY`, `OPENAI_API_KEY`, and
