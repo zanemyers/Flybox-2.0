@@ -44,6 +44,20 @@ Everything else on this front is done — `X-Content-Type-Options`,
 `Strict-Transport-Security`, `poweredByHeader: false`, and the container no
 longer runs as root.
 
+**One unverified assumption in that last part:** the `Dockerfile` takes it on
+trust that `pwuser` exists in `mcr.microsoft.com/playwright:v1.62.0-noble`. It
+could not be checked from the dev sandbox — MCR's blob CDN host does not resolve
+there, so the image cannot be pulled. A single `docker build .` settles it: a
+missing user fails the `COPY --chown`, and failing that, `USER` fails at
+container start. Both are loud and happen before any traffic is served.
+
+Related, and also resting on that user: the documented pre-deploy command is
+`npx prisma migrate deploy`, which now runs as `pwuser`. `npx` wants a writable
+`HOME`. `/home/pwuser` exists and is owned by that user in Microsoft's images, so
+this should be fine, but `node_modules/.bin/prisma migrate deploy` would sidestep
+`npx`'s cache directory entirely. Changing it means editing the Render dashboard,
+so it is a decision, not a cleanup.
+
 A CSP is the piece left, and it is its own project: it needs a nonce pipeline
 rather than a static header, because Next streams inline scripts of its own, the
 theme script in `layout.tsx` must run before first paint, and Leaflet writes
