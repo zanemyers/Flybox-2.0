@@ -6,6 +6,7 @@ This section is the net delta since the last release, not a running log — wher
 later change superseded an earlier one, only the outcome is listed.
 
 ### Added
+- Security headers on every response, set in `next.config.ts`: `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, and `Strict-Transport-Security`, plus `poweredByHeader: false`. No CSP yet — it needs a nonce pipeline, not a header
 - Flybox now supplies its own API keys: no key fields, no account, no bring-your-own-key flow
 - `src/server/rateLimit.ts` — per-client (3/hour, 10/day) and global (40/day, 200/30 days) caps enforced before a job is created; client identified by a salted SHA-256 of its IP on `Job.clientHash`
 - `RATE_LIMIT_SALT` env var, plus `RATE_LIMIT_CLIENT_HOUR` / `_CLIENT_DAY` / `_GLOBAL_DAY` / `_GLOBAL_MONTH` overrides
@@ -50,6 +51,7 @@ later change superseded an earlier one, only the outcome is listed.
 - robots.txt parsing: directive names are lowercased but values are not (rule paths are case-sensitive), plus `*` wildcards, the `$` anchor, inline `#` comments, and consecutive `User-agent` lines as one group
 - Email extraction rejects asset lookalikes (`logo@2x.png`) and matches against visible text
 - SerpAPI paging stops as soon as a page comes back short instead of paying for all five; a failed request also stops, rather than being read as "no more results"
+- The fire-and-forget pipeline call discarded every error it caught. `runFlybox` handles its own failures, so anything reaching that catch means the job may be stuck with no trace anywhere; it is now logged with the job id
 - Cancel only moves an `IN_PROGRESS` job, so it can no longer overwrite a terminal status
 - A run interrupted mid-flight (a deploy, a crash) stayed `IN_PROGRESS` forever: the client polled it indefinitely and no cleanup path would ever match it. Runs now stamp `Job.heartbeatAt` on the cancel check they were already making; a frozen stamp means the run is abandoned, so the next poll reports `FAILED` and `db_cleanup` deletes it
 - `Job.clientHash` is cleared once it can no longer affect a limit

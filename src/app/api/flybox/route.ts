@@ -67,7 +67,9 @@ export async function POST(request: Request) {
     // catalog falls back to raw coordinates when this returns null.
     const locationName = await reverseGeocode(parsed.payload.latitude, parsed.payload.longitude);
     const job = await JobHandler.create(parsed.payload, limit.clientHash, locationName);
-    runFlybox(job).catch(() => {});
+    /* The catch is required — an unhandled rejection would take the process down — but runFlybox already handles its own
+       failures, so reaching here means job.fail() or the browser teardown threw and the row may be stuck IN_PROGRESS. */
+    runFlybox(job).catch((err) => console.error(`Flybox job ${job.id} threw past its own error handling:`, err));
     return Response.json({ jobId: job.id });
   } catch (err) {
     console.error("Flybox job creation failed:", err);

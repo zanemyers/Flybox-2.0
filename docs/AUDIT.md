@@ -35,35 +35,26 @@ the app, so verify against a real request's headers before committing to a rule.
 Do not simply prefer `x-real-ip`; a client can send that too, and whether the
 proxy overwrites it needs checking.
 
-### 2. Pipeline failures are swallowed entirely
+### 3. The container runs as root
 
-`src/app/api/flybox/route.ts:67`
+`Dockerfile`
 
-`runFlybox(job).catch(() => {})`. The `.catch` is needed — an unhandled rejection
-would take the process down — but it discards the error. `runFlybox` calls
-`job.fail()` in its own catch, so the job is normally marked `FAILED`; if *that*
-throws (a DB blip at the wrong moment, or `browser.close()` rejecting in the
-`finally`), the job is stuck `IN_PROGRESS` and there is no trace on the server
-either.
+No `USER` directive, though the Playwright base image ships `pwuser`.
 
-**Fix:** `console.error` in that catch. One line.
+Security headers were added alongside this and are done: `X-Content-Type-Options`,
+`Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, `Strict-Transport-Security`,
+and `poweredByHeader: false`, all in `next.config.ts`.
 
-### 3. No security headers, and the container runs as root
+**A Content-Security-Policy is still missing, and is its own piece of work.** It
+needs a nonce pipeline rather than a static header, because Next streams inline
+scripts of its own, the theme script in `layout.tsx` must run before first paint,
+and Leaflet writes inline `style` attributes. The origin inventory, if someone
+picks this up: tiles from `https://*.tile.openstreetmap.org` (img-src), the map
+search box hitting `https://nominatim.openstreetmap.org` (connect-src), and fonts
+self-hosted under `/_next` by `next/font` (font-src 'self'). `frame-ancestors`,
+`base-uri` and `form-action` could land first at low risk.
 
-`next.config.ts`, `Dockerfile`
-
-There is no `middleware.ts` and no `headers()` in `next.config.ts`, so no
-`Referrer-Policy`, no `X-Content-Type-Options`, no HSTS. The Dockerfile sets no
-`USER`, though the Playwright base image ships `pwuser`.
-
-Both are routine to add. A strict CSP is the awkward part, because the theme-init
-script in `layout.tsx` is inline by necessity and would need a nonce.
-
----
-
-## Correctness and consistency
-
-### 4. `/runs` timestamps render in the server's timezone
+### 2. `/runs` timestamps render in the server's timezone
 
 `src/app/runs/page.tsx:13`
 
@@ -73,7 +64,7 @@ reads a time six hours off.
 
 **Fix:** format client-side, or state the zone explicitly.
 
-### 5. Client and server disagree about rivers
+### 3. Client and server disagree about rivers
 
 `src/app/api/flybox/route.ts:21,28` vs `src/client/components/inputs/tagInput.tsx`
 
@@ -83,7 +74,7 @@ run rejected after they press Run.
 
 **Fix:** cap in `TagInput` too, from a shared constant so they cannot drift.
 
-### 6. Reverse geocoding blocks the POST
+### 4. Reverse geocoding blocks the POST
 
 `src/app/api/flybox/route.ts:65`
 
@@ -97,7 +88,7 @@ pressing Run.
 
 ## Cleanliness
 
-### 7. CLAUDE.md has drifted, and one line is actively misleading
+### 5. CLAUDE.md has drifted, and one line is actively misleading
 
 `CLAUDE.md:72,76,92,102`
 
@@ -115,7 +106,7 @@ This is the file that steers every future change, and the `docs/` refresh in
 - `:92` lists the `Job` schema without `rawFile`, `clientHash`, or the six
   catalog columns.
 
-### 8. Eight copies of the same `biome-ignore` comment
+### 6. Eight copies of the same `biome-ignore` comment
 
 `src/app/page.tsx`, `about/page.tsx`, `how-it-works/page.tsx`, `runs/page.tsx` (×3),
 `header.tsx`, `statusPanel.tsx`
@@ -127,7 +118,7 @@ suppression is the rule telling us it does not apply to this codebase.
 **Fix:** turn `noRedundantRoles` off once in `biome.json` with one comment
 explaining why, and delete all eight.
 
-### 9. The river tag is duplicated
+### 7. The river tag is duplicated
 
 `src/app/runs/page.tsx:101`, `src/client/components/inputs/tagInput.tsx:73`
 
@@ -136,7 +127,7 @@ the `rounded-xs` the rest of the app moved to.
 
 **Fix:** a `.tag` primitive in `globals.css`, next to `.chip`.
 
-### 10. Smaller items
+### 8. Smaller items
 
 - `src/server/db.ts:7` re-exports `Job` and `JobMessage` types that nothing
   imports.
@@ -145,7 +136,7 @@ the `rounded-xs` the rest of the app moved to.
 - `src/app/api/flybox/[id]/files/[name]/route.ts:3` says "two fixed outputs."
 - `tsconfig.json` targets ES2017 on a Node 22 / Next 16 app.
 
-### 11. `output: "standalone"` would shrink the image
+### 9. `output: "standalone"` would shrink the image
 
 `next.config.ts`
 
@@ -175,10 +166,10 @@ Docker → native-Node switch, and it does not foreclose that switch.
 ## Suggested order
 
 1. Item **1** — exploitable, and the last of the original high-severity three.
-2. Items **7, 8** — near-free, and 7 actively misdirects future work.
-3. Items **2, 4, 5, 6** — small correctness and latency fixes.
-4. Items **3, 9, 10, 11** — hardening and cleanup.
+2. Items **5, 6** — near-free, and 5 actively misdirects future work.
+3. Items **2, 3, 4** — small correctness and latency fixes.
+4. Items **7, 8, 9** — hardening and cleanup. Item 3's CSP is the largest thing left here.
 
-Fixed on 2026-08-21, both from the original list: item 2, abandoned
-`IN_PROGRESS` runs living forever, and item 3, the third file auto-downloading
-with no row in the panel. See the changelog.
+Fixed on 2026-08-21, from the original list: abandoned `IN_PROGRESS` runs living
+forever, the third file auto-downloading with no row in the panel, swallowed
+pipeline failures, and the missing security headers. See the changelog.
