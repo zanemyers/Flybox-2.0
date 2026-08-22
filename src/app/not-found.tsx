@@ -1,13 +1,21 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { ContourField } from "@/client/components/brand";
-import calvinFishing from "@/client/images/calvin-fishing.gif";
 
 export const metadata: Metadata = {
   title: "Page not found — Flybox",
   description: "That page does not exist.",
 };
+
+/* A sounder with nothing under it. Dashes rather than zeroes: a depth of 0.0 would be a reading,
+   and the point is that there is no reading. Reuses the readout well from /how-it-works, so this
+   page adds no primitive of its own and brand.tsx stays at two drawings. */
+const sounder: [string, string][] = [
+  ["Status", "404"],
+  ["Route", "not found"],
+  ["Position", "--.------, ---.------"],
+  ["Depth", "--.- ft"],
+];
 
 export default function NotFound() {
   return (
@@ -20,19 +28,24 @@ export default function NotFound() {
         <div className="max-w-[46ch]">
           <span className="eyebrow">Error 404 · Page not found</span>
           <h1 className="mt-2">Gone fishing</h1>
-          <p aria-hidden="true" className="readout mt-3 text-xs text-base-content/70">
-            LAT --.------ LON ---.------
-          </p>
           <p className="mt-4">Looks like the page you were trying to find has drifted downstream.</p>
           <Link href="/" className="btn btn-primary mt-6 h-10">
             Cast a line back home
           </Link>
         </div>
 
-        <div className="justify-self-center md:justify-self-end">
-          <div className="rounded-box border border-rule bg-white p-3 in-data-[theme=dark]:opacity-50">
-            <Image src={calvinFishing} alt="" className="h-auto w-full max-w-[18rem] rounded-field" unoptimized />
-          </div>
+        {/* aria-hidden: the eyebrow and heading already say 404 and not-found, so a screen reader
+            would only get a list of dashes out of this. On the wrapper, not the <dl>, so the
+            attribute sits on an element that is unambiguously not focusable. */}
+        <div aria-hidden="true" className="w-full md:max-w-sm md:justify-self-end">
+          <dl className="well select-none text-xs">
+            {sounder.map(([label, value]) => (
+              <div key={label} className="flex items-baseline justify-between gap-3 border-b border-rule py-1.5 last:border-b-0">
+                <dt className="eyebrow shrink-0">{label}</dt>
+                <dd className="readout text-nowrap text-right text-micro text-accent">{value}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
       </div>
     </div>
