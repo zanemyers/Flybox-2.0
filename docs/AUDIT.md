@@ -123,25 +123,7 @@ pressing Run.
 
 ## Cleanliness
 
-### 5. CLAUDE.md has drifted, and one line is actively misleading
-
-`CLAUDE.md:72,76,92,102`
-
-This is the file that steers every future change, and the `docs/` refresh in
-`882e61f` did not touch it.
-
-- **`:102` is wrong in a way that misdirects work.** It says "**Navy** (hue 255)
-  is the chassis. **Olive** (hue 112) is the single brand accent,
-  `--color-primary`." The palette was rebuilt blue-led in `69f8975`: the base is
-  hue 222–225, `--color-primary` is `#0d667a` teal-blue (hue 218.3), and olive is
-  `--color-accent`. Anyone following this line styles with the wrong token.
-- `:76` still says the report phase "feeds text to Gemini for summarization."
-- `:72` says "Five files, each with a single responsibility" for a `src/server/`
-  that now has nine.
-- `:92` lists the `Job` schema without `rawFile`, `clientHash`, or the six
-  catalog columns.
-
-### 6. `OUTPUT_FILES` is re-encoded by hand
+### 5. `OUTPUT_FILES` is re-encoded by hand
 
 `src/server/handler.ts`
 
@@ -153,7 +135,7 @@ The rest of what this item used to list is done: the dead `Job`/`JobMessage`
 re-exports in `db.ts`, the "two fixed outputs" docstring on the files route, the
 ES2017 `tsconfig` target, and the missing `catalog.ts` tiebreaker.
 
-### 7. `output: "standalone"` would shrink the image
+### 6. `output: "standalone"` would shrink the image
 
 `next.config.ts`
 
@@ -183,9 +165,8 @@ Docker → native-Node switch, and it does not foreclose that switch.
 ## Suggested order
 
 1. Items **1, 2** — one is exploitable, the other blocks deploying anything at all.
-2. Item **5** — near-free, and actively misdirects future work.
-3. Item **4** — a small latency fix.
-4. Items **3, 6, 7** — hardening and cleanup. The CSP is the largest thing left.
+2. Item **4** — a small latency fix.
+3. Items **3, 5, 6** — hardening and cleanup. The CSP is the largest thing left.
 
 Fixed on 2026-08-21, from the original list: abandoned `IN_PROGRESS` runs living
 forever, the third file auto-downloading with no row in the panel, swallowed
@@ -193,4 +174,4 @@ pipeline failures, the missing security headers, and the container running as
 root, the eight duplicated lint suppressions, and the small drift in `db.ts`,
 the files route, `tsconfig.json` and `catalog.ts`, the unlabelled catalog
 timestamps, the rivers cap the form did not enforce, and the duplicated river
-tag. See the changelog.
+tag, and the four wrong claims in `CLAUDE.md`. See the changelog.

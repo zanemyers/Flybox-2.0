@@ -49,7 +49,7 @@ Aborting and backoff are left to the OpenAI SDK's own `timeout` and `maxRetries`
 All pipeline runs are tracked as `Job` records in PostgreSQL.
 
 1. The client POSTs the payload as JSON to `/api/flybox`, which validates it, creates the job, fires the pipeline async, and returns `{ jobId }`. Invalid input gets a 400 — it never starts a doomed job.
-2. The client polls `GET /api/flybox/[id]/updates` every 2 seconds for `{ message, status, createdAt, files }`, where `files` lists only the names that are ready.
+2. The client polls `GET /api/flybox/[id]/updates` every 2 seconds for `{ message, status, createdAt, expected, files }`. `expected` is the manifest this run promised; `files` is readiness for those names only.
 3. Downloads stream from `GET /api/flybox/[id]/files/[name]`, against an allow-list. File bytes are deliberately kept out of the poll: base64-encoding a several-hundred-KB xlsx every two seconds dominated both the query and the response.
 4. `POST /api/flybox/[id]/cancel` sets a flag the pipeline checks between steps and inside the crawl loop. It only moves an `IN_PROGRESS` job, so it cannot overwrite a terminal status.
 
