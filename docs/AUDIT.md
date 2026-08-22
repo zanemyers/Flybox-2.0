@@ -1,6 +1,6 @@
 # Production Readiness Audit
 
-**Snapshot:** 2026-08-21, last revised against `b07c308` on `redesign/tailwater`.
+**Snapshot:** 2026-08-21, last revised against `547686b` on `redesign/tailwater`.
 **Scope:** all of `src/`, `scripts/`, `db/`, plus `next.config.ts`, `biome.json`, `tsconfig.json` — about 5,200 lines.
 
 This is a working list, not reference documentation. It goes stale as items are
@@ -40,26 +40,6 @@ HMR — so a policy that passes locally is not evidence it passes in production.
 
 ---
 
-## Cleanliness
-
-### 2. `OUTPUT_FILES` is re-encoded by hand
-
-`src/server/handler.ts:205` and the readiness map above it
-
-`getUpdates` builds its readiness map by naming each output and its column again,
-and `getFile` switches over the same mapping a third time, rather than iterating
-`OUTPUT_FILES`. Adding a fourth output means editing three places.
-
-Left deliberately once, on 2026-08-21: collapsing `getFile`'s switch needs a
-dynamic `select` key, which Prisma cannot type, so it trades three explicit
-branches for a cast in a codebase that currently has none. Worth doing only if a
-fourth output actually arrives, or if someone finds a way to iterate
-`OUTPUT_FILES` that stays type-safe.
-
-The rest of what this item used to list is done: the dead `Job`/`JobMessage`
-re-exports in `db.ts`, the "two fixed outputs" docstring on the files route, the
-ES2017 `tsconfig` target, and the missing `catalog.ts` tiebreaker.
-
 ## Checked and ruled out
 
 - **`/runs` is not statically cached.** `export const dynamic = "force-dynamic"`
@@ -82,10 +62,12 @@ ES2017 `tsconfig` target, and the missing `catalog.ts` tiebreaker.
 
 ## Suggested order
 
-No production risks are open. What is left is hardening and cleanup:
+One item left, and it is the only one: the CSP. No production risks are open and
+nothing on the cleanliness side remains.
 
-1. Item **1** — the CSP, and the largest remaining piece of work.
-2. Item **2** — cleanliness, deliberately deferred once already.
+It is deliberately not started here. `next dev` needs `'unsafe-eval'` for HMR, so
+a policy that passes locally is no evidence it passes in production — this wants a
+deployed target to verify against, which makes it work for after the merge.
 
 **Carried, not a risk:** Render's build and pre-deploy fields still hold the raw
 command chains. `npx prisma generate` has been added to the build, so nothing is
@@ -109,6 +91,7 @@ All on 2026-08-21. The changelog carries the detail.
 - Reverse geocoding blocking the POST for up to 5s — it runs in the pipeline now, overlapping the shop phase
 - A Render build command with no `npx prisma generate`, which could only succeed while the build cache held a `generated/` from an earlier deploy
 - A per-client rate limit that any caller could bypass by rotating `x-forwarded-for`
+- `OUTPUT_FILES` restated by hand in two other places, the worse half being a `switch` whose `default` served the workbook for any output it did not know
 
 Removed rather than fixed, once Docker stopped being the deploy path: the broken
 `docker build`, and `output: "standalone"` — which existed only to shrink an image

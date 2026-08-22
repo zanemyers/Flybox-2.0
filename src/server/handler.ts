@@ -54,10 +54,20 @@ export const OUTPUT_FILES = {
 } as const;
 
 export type OutputName = keyof typeof OUTPUT_FILES;
+export type OutputColumn = (typeof OUTPUT_FILES)[OutputName]["column"];
 
 // Object.hasOwn, not `in`: `"__proto__" in OUTPUT_FILES` is true via the
 // prototype chain, which would let a bogus name past this allow-list.
 export const isOutputName = (name: string): name is OutputName => Object.hasOwn(OUTPUT_FILES, name);
+
+/* One reader per blob column. `satisfies` makes it exhaustive, so a column added to OUTPUT_FILES will not compile until
+   it has one here — where the switch this replaces ended in `default`, quietly serving the workbook for anything new.
+   Each still selects a single column: pulling all three to return one is what keeping blobs out of queries was about. */
+const readColumn = {
+  primaryFile: async (id: string) => (await prisma.job.findUnique({ where: { id }, select: { primaryFile: true } }))?.primaryFile ?? null,
+  secondaryFile: async (id: string) => (await prisma.job.findUnique({ where: { id }, select: { secondaryFile: true } }))?.secondaryFile ?? null,
+  rawFile: async (id: string) => (await prisma.job.findUnique({ where: { id }, select: { rawFile: true } }))?.rawFile ?? null,
+} satisfies Record<OutputColumn, (id: string) => Promise<Uint8Array | null>>;
 
 /** What a run promises to hand back, so the panel can show rows before the bytes exist and download nothing the caller did not ask for. report_raw.txt is not here: it is the catalog's record of what a summary was built from, not a deliverable. */
 export function expectedOutputs(job: { shopDirectory: boolean }): OutputName[] {
@@ -170,10 +180,13 @@ export class JobHandler {
      GET /api/flybox/[id]/files/[name]. */
   static async getUpdates(id: string) {
     const [rows, messages] = await Promise.all([
-      prisma.$queryRaw<{ status: JobStatus; createdAt: Date; heartbeatAt: Date; shopDirectory: boolean; hasPrimary: boolean; hasSecondary: boolean }[]>`
+      prisma.$queryRaw<
+        { status: JobStatus; createdAt: Date; heartbeatAt: Date; shopDirectory: boolean; hasPrimary: boolean; hasSecondary: boolean; hasRaw: boolean }[]
+      >`
         SELECT "status", "createdAt", "heartbeatAt", "shopDirectory",
                ("primaryFile"   IS NOT NULL) AS "hasPrimary",
-               ("secondaryFile" IS NOT NULL) AS "hasSecondary"
+               ("secondaryFile" IS NOT NULL) AS "hasSecondary",
+               ("rawFile"       IS NOT NULL) AS "hasRaw"
         FROM "Job" WHERE "id" = ${id}
       `,
       prisma.jobMessage.findMany({ where: { jobId: id }, orderBy: { createdAt: "asc" }, select: { message: true } }),
@@ -182,7 +195,9 @@ export class JobHandler {
     const job = rows[0];
     if (!job) throw new Error(`Job ${id} not found`);
 
-    const ready: Partial<Record<OutputName, boolean>> = { "report_summary.txt": job.hasPrimary, "shop_details.xlsx": job.hasSecondary };
+    /* Keyed by column rather than by output name, so the name-to-column mapping exists only in OUTPUT_FILES, and
+       exhaustive over the columns, so adding one is a compile error here instead of a file that never reports ready. */
+    const ready: Record<OutputColumn, boolean> = { primaryFile: job.hasPrimary, secondaryFile: job.hasSecondary, rawFile: job.hasRaw };
     const expected = expectedOutputs(job);
 
     const lines = messages.map((m) => m.message);
@@ -200,7 +215,7 @@ export class JobHandler {
       status,
       createdAt: job.createdAt.toISOString(),
       expected,
-      files: expected.filter((name) => ready[name]).map((name) => ({ name })),
+      files: expected.filter((name) => ready[OUTPUT_FILES[name].column]).map((name) => ({ name })),
     };
   }
 
@@ -213,15 +228,8 @@ export class JobHandler {
     return count > 0;
   }
 
-  static async getFile(id: string, name: OutputName): Promise<Uint8Array | null> {
-    switch (OUTPUT_FILES[name].column) {
-      case "primaryFile":
-        return (await prisma.job.findUnique({ where: { id }, select: { primaryFile: true } }))?.primaryFile ?? null;
-      case "rawFile":
-        return (await prisma.job.findUnique({ where: { id }, select: { rawFile: true } }))?.rawFile ?? null;
-      default:
-        return (await prisma.job.findUnique({ where: { id }, select: { secondaryFile: true } }))?.secondaryFile ?? null;
-    }
+  static getFile(id: string, name: OutputName): Promise<Uint8Array | null> {
+    return readColumn[OUTPUT_FILES[name].column](id);
   }
 
   log(message: string) {

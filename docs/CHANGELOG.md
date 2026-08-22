@@ -32,6 +32,7 @@ later change superseded an earlier one, only the outcome is listed.
 - The search term and summary prompt moved from form fields to server-side constants in `src/server/config.ts`
 - Request payload reduced to `{ latitude, longitude, rivers, summarize }`, sent as JSON instead of form data
 - The character budget is now split per site (`TOKEN_CHAR_LIMIT / siteCount`, floored at 4,000); one global cap applied twice meant a single greedy site starved every other
+- `getFile` and the poll's readiness map derive their column from `OUTPUT_FILES` instead of restating it, and both are exhaustive over the columns, so a new output is a compile error rather than a file that never reports ready. `getFile`'s old `switch` ended in `default`, which would have served the workbook for anything it did not recognise
 - File bytes moved out of the 2s poll into `GET /api/flybox/[id]/files/[name]`, behind an allow-list
 - The shop directory is now an option on the form. The shop phase still runs either way — the report phase needs its `fishingReport` flags — so the toggle decides whether the workbook is built and stored
 - The updates endpoint reports an `expected` manifest, and readiness only for what is on it. Three files used to auto-download, including `report_raw.txt`, which had no row in the panel and which Chrome was likely blocking as a repeat automatic download
