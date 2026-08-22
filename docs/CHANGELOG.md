@@ -30,6 +30,10 @@ later change superseded an earlier one, only the outcome is listed.
 - Request payload reduced to `{ latitude, longitude, rivers, summarize }`, sent as JSON instead of form data
 - The character budget is now split per site (`TOKEN_CHAR_LIMIT / siteCount`, floored at 4,000); one global cap applied twice meant a single greedy site starved every other
 - File bytes moved out of the 2s poll into `GET /api/flybox/[id]/files/[name]`, behind an allow-list
+- The shop directory is now an option on the form. The shop phase still runs either way — the report phase needs its `fishingReport` flags — so the toggle decides whether the workbook is built and stored
+- The updates endpoint reports an `expected` manifest, and readiness only for what is on it. Three files used to auto-download, including `report_raw.txt`, which had no row in the panel and which Chrome was likely blocking as a repeat automatic download
+- `rawFile` is written only on summarized runs; in raw mode `primaryFile` already held that text, so every raw run stored up to 500 KB twice
+- The panel polls once immediately instead of waiting out the first 2s tick
 - Renamed server files: `flybox.ts` → `pipeline.ts`, `scrapingUtils.ts` → `scraper.ts`, `handlers.ts` → `handler.ts`
 - Retention windows extracted to `src/server/retention.ts`, which imports nothing: `scripts/db_cleanup.ts` was pulling in ExcelJS and the OpenAI SDK, and the privacy policy was pulling in Prisma, to read three numbers
 - `SiteInfo.sellsOnline` and `fishingReport` changed from string to `boolean`; emoji conversion happens at Excel output time only

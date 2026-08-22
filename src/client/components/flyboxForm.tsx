@@ -19,6 +19,7 @@ interface FormState {
   longitude: number;
   rivers: string[];
   summarize: boolean;
+  shopDirectory: boolean;
 }
 
 const DEFAULTS: FormState = {
@@ -26,6 +27,7 @@ const DEFAULTS: FormState = {
   longitude: -110.588455,
   rivers: [],
   summarize: true,
+  shopDirectory: true,
 };
 
 const STORAGE_KEY = "flybox-form";
@@ -38,6 +40,42 @@ function Section({ label, children }: { label?: string; children: React.ReactNod
       {label && <span className="eyebrow mb-2.5 block">{label}</span>}
       {children}
     </section>
+  );
+}
+
+/* The description is aria-describedby, not part of the label: inside the <label> it became the accessible name, which then changed wholesale every time the toggle flipped. */
+function Toggle({
+  id,
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <input
+        id={id}
+        type="checkbox"
+        aria-describedby={`${id}-desc`}
+        className="toggle toggle-primary mt-0.5 shrink-0"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <div>
+        <label htmlFor={id} className="block cursor-pointer text-sm font-medium">
+          {label}
+        </label>
+        <span id={`${id}-desc`} className="block text-xs text-base-content/70">
+          {description}
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -155,28 +193,29 @@ export default function FlyboxForm() {
           </Section>
 
           <Section>
-            {/* The helper text is a description, not part of the name. Inside the
-                <label> it became the accessible name, which then changed wholesale
-                every time the toggle flipped. */}
-            <div className="flex items-start gap-3">
-              <input
-                id="summarize"
-                type="checkbox"
-                aria-describedby="summarize-desc"
-                className="toggle toggle-primary mt-0.5 shrink-0"
-                checked={form.summarize}
-                onChange={(e) => update("summarize", e.target.checked)}
+            <div className="flex flex-col gap-4">
+              <Toggle
+                id="shop-directory"
+                label="Shop directory"
+                checked={form.shopDirectory}
+                onChange={(v) => update("shopDirectory", v)}
+                description={
+                  form.shopDirectory
+                    ? "A spreadsheet of every shop found: contact details, socials, and whether it sells online."
+                    : "Only the report is produced. Shops are still searched — the report is built from their sites."
+                }
               />
-              <div>
-                <label htmlFor="summarize" className="block cursor-pointer text-sm font-medium">
-                  Summarize with AI
-                </label>
-                <span id="summarize-desc" className="block text-xs text-base-content/70">
-                  {form.summarize
+              <Toggle
+                id="summarize"
+                label="Summarize with AI"
+                checked={form.summarize}
+                onChange={(v) => update("summarize", v)}
+                description={
+                  form.summarize
                     ? "Reports are condensed into one structured document, grouped by body of water."
-                    : "Skips the model entirely and returns the raw crawled text — faster, and far more of it."}
-                </span>
-              </div>
+                    : "Skips the model entirely and returns the raw crawled text — faster, and far more of it."
+                }
+              />
             </div>
           </Section>
         </div>

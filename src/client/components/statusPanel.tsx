@@ -9,17 +9,19 @@ interface JobUpdate {
   message: string;
   status: Status;
   createdAt: string;
+  /** What this run promises, decided by the options it was started with. */
+  expected: string[];
   files: { name: string }[];
 }
 
 const MAX_FAILURES = 5;
 
-/** Fixed names produced by the pipeline — rendered up front so the user knows
-    two outputs are coming before either exists. */
-const EXPECTED_OUTPUTS = [
-  { name: "report_summary.txt", type: "TXT", Icon: FiFileText },
-  { name: "shop_details.xlsx", type: "XLSX", Icon: FiFile },
-] as const;
+/** How to render each output the server can name. Which of them a run actually promises comes from the poll, since it depends on the options it was started with. */
+const OUTPUT_META: Record<string, { type: string; Icon: typeof FiFile }> = {
+  "report_summary.txt": { type: "TXT", Icon: FiFileText },
+  "shop_details.xlsx": { type: "XLSX", Icon: FiFile },
+  "report_raw.txt": { type: "TXT", Icon: FiFileText },
+};
 
 const fileUrl = (jobId: string, name: string) => `/api/flybox/${jobId}/files/${name}`;
 
@@ -32,6 +34,7 @@ function elapsed(from: number, to: number): string {
 export default function StatusPanel({ jobId, onClose }: { jobId: string; onClose: () => void }) {
   const [status, setStatus] = useState<Status>("IN_PROGRESS");
   const [ready, setReady] = useState<Set<string>>(new Set());
+  const [expected, setExpected] = useState<string[]>([]);
   const [pollError, setPollError] = useState<string | null>(null);
   const [polling, setPolling] = useState(true);
   const [startedAt, setStartedAt] = useState<number | null>(null);
@@ -44,14 +47,15 @@ export default function StatusPanel({ jobId, onClose }: { jobId: string; onClose
     // `stopped` guards against an in-flight response landing after the interval
     // was cleared, which could regress a finished job back to "Running".
     let stopped = false;
+    let timer: ReturnType<typeof setInterval> | undefined;
 
     const stop = () => {
       stopped = true;
-      clearInterval(intervalId);
+      clearInterval(timer);
       setPolling(false);
     };
 
-    const intervalId = setInterval(async () => {
+    const poll = async () => {
       try {
         const res = await fetch(`/api/flybox/${jobId}/updates`);
         if (res.status === 404) {
@@ -72,9 +76,10 @@ export default function StatusPanel({ jobId, onClose }: { jobId: string; onClose
         }
         setStatus(data.status);
         setStartedAt(new Date(data.createdAt).getTime());
+        setExpected(data.expected);
         setReady(new Set(data.files.map((f) => f.name)));
 
-        // Auto-download each output once, the first poll that reports it ready.
+        // Auto-download each output once, the first poll that reports it ready. The server lists only what this run was asked for.
         for (const { name } of data.files) {
           if (downloadedRef.current.has(name)) continue;
           downloadedRef.current.add(name);
@@ -95,11 +100,15 @@ export default function StatusPanel({ jobId, onClose }: { jobId: string; onClose
           setPollError(`Connection issue — retrying… (${failureCountRef.current}/${MAX_FAILURES})`);
         }
       }
-    }, 2000);
+    };
+
+    // Once up front, so the log and the output list appear now rather than after the first tick.
+    void poll();
+    timer = setInterval(poll, 2000);
 
     return () => {
       stopped = true;
-      clearInterval(intervalId);
+      clearInterval(timer);
     };
   }, [jobId]);
 
@@ -167,29 +176,32 @@ export default function StatusPanel({ jobId, onClose }: { jobId: string; onClose
           </div>
         )}
 
-        <div className="border-t border-rule pt-3">
-          <span className="eyebrow mb-1 block">Output</span>
-          {/* biome-ignore lint/a11y/noRedundantRoles: not redundant here — WebKit drops list semantics when list-style is none, and role="list" restores them */}
-          <ul role="list" className="ms-0 list-none divide-y divide-rule">
-            {EXPECTED_OUTPUTS.map(({ name, type, Icon }) => {
-              const available = ready.has(name);
-              return (
-                <li key={name} className={`flex min-h-12 items-center gap-3 ${available ? "" : "text-base-content/70"}`}>
-                  <Icon className="size-3.5 shrink-0" />
-                  <span className="flex-1 truncate font-mono text-xs text-mark">{name}</span>
-                  <span className="chip border-rule text-base-content/70">{available ? type : isRunning ? "Pending" : "None"}</span>
-                  {available ? (
-                    <a href={fileUrl(jobId, name)} download={name} className="icon-btn" aria-label={`Download ${name}`}>
-                      <FiDownload className="size-4" />
-                    </a>
-                  ) : (
-                    <span className="size-8 shrink-0" aria-hidden="true" />
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+        {expected.length > 0 && (
+          <div className="border-t border-rule pt-3">
+            <span className="eyebrow mb-1 block">Output</span>
+            {/* biome-ignore lint/a11y/noRedundantRoles: not redundant here — WebKit drops list semantics when list-style is none, and role="list" restores them */}
+            <ul role="list" className="ms-0 list-none divide-y divide-rule">
+              {expected.map((name) => {
+                const { type, Icon } = OUTPUT_META[name];
+                const available = ready.has(name);
+                return (
+                  <li key={name} className={`flex min-h-12 items-center gap-3 ${available ? "" : "text-base-content/70"}`}>
+                    <Icon className="size-3.5 shrink-0" />
+                    <span className="flex-1 truncate font-mono text-xs text-mark">{name}</span>
+                    <span className="chip border-rule text-base-content/70">{available ? type : isRunning ? "Pending" : "None"}</span>
+                    {available ? (
+                      <a href={fileUrl(jobId, name)} download={name} className="icon-btn" aria-label={`Download ${name}`}>
+                        <FiDownload className="size-4" />
+                      </a>
+                    ) : (
+                      <span className="size-8 shrink-0" aria-hidden="true" />
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
 
         <button
           type="button"

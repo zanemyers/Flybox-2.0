@@ -22,7 +22,7 @@ const steps = [
     Press <strong>Run Flybox</strong> and sit back while the pipeline runs.
   </>,
   <>
-    Your <strong>report</strong> and <strong>shop directory</strong> download automatically when ready.
+    Whatever you asked for downloads automatically when it is ready — the <strong>report</strong>, and the <strong>shop directory</strong> if you kept it.
   </>,
 ];
 

@@ -383,8 +383,8 @@ async function reportPhase(reportShops: SiteInfo[], job: JobHandler, browser: St
     await job.log(`[!!] Budget reached — ${included} of ${texts.length} crawled site(s) fit in the output.`);
   }
 
-  // Kept in both modes: a summarized run can still offer its source text.
-  await job.saveRawText(combined);
+  // Only when summarizing: in raw mode this text IS the report, and storing it twice cost a second copy of up to 500 KB.
+  if (wantsSummary) await job.saveRawText(combined);
 
   // Raw mode: hand back what was crawled and never call the model at all.
   if (!wantsSummary) {
@@ -424,7 +424,9 @@ export async function runFlybox(job: JobHandler): Promise<void> {
     const allShops = await shopPhase(job, browser);
     if (await job.isCanceled()) return;
 
-    await job.saveShops(allShops);
+    // The phase above still had to run: the report phase filters on the fishingReport flags it sets.
+    if (job.payload.shopDirectory) await job.saveShops(allShops);
+    else await job.log("[..] Shop directory not requested — skipping the workbook.");
 
     let reportShops = allShops.filter((s) => s.fishingReport);
     if (job.payload.rivers.length > 0) {

@@ -4,7 +4,7 @@ Flybox is a fly-fishing data aggregation tool built for [Rescue River](https://r
 
 **Flybox supplies its own API keys.** There is no bring-your-own-key flow, and no account. That single constraint shapes the rest of the design: anything a caller can change is something a caller can bill the operator for, so the search term and the summary prompt are server-side constants in `src/server/config.ts` rather than form fields. An editable prompt would be a free LLM endpoint; an editable search term would be a general-purpose Google Maps scraper.
 
-The whole request payload is `{ latitude, longitude, rivers, summarize }`.
+The whole request payload is `{ latitude, longitude, rivers, summarize, shopDirectory }`.
 
 ## Pipeline
 
@@ -18,7 +18,7 @@ A single run of Flybox executes two sequential phases, both in `src/server/pipel
    - Checks `robots.txt` — skips disallowed sites, respects `Crawl-delay` up to 5s
    - HTTP fetch first; falls back to Playwright (stealth Chromium) if blocked or JS-rendered
    - Extracts: email, online store detection, fishing report detection, social media profiles
-4. Saves all shops to `shop_details.xlsx`
+4. Saves all shops to `shop_details.xlsx`, unless the run turned the shop directory off. **The phase itself is never skipped** — the report phase filters on the `fishingReport` flags it sets, so the option decides whether the workbook is built, not whether shops are searched.
 
 ### Report Phase
 
@@ -113,9 +113,11 @@ The client is identified by a **salted SHA-256 of its IP**, stored on `Job.clien
 
 | File                 | Column          | Contents                                                                                   |
 |----------------------|-----------------|--------------------------------------------------------------------------------------------|
-| `report_summary.txt` | `primaryFile`   | The summary when summarizing, the raw crawled text otherwise                                |
-| `shop_details.xlsx`  | `secondaryFile` | Shop directory: name, website, address, phone, rating, reviews, category, email, socials, online-store and report flags |
-| `report_raw.txt`     | `rawFile`       | The crawled source text, in **both** modes, so a summarized run can still offer its source  |
+| `report_summary.txt` | `primaryFile`   | The summary when summarizing, the raw crawled text otherwise. If summarization fails, the raw text under a `[Summarization unavailable]` heading |
+| `shop_details.xlsx`  | `secondaryFile` | Shop directory: name, website, address, phone, rating, reviews, category, email, socials, online-store and report flags. Only when asked for |
+| `report_raw.txt`     | `rawFile`       | The crawled source text, written only on summarized runs — in raw mode `primaryFile` already is it. Offered by `/runs`, never auto-downloaded  |
+
+A run promises `report_summary.txt`, plus `shop_details.xlsx` when the shop directory was requested. `GET /api/flybox/[id]/updates` reports that manifest as `expected`, and reports readiness only for what is on it, so the panel can render rows before the bytes exist and never downloads a file the caller did not ask for.
 
 ## Design System
 

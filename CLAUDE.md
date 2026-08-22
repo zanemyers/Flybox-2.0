@@ -8,7 +8,7 @@ Flybox is a fly-fishing data aggregation tool built for [Rescue River](https://r
 
 **Flybox supplies its own API keys.** There is no bring-your-own-key flow. That is the single most important constraint in the codebase: anything a caller can change is something a caller can bill the operator for. The search term and the summary prompt are therefore server-side constants in `src/server/config.ts`, NOT form fields — an editable prompt is a free LLM endpoint, and an editable search term is a general-purpose Maps scraper. Do not move either back onto the client.
 
-The whole request payload is `{ latitude, longitude, rivers, summarize }`.
+The whole request payload is `{ latitude, longitude, rivers, summarize, shopDirectory }`.
 
 ## Commands
 

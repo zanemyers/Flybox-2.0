@@ -2,7 +2,7 @@ import ExcelJS from "exceljs";
 import { describe, expect, it } from "vitest";
 import { JobStatus } from "@/server/db";
 import type { SiteInfo } from "@/server/handler";
-import { buildShopWorkbook, isOutputName, isStale, OUTPUT_FILES, SHOP_COLUMNS } from "@/server/handler";
+import { buildShopWorkbook, expectedOutputs, isOutputName, isStale, OUTPUT_FILES, SHOP_COLUMNS } from "@/server/handler";
 import { STALE_AFTER_MS } from "@/server/retention";
 
 const SAMPLE_SHOP: SiteInfo = {
@@ -117,9 +117,10 @@ describe("buildShopWorkbook", () => {
 // ── output file allow-list ─────────────────────────────────────────────────────
 
 describe("isOutputName", () => {
-  it("accepts the two real output names", () => {
-    expect(isOutputName("report_summary.txt")).toBe(true);
-    expect(isOutputName("shop_details.xlsx")).toBe(true);
+  it("accepts every real output name", () => {
+    for (const name of ["report_summary.txt", "shop_details.xlsx", "report_raw.txt"]) {
+      expect(isOutputName(name)).toBe(true);
+    }
   });
 
   it("rejects anything else, including traversal attempts", () => {
@@ -131,6 +132,7 @@ describe("isOutputName", () => {
   it("maps each output to a distinct DB column and a sensible content type", () => {
     expect(OUTPUT_FILES["report_summary.txt"].column).toBe("primaryFile");
     expect(OUTPUT_FILES["shop_details.xlsx"].column).toBe("secondaryFile");
+    expect(OUTPUT_FILES["report_raw.txt"].column).toBe("rawFile");
     expect(OUTPUT_FILES["report_summary.txt"].contentType).toContain("text/plain");
     expect(OUTPUT_FILES["shop_details.xlsx"].contentType).toContain("spreadsheet");
   });
@@ -164,6 +166,34 @@ describe("isStale", () => {
     const ancient = beat(400 * 24 * 3_600_000);
     for (const status of [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELED]) {
       expect(isStale({ status, heartbeatAt: ancient }, NOW)).toBe(false);
+    }
+  });
+});
+
+// ── expectedOutputs ────────────────────────────────────────────────────────────
+
+describe("expectedOutputs", () => {
+  it("promises the report either way", () => {
+    expect(expectedOutputs({ shopDirectory: true })).toContain("report_summary.txt");
+    expect(expectedOutputs({ shopDirectory: false })).toContain("report_summary.txt");
+  });
+
+  it("adds the workbook only when it was asked for", () => {
+    expect(expectedOutputs({ shopDirectory: true })).toEqual(["report_summary.txt", "shop_details.xlsx"]);
+    expect(expectedOutputs({ shopDirectory: false })).toEqual(["report_summary.txt"]);
+  });
+
+  /* report_raw.txt is the catalog's record of what a summary was built from, not
+     something the caller asked for — auto-downloading it was the defect here. */
+  it("never promises the raw source text", () => {
+    for (const shopDirectory of [true, false]) {
+      expect(expectedOutputs({ shopDirectory })).not.toContain("report_raw.txt");
+    }
+  });
+
+  it("names only real outputs, so every row can be downloaded", () => {
+    for (const shopDirectory of [true, false]) {
+      for (const name of expectedOutputs({ shopDirectory })) expect(isOutputName(name)).toBe(true);
     }
   });
 });

@@ -20,6 +20,8 @@ function parsePayload(body: unknown): { payload: Payload } | { error: string } {
   if (!Array.isArray(b.rivers) || b.rivers.some((r) => typeof r !== "string")) return { error: "rivers must be an array of strings." };
   if (b.rivers.length > 25) return { error: "At most 25 rivers." };
   if (typeof b.summarize !== "boolean") return { error: "summarize must be true or false." };
+  // Absent means true: a tab holding the bundle from before this option existed still submits a valid run.
+  if (b.shopDirectory !== undefined && typeof b.shopDirectory !== "boolean") return { error: "shopDirectory must be true or false." };
 
   return {
     payload: {
@@ -27,6 +29,7 @@ function parsePayload(body: unknown): { payload: Payload } | { error: string } {
       longitude,
       rivers: (b.rivers as string[]).map((r) => r.trim().slice(0, 60)).filter(Boolean),
       summarize: b.summarize,
+      shopDirectory: b.shopDirectory ?? true,
     },
   };
 }

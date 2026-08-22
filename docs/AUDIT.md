@@ -48,29 +48,7 @@ either.
 
 **Fix:** `console.error` in that catch. One line.
 
-### 3. Three files auto-download, but the panel lists two
-
-`src/client/components/statusPanel.tsx:19` and `:78`
-
-`EXPECTED_OUTPUTS` has two entries. The download loop iterates `data.files`,
-which now includes `report_raw.txt`. On a summarized run that is three
-`a.click()` calls at three different points in the run (xlsx after the shop
-phase, raw mid-report-phase, summary at the end).
-
-- Chrome blocks multiple automatic downloads after the first, so the user may
-  silently not receive files 2 and 3.
-- `report_raw.txt` has no row in the Output list, so there is no way to retry it
-  from the panel — only from `/runs`.
-
-Stale copy that says two: the comment at `statusPanel.tsx:17`, and the home page
-step "Your **report** and **shop directory** download automatically when ready"
-(`src/app/page.tsx:24`).
-
-**Fix:** decide whether the raw file is a user-facing output. If it is, add it to
-`EXPECTED_OUTPUTS` and fix the copy. Either way, consider downloading only on
-click — three silent auto-downloads is a lot of browser-fighting for little gain.
-
-### 4. No security headers, and the container runs as root
+### 3. No security headers, and the container runs as root
 
 `next.config.ts`, `Dockerfile`
 
@@ -85,7 +63,7 @@ script in `layout.tsx` is inline by necessity and would need a nonce.
 
 ## Correctness and consistency
 
-### 5. `/runs` timestamps render in the server's timezone
+### 4. `/runs` timestamps render in the server's timezone
 
 `src/app/runs/page.tsx:13`
 
@@ -95,7 +73,7 @@ reads a time six hours off.
 
 **Fix:** format client-side, or state the zone explicitly.
 
-### 6. Client and server disagree about rivers
+### 5. Client and server disagree about rivers
 
 `src/app/api/flybox/route.ts:21,28` vs `src/client/components/inputs/tagInput.tsx`
 
@@ -105,7 +83,7 @@ run rejected after they press Run.
 
 **Fix:** cap in `TagInput` too, from a shared constant so they cannot drift.
 
-### 7. Reverse geocoding blocks the POST
+### 6. Reverse geocoding blocks the POST
 
 `src/app/api/flybox/route.ts:65`
 
@@ -119,7 +97,7 @@ pressing Run.
 
 ## Cleanliness
 
-### 8. CLAUDE.md has drifted, and one line is actively misleading
+### 7. CLAUDE.md has drifted, and one line is actively misleading
 
 `CLAUDE.md:72,76,92,102`
 
@@ -137,7 +115,7 @@ This is the file that steers every future change, and the `docs/` refresh in
 - `:92` lists the `Job` schema without `rawFile`, `clientHash`, or the six
   catalog columns.
 
-### 9. Eight copies of the same `biome-ignore` comment
+### 8. Eight copies of the same `biome-ignore` comment
 
 `src/app/page.tsx`, `about/page.tsx`, `how-it-works/page.tsx`, `runs/page.tsx` (×3),
 `header.tsx`, `statusPanel.tsx`
@@ -149,7 +127,7 @@ suppression is the rule telling us it does not apply to this codebase.
 **Fix:** turn `noRedundantRoles` off once in `biome.json` with one comment
 explaining why, and delete all eight.
 
-### 10. The river tag is duplicated
+### 9. The river tag is duplicated
 
 `src/app/runs/page.tsx:101`, `src/client/components/inputs/tagInput.tsx:73`
 
@@ -158,7 +136,7 @@ the `rounded-xs` the rest of the app moved to.
 
 **Fix:** a `.tag` primitive in `globals.css`, next to `.chip`.
 
-### 11. Smaller items
+### 10. Smaller items
 
 - `src/server/db.ts:7` re-exports `Job` and `JobMessage` types that nothing
   imports.
@@ -167,7 +145,7 @@ the `rounded-xs` the rest of the app moved to.
 - `src/app/api/flybox/[id]/files/[name]/route.ts:3` says "two fixed outputs."
 - `tsconfig.json` targets ES2017 on a Node 22 / Next 16 app.
 
-### 12. `output: "standalone"` would shrink the image
+### 11. `output: "standalone"` would shrink the image
 
 `next.config.ts`
 
@@ -196,11 +174,11 @@ Docker → native-Node switch, and it does not foreclose that switch.
 
 ## Suggested order
 
-1. Items **1, 3** — exploitable or user-visible.
-2. Items **8, 9** — near-free, and 8 actively misdirects future work.
-3. Items **2, 5, 6, 7** — small correctness and latency fixes.
-4. Items **4, 10, 11, 12** — hardening and cleanup.
+1. Item **1** — exploitable, and the last of the original high-severity three.
+2. Items **7, 8** — near-free, and 7 actively misdirects future work.
+3. Items **2, 4, 5, 6** — small correctness and latency fixes.
+4. Items **3, 9, 10, 11** — hardening and cleanup.
 
-Item 2 of the original list — abandoned `IN_PROGRESS` runs living forever — was
-fixed on 2026-08-21 by the `Job.heartbeatAt` stamp and the reaper in
-`db_cleanup.ts`. See the changelog.
+Fixed on 2026-08-21, both from the original list: item 2, abandoned
+`IN_PROGRESS` runs living forever, and item 3, the third file auto-downloading
+with no row in the panel. See the changelog.

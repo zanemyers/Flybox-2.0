@@ -13,6 +13,8 @@ export interface Payload {
   rivers: string[];
   /** When false the OpenAI call is skipped entirely and the crawled text is returned as-is. */
   summarize: boolean;
+  /** When false the workbook is never built. The shop phase still runs — the report phase needs its fishingReport flags. */
+  shopDirectory: boolean;
 }
 
 export interface SiteInfo {
@@ -43,7 +45,7 @@ export const SHOP_COLUMNS = [
   "Social Media",
 ] as const;
 
-/** The two fixed outputs, keyed by the DB column that holds each one. */
+/** Every output the pipeline can write, keyed by the DB column that holds it. */
 export const OUTPUT_FILES = {
   "report_summary.txt": { column: "primaryFile", contentType: "text/plain; charset=utf-8" },
   "shop_details.xlsx": { column: "secondaryFile", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
@@ -55,6 +57,11 @@ export type OutputName = keyof typeof OUTPUT_FILES;
 // Object.hasOwn, not `in`: `"__proto__" in OUTPUT_FILES` is true via the
 // prototype chain, which would let a bogus name past this allow-list.
 export const isOutputName = (name: string): name is OutputName => Object.hasOwn(OUTPUT_FILES, name);
+
+/** What a run promises to hand back, so the panel can show rows before the bytes exist and download nothing the caller did not ask for. report_raw.txt is not here: it is the catalog's record of what a summary was built from, not a deliverable. */
+export function expectedOutputs(job: { shopDirectory: boolean }): OutputName[] {
+  return job.shopDirectory ? ["report_summary.txt", "shop_details.xlsx"] : ["report_summary.txt"];
+}
 
 /** Builds the shop directory workbook. Emoji conversion happens here and only
     here — SiteInfo keeps sellsOnline/fishingReport as booleans everywhere else. */
@@ -129,6 +136,7 @@ export class JobHandler {
         locationName,
         rivers: payload.rivers,
         summarized: payload.summarize,
+        shopDirectory: payload.shopDirectory,
       },
     });
     return new JobHandler(job.id, payload);
@@ -150,11 +158,10 @@ export class JobHandler {
      GET /api/flybox/[id]/files/[name]. */
   static async getUpdates(id: string) {
     const [rows, messages] = await Promise.all([
-      prisma.$queryRaw<{ status: JobStatus; createdAt: Date; heartbeatAt: Date; hasPrimary: boolean; hasSecondary: boolean; hasRaw: boolean }[]>`
-        SELECT "status", "createdAt", "heartbeatAt",
+      prisma.$queryRaw<{ status: JobStatus; createdAt: Date; heartbeatAt: Date; shopDirectory: boolean; hasPrimary: boolean; hasSecondary: boolean }[]>`
+        SELECT "status", "createdAt", "heartbeatAt", "shopDirectory",
                ("primaryFile"   IS NOT NULL) AS "hasPrimary",
-               ("secondaryFile" IS NOT NULL) AS "hasSecondary",
-               ("rawFile"       IS NOT NULL) AS "hasRaw"
+               ("secondaryFile" IS NOT NULL) AS "hasSecondary"
         FROM "Job" WHERE "id" = ${id}
       `,
       prisma.jobMessage.findMany({ where: { jobId: id }, orderBy: { createdAt: "asc" }, select: { message: true } }),
@@ -163,10 +170,8 @@ export class JobHandler {
     const job = rows[0];
     if (!job) throw new Error(`Job ${id} not found`);
 
-    const files: { name: OutputName }[] = [];
-    if (job.hasPrimary) files.push({ name: "report_summary.txt" });
-    if (job.hasSecondary) files.push({ name: "shop_details.xlsx" });
-    if (job.hasRaw) files.push({ name: "report_raw.txt" });
+    const ready: Partial<Record<OutputName, boolean>> = { "report_summary.txt": job.hasPrimary, "shop_details.xlsx": job.hasSecondary };
+    const expected = expectedOutputs(job);
 
     const lines = messages.map((m) => m.message);
     let status = job.status;
@@ -182,7 +187,8 @@ export class JobHandler {
       message: lines.join("\n"),
       status,
       createdAt: job.createdAt.toISOString(),
-      files,
+      expected,
+      files: expected.filter((name) => ready[name]).map((name) => ({ name })),
     };
   }
 

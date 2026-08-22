@@ -9,9 +9,9 @@ datasource db {
 }
 
 model Job {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   status    JobStatus @default(IN_PROGRESS)
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   /// Last moment the pipeline proved it was still running. Touched by the cancel
   /// check, which already runs per shop and per crawled page. A run whose process
@@ -24,13 +24,15 @@ model Job {
 
   /// What the run was for, so the catalog can describe it after the fact. The
   /// payload used to live only in memory on JobHandler.
-  latitude     Float?
-  longitude    Float?
+  latitude      Float?
+  longitude     Float?
   /// Reverse-geocoded label for the coordinates, e.g. "Yellowstone National Park".
   /// Null when lookup failed; the catalog falls back to the raw coordinates.
-  locationName String?
-  rivers       String[] @default([])
-  summarized   Boolean  @default(false)
+  locationName  String?
+  rivers        String[] @default([])
+  summarized    Boolean  @default(false)
+  /// Whether the run was asked for the shop workbook. The shop phase runs either way — the report phase needs its fishingReport flags — so this only decides whether the xlsx is built and stored.
+  shopDirectory Boolean  @default(true)
 
   /// primaryFile is report_summary.txt — the summary when summarized, otherwise
   /// the raw crawled text. rawFile holds the crawled text in BOTH cases, so a
