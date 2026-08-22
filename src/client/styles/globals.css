@@ -72,9 +72,14 @@
 /* ──────────────────────────────────────────────────────────────────── DARK
    The ground is the same blue family as #0d667a, so the app still reads blue.
    ink/base-100 14.38:1  base-200 13.12:1  base-300 11.16:1  sunken 15.72:1 */
+/* No `prefersdark`. It applied this theme under a prefers-color-scheme media query, which
+   the theme script in layout.tsx already does before first paint — so it only ever decided
+   the no-JS render, and there it selected DaisyUI's dark colors while the non-DaisyUI tokens
+   below stayed light: dark panels holding a cream well, hero text on a cream gradient.
+   Reaching the same coherence the other way would mean a second copy of the six dark token
+   values in a media query, which is how annotated color values drift. No JS now means light. */
 @plugin "daisyui/theme" {
   name: "dark";
-  prefersdark: true;
   color-scheme: "dark";
 
   --color-base-100: oklch(21.5% 0.038 222); /* #011d26 */
@@ -130,7 +135,13 @@
   --text-micro: 0.6875rem; /* 11px — uppercase tracked labels only, never prose */
 }
 
-[data-theme="light"] {
+/* Light lives on :root, not [data-theme="light"], so it is the fallback as well as
+   a theme — matching `default: true` on the DaisyUI block above. Under the attribute
+   selector these five were undefined until the theme script ran or if JS never ran,
+   and an undefined var() means border-stroke and border-rule resolve to currentColor:
+   every hairline in the app came back as full-strength ink. Dark below is the only
+   override, and equal specificity means source order decides, so it must stay last. */
+:root {
   /* stroke clears 3:1 on every surface a control can sit on: 4.04 / 3.76 / 3.31 / 3.58 */
   --stroke: oklch(57.5% 0.03 222);
   --rule: oklch(25% 0.045 225 / 15%);
