@@ -2,7 +2,7 @@
 
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { FiCrosshair, FiSearch, FiX } from "react-icons/fi";
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 
@@ -63,14 +63,18 @@ function ResizeOnShow({ active, position }: { active: boolean; position: [number
 
 export default function MapInput({ latitude, longitude, onChange }: { latitude: number; longitude: number; onChange: (lat: number, lng: number) => void }) {
   const [show, setShow] = useState(false);
+  const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [position, setPosition] = useState<[number, number]>([latitude, longitude]);
   const [search, setSearch] = useState("");
   const [flyTo, setFlyTo] = useState<[number, number] | null>(null);
   const [searchError, setSearchError] = useState("");
+  const [searching, setSearching] = useState(false);
 
   const handleSearch = async () => {
-    if (!search.trim()) return;
+    // The in-flight guard is also the debounce: held Enter fired one Nominatim request per keypress.
+    if (searching || !search.trim()) return;
+    setSearching(true);
     setSearchError("");
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&format=json&limit=1`);
@@ -87,6 +91,8 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
       onChange(round6(lat), round6(lng));
     } catch {
       setSearchError("Location lookup failed. Try again.");
+    } finally {
+      setSearching(false);
     }
   };
 
@@ -135,10 +141,14 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
         </button>
       </div>
 
-      <dialog ref={dialogRef} className="modal" onClose={() => setShow(false)}>
+      {/* Named by the visible heading rather than an aria-label, so the accessible name
+          and the one on screen cannot drift. Without it this announced as an unnamed dialog. */}
+      <dialog ref={dialogRef} aria-labelledby={titleId} className="modal" onClose={() => setShow(false)}>
         <div className="modal-box panel max-h-dvh w-full max-w-none overflow-y-auto rounded-none bg-base-200 p-0 shadow-none sm:w-11/12 sm:max-w-3xl sm:rounded-box">
           <div className="panel-head">
-            <span className="eyebrow">Select position</span>
+            <span id={titleId} className="eyebrow">
+              Select position
+            </span>
             <button type="button" className="icon-btn" aria-label="Close" onClick={() => setShow(false)}>
               <FiX className="size-4" />
             </button>
@@ -160,11 +170,19 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
                   }
                 }}
               />
-              <button type="button" className="btn btn-primary h-10 sm:h-9" onClick={handleSearch} aria-label="Search">
+              <button type="button" className="btn btn-primary h-10 sm:h-9" onClick={handleSearch} disabled={searching} aria-label="Search">
                 <FiSearch className="size-4" />
                 <span className="hidden sm:inline">Search</span>
               </button>
             </div>
+            {/* Status rather than the run-bar: swapping the button's contents for a bar would
+                resize it, and a Nominatim round trip is worth saying out loud either way.
+                Never set at the same time as searchError — the catch and the finally batch together. */}
+            {searching && (
+              <p role="status" className="mt-1.5 text-xs text-base-content/70">
+                Searching…
+              </p>
+            )}
             {searchError && (
               <p role="alert" className="mt-1.5 text-xs text-error">
                 {searchError}
