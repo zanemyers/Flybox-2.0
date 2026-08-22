@@ -157,7 +157,7 @@ Optional rate-limit overrides, with defaults: `RATE_LIMIT_CLIENT_HOUR` (3), `RAT
 
 Because every listed run offers downloads, readiness for all 15 is answered with a raw `IS NOT NULL` query rather than by selecting the blobs — selecting them to render a list would pull megabytes. Only the newest 5 have their body read, for the snippet.
 
-`Job` stores the run's `latitude`/`longitude`/`rivers`/`summarized` so the catalog can describe a run after the fact; the payload used to live only in memory. `locationName` is reverse-geocoded **once at job creation** (`src/server/geocode.ts`, Nominatim) — never on render. It is best-effort and null on failure, in which case the page shows coordinates instead.
+`Job` stores the run's `latitude`/`longitude`/`rivers`/`summarized` so the catalog can describe a run after the fact; the payload used to live only in memory. `locationName` is reverse-geocoded **once per run, in the pipeline** (`src/server/geocode.ts`, Nominatim) — never on render, and never on the request path: it is started alongside the shop phase, since up to 5s of Nominatim latency used to land on the POST. It is best-effort and null on failure, in which case the page shows coordinates instead.
 
 `rawFile` holds the crawled source text in BOTH modes, so a summarized run can still offer what it was built from. `primaryFile` remains report_summary.txt — the summary when summarized, the raw text otherwise.
 

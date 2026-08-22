@@ -55,7 +55,7 @@ All pipeline runs are tracked as `Job` records in PostgreSQL.
 
 A run proves it is alive by stamping `Job.heartbeatAt` on the same cancel check, which already runs per shop and per crawled page. A process that dies mid-run — a deploy, a crash — leaves that stamp frozen, and after `STALE_AFTER_MS` (`retention.ts`) the run is abandoned: the next poll marks it `FAILED` so a watching client is told, and `scripts/db_cleanup.ts` deletes the ones nobody is watching. Total age cannot stand in for this, because a legitimate raw-mode crawl of one large site has no tight upper bound.
 
-Output files are stored as `Bytes` on the `Job` row and streamed to the client — nothing is written to disk. The job also stores the coordinates, rivers, and a `locationName` reverse-geocoded once at creation (Nominatim, best-effort, null on failure) so a run can be described after the fact.
+Output files are stored as `Bytes` on the `Job` row and streamed to the client — nothing is written to disk. The job also stores the coordinates, rivers, and a `locationName` reverse-geocoded once per run (Nominatim, best-effort, null on failure) so a run can be described after the fact. The lookup runs inside the pipeline, overlapping the shop phase, rather than on the request path where its 5s timeout was the user's to wait for.
 
 ## The Run Catalog
 

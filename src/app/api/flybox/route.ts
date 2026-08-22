@@ -1,5 +1,4 @@
 import { hasKey } from "@/server/config";
-import { reverseGeocode } from "@/server/geocode";
 import { JobHandler, type Payload } from "@/server/handler";
 import { runFlybox } from "@/server/pipeline";
 import { checkRateLimit } from "@/server/rateLimit";
@@ -64,10 +63,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Resolved once here rather than on every catalog render. Best-effort: the
-    // catalog falls back to raw coordinates when this returns null.
-    const locationName = await reverseGeocode(parsed.payload.latitude, parsed.payload.longitude);
-    const job = await JobHandler.create(parsed.payload, limit.clientHash, locationName);
+    const job = await JobHandler.create(parsed.payload, limit.clientHash);
     /* The catch is required — an unhandled rejection would take the process down — but runFlybox already handles its own
        failures, so reaching here means job.fail() or the browser teardown threw and the row may be stuck IN_PROGRESS. */
     runFlybox(job).catch((err) => console.error(`Flybox job ${job.id} threw past its own error handling:`, err));

@@ -1,6 +1,6 @@
 # Production Readiness Audit
 
-**Snapshot:** 2026-08-21, last revised against `fc7a852` on `redesign/tailwater`.
+**Snapshot:** 2026-08-21, last revised against `c5645a4` on `redesign/tailwater`.
 **Scope:** all of `src/`, `scripts/`, `db/`, plus `next.config.ts`, `biome.json`, `tsconfig.json` — about 5,200 lines.
 
 This is a working list, not reference documentation. It goes stale as items are
@@ -10,7 +10,7 @@ work belongs.
 
 State of the tree: `npm run check` green (Biome clean, `tsc` clean, 169 server
 tests passing), no `any`, no non-null assertions, `strict` on, no dead exports.
-Note that green here is measured on macOS and says nothing about a Linux build — see item 2.
+Note that green here says nothing about the Render build, which is item 2.
 
 ---
 
@@ -67,8 +67,7 @@ in the repo can make it take effect.
 
 Everything else on this front is done — `X-Content-Type-Options`,
 `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`,
-`Strict-Transport-Security`, `poweredByHeader: false`, and the container no
-longer runs as root.
+`Strict-Transport-Security`, and `poweredByHeader: false`.
 
 A CSP is the piece left, and it is its own project: it needs a nonce pipeline
 rather than a static header, because Next streams inline scripts of its own, the
@@ -84,21 +83,11 @@ Origin inventory, already worked out: tiles from
 Note that dev and production differ here — `next dev` needs `'unsafe-eval'` for
 HMR — so a policy that passes locally is not evidence it passes in production.
 
-### 4. Reverse geocoding blocks the POST
-
-`src/app/api/flybox/route.ts:69`
-
-`reverseGeocode` is awaited — up to its 5s timeout — before the job is created,
-for a purely cosmetic catalog label. That latency lands directly on the user
-pressing Run.
-
-**Fix:** create the job first, fill `locationName` afterward.
-
 ---
 
 ## Cleanliness
 
-### 5. `OUTPUT_FILES` is re-encoded by hand
+### 4. `OUTPUT_FILES` is re-encoded by hand
 
 `src/server/handler.ts:205` and the readiness map above it
 
@@ -139,8 +128,7 @@ ES2017 `tsconfig` target, and the missing `catalog.ts` tiebreaker.
 ## Suggested order
 
 1. Items **1, 2** — one is exploitable, the other is a deploy that only works while a cache holds.
-2. Item **4** — a small latency fix.
-3. Items **3, 5** — hardening and cleanup. The CSP is the largest thing left.
+2. Items **3, 4** — hardening and cleanup. The CSP is the largest thing left.
 
 ## Fixed and removed from this list
 
@@ -156,6 +144,7 @@ All on 2026-08-21. The changelog carries the detail.
 - The river tag duplicated across two files
 - Four wrong claims in `CLAUDE.md`, one of which sent styling work at the wrong `--color-primary`
 - Small drift in `db.ts`, the files route, `tsconfig.json`, and `catalog.ts`
+- Reverse geocoding blocking the POST for up to 5s — it runs in the pipeline now, overlapping the shop phase
 
 Removed rather than fixed, once Docker stopped being the deploy path: the broken
 `docker build`, and `output: "standalone"` — which existed only to shrink an image

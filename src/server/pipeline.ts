@@ -421,7 +421,12 @@ export async function runFlybox(job: JobHandler): Promise<void> {
   try {
     await browser.launch();
 
+    /* Started, not awaited: naming the coordinates took up to 5s off the front of the POST when the route did it, and
+       the catalog does not need the label until the run is listed. Awaited after the phase it overlaps, which is minutes. */
+    const naming = job.resolveLocationName();
+
     const allShops = await shopPhase(job, browser);
+    await naming;
     if (await job.isCanceled()) return;
 
     // The phase above still had to run: the report phase filters on the fishingReport flags it sets.

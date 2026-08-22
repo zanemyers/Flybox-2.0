@@ -27,6 +27,7 @@ later change superseded an earlier one, only the outcome is listed.
 ### Changed
 - Unified ShopReel, FishTales, and SiteScout into a single `/api/flybox` pipeline
 - Summarization moved from Google Gemini to OpenAI: `gpt-5.6-luna` primary, `gpt-5.6-terra` fallback only after the SDK's retries are exhausted, `reasoning.effort` pinned to `none`, output capped at 6,000 tokens, and an empty response treated as failure
+- Reverse geocoding moved off the request path. It was awaited before the job row was created, so up to 5s of Nominatim latency landed on the user pressing Run; it now starts inside the pipeline alongside the shop phase, which takes minutes
 - Aborting and backoff left to the OpenAI SDK's `timeout`/`maxRetries` — the old `Promise.race` timeout billed for requests nobody read
 - The search term and summary prompt moved from form fields to server-side constants in `src/server/config.ts`
 - Request payload reduced to `{ latitude, longitude, rivers, summarize }`, sent as JSON instead of form data

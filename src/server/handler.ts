@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import OpenAI from "openai";
 import { requireKey } from "@/server/config";
 import { JobStatus, prisma } from "@/server/db";
+import { reverseGeocode } from "@/server/geocode";
 import { STALE_AFTER_MS, staleCutoff } from "@/server/retention";
 
 /* Deliberately small. The search term and summary prompt are server-side
@@ -126,20 +127,31 @@ export class JobHandler {
 
   /** clientHash is the salted IP hash used for rate limiting; the raw address
       is never stored. Null when no client address could be determined. */
-  static async create(payload: Payload, clientHash: string | null = null, locationName: string | null = null): Promise<JobHandler> {
+  static async create(payload: Payload, clientHash: string | null = null): Promise<JobHandler> {
     const job = await prisma.job.create({
       data: {
         status: JobStatus.IN_PROGRESS,
         clientHash,
         latitude: payload.latitude,
         longitude: payload.longitude,
-        locationName,
         rivers: payload.rivers,
         summarized: payload.summarize,
         shopDirectory: payload.shopDirectory,
       },
     });
     return new JobHandler(job.id, payload);
+  }
+
+  /* Names the coordinates for the catalog. Deliberately swallows everything: the label is cosmetic, the catalog falls
+     back to the raw coordinates, and this runs alongside the shop phase where a rejection would surface unhandled. */
+  async resolveLocationName(): Promise<void> {
+    try {
+      const name = await reverseGeocode(this.payload.latitude, this.payload.longitude);
+      // updateMany, not update: a row deleted mid-run is a no-op here rather than a thrown P2025 logged as if it mattered.
+      if (name) await prisma.job.updateMany({ where: { id: this.id }, data: { locationName: name } });
+    } catch (err) {
+      console.error(`Flybox job ${this.id} could not resolve a location name:`, err);
+    }
   }
 
   /** Only an in-flight job can be canceled — an unconditional update would turn
