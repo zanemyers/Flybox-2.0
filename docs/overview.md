@@ -74,7 +74,7 @@ Output files are stored as `Bytes` on the `Job` row and streamed to the client �
 | Global, per day | 40 |
 | Global, per 30 days | 200 — sized against a 1,000-search SerpAPI plan at 5 searches per run |
 
-The client is identified by a **salted SHA-256 of its IP**, stored on `Job.clientHash`; the raw address is never stored. `src/app/robots.ts` disallows all crawlers — there is nothing to index and real cost in being crawled.
+The client is identified by a **salted SHA-256 of its IP**, stored on `Job.clientHash`; the raw address is never stored. The address comes from counting in from the right of `x-forwarded-for` by `RATE_LIMIT_TRUSTED_PROXIES` (default 1), since only the rightmost entries were written by a proxy rather than by the caller. `src/app/robots.ts` disallows all crawlers — there is nothing to index and real cost in being crawled.
 
 ## Tech Stack
 

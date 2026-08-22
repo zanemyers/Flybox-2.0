@@ -73,11 +73,72 @@ const salt =
     return randomBytes(32).toString("hex");
   })();
 
+/* A proxy appends the address it received the request from, so the RIGHTMOST entries were written by infrastructure and
+   anything further left may have been typed by the caller. Reading the leftmost — the usual "client IP" convention — let
+   anyone rotate X-Forwarded-For for a fresh identity per request, which retired the per-client caps entirely. Count in
+   from the right instead, by however many proxies sit in front of the app. */
+const TRUSTED_PROXIES = num("RATE_LIMIT_TRUSTED_PROXIES", 1);
+
+let warnedShortChain = false;
+let warnedInternalAddress = false;
+
+/** Loopback, RFC1918, link-local, carrier NAT, IPv6 loopback and unique-local. A public app never has one of these as a
+    caller, so selecting one means the entry belongs to infrastructure and the trusted count is too low. */
+export function isInternalAddress(ip: string): boolean {
+  // [::1]:8080 keeps the port outside the brackets, so take what is inside them rather than trimming the ends.
+  const bracketed = /^\[([^\]]+)\]/.exec(ip);
+  const value = (bracketed ? bracketed[1] : ip).split("%")[0];
+  if (value === "::1" || /^f[cd]/i.test(value)) return true;
+  const [a, b] = value.split(".").map(Number);
+  if (!Number.isInteger(a) || !Number.isInteger(b)) return false;
+  if (a === 127 || a === 10) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  return a === 100 && b >= 64 && b <= 127;
+}
+
+/** The caller's address as vouched for by the proxy in front of us, or null when nothing vouched for one. */
+export function clientIpFrom(headers: Headers, trustedProxies: number = TRUSTED_PROXIES): string | null {
+  const trusted = Math.max(1, Math.floor(trustedProxies));
+  const chain = (headers.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  // Nothing forwarded this, so there is no proxy whose word to take. x-real-ip is a guess, and only better than nothing.
+  if (chain.length === 0) return headers.get("x-real-ip")?.trim() || null;
+
+  /* Fewer hops than configured means the count is too high for this deployment, which is the one setting that reopens
+     the hole above. Fall back to the rightmost — the single entry a proxy definitely wrote — and say so once. */
+  if (chain.length < trusted) {
+    if (!warnedShortChain) {
+      warnedShortChain = true;
+      console.warn(
+        `[rateLimit] RATE_LIMIT_TRUSTED_PROXIES is ${trusted} but x-forwarded-for arrived with ${chain.length}; using the last entry. Set it to the number of proxies actually in front of the app.`,
+      );
+    }
+    return chain[chain.length - 1];
+  }
+
+  const selected = chain[chain.length - trusted];
+
+  /* The opposite misconfiguration to the one above, and the quiet one: a count set too low picks a proxy's own address,
+     which is the same for everybody, so every caller shares a single limit and legitimate traffic starts getting 429s. */
+  if (selected && isInternalAddress(selected) && !warnedInternalAddress) {
+    warnedInternalAddress = true;
+    console.warn(
+      `[rateLimit] x-forwarded-for resolved to ${selected}, an internal address, so RATE_LIMIT_TRUSTED_PROXIES is probably below the ${chain.length} hops in front of the app. Every caller is sharing one limit until it matches.`,
+    );
+  }
+
+  return selected;
+}
+
 /** Salted hash of the caller's IP. Returns null when no address can be
     determined, which callers treat as "global limits only". */
 export function clientHashFrom(headers: Headers): string | null {
-  const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const ip = forwarded || headers.get("x-real-ip")?.trim() || null;
+  const ip = clientIpFrom(headers);
   if (!ip) return null;
   return createHash("sha256").update(`${salt}:${ip}`).digest("hex");
 }

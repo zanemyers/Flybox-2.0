@@ -49,6 +49,7 @@ later change superseded an earlier one, only the outcome is listed.
 - `/privacy-policy` and `/terms-of-service` rewritten to match what the app actually does, including disclosing that the run catalog is public
 
 ### Fixed
+- The per-client rate limit was bypassable. `clientHashFrom` read the leftmost `x-forwarded-for` entry, which is whatever the caller sent, so rotating that header gave a fresh identity per request and left only the global caps — one client could burn the daily allowance and lock everyone else out. The address is now taken by counting in from the right by `RATE_LIMIT_TRUSTED_PROXIES` (default 1), and a count that is too low is detected by the selected address being in a private range
 - Fishing report detection was substring-based, so `/terms-and-conditions` and `/shop/hatchery-supply` read as reports — which was true of nearly every commerce site. Now token-based (`isReportPath()`)
 - robots.txt parsing: directive names are lowercased but values are not (rule paths are case-sensitive), plus `*` wildcards, the `$` anchor, inline `#` comments, and consecutive `User-agent` lines as one group
 - Email extraction rejects asset lookalikes (`logo@2x.png`) and matches against visible text

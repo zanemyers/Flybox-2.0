@@ -1,6 +1,6 @@
 # Production Readiness Audit
 
-**Snapshot:** 2026-08-21, last revised against `32f647d` on `redesign/tailwater`.
+**Snapshot:** 2026-08-21, last revised against `b07c308` on `redesign/tailwater`.
 **Scope:** all of `src/`, `scripts/`, `db/`, plus `next.config.ts`, `biome.json`, `tsconfig.json` — about 5,200 lines.
 
 This is a working list, not reference documentation. It goes stale as items are
@@ -14,28 +14,9 @@ Note that green here is measured on macOS and against a local Postgres; it says 
 
 ---
 
-## Production risks
+## Hardening
 
-### 1. The per-client rate limit is bypassable
-
-`src/server/rateLimit.ts:79`
-
-`clientHashFrom` takes the **leftmost** `x-forwarded-for` entry. That header is
-client-supplied and proxies append to it, so a caller who sends
-`X-Forwarded-For: 1.2.3.4` and rotates the value gets a fresh identity on every
-request. The 3/hour and 10/day per-client caps stop applying, leaving only the
-global caps — so one attacker can burn the entire 40/day global allowance and
-lock out every real user.
-
-The operator's wallet is still protected by the global caps. Availability is not.
-
-**Fix:** count from the right — the entry the proxy itself appended — rather than
-the left. The correct index depends on how many proxies Render puts in front of
-the app, so verify against a real request's headers before committing to a rule.
-Do not simply prefer `x-real-ip`; a client can send that too, and whether the
-proxy overwrites it needs checking.
-
-### 2. No Content-Security-Policy
+### 1. No Content-Security-Policy
 
 `next.config.ts`
 
@@ -61,7 +42,7 @@ HMR — so a policy that passes locally is not evidence it passes in production.
 
 ## Cleanliness
 
-### 3. `OUTPUT_FILES` is re-encoded by hand
+### 2. `OUTPUT_FILES` is re-encoded by hand
 
 `src/server/handler.ts:205` and the readiness map above it
 
@@ -101,8 +82,10 @@ ES2017 `tsconfig` target, and the missing `catalog.ts` tiebreaker.
 
 ## Suggested order
 
-1. Item **1** — the only exploitable one left, and the only remaining production risk.
-2. Items **2, 3** — hardening and cleanup. The CSP is the largest thing left.
+No production risks are open. What is left is hardening and cleanup:
+
+1. Item **1** — the CSP, and the largest remaining piece of work.
+2. Item **2** — cleanliness, deliberately deferred once already.
 
 **Carried, not a risk:** Render's build and pre-deploy fields still hold the raw
 command chains. `npx prisma generate` has been added to the build, so nothing is
@@ -125,6 +108,7 @@ All on 2026-08-21. The changelog carries the detail.
 - Small drift in `db.ts`, the files route, `tsconfig.json`, and `catalog.ts`
 - Reverse geocoding blocking the POST for up to 5s — it runs in the pipeline now, overlapping the shop phase
 - A Render build command with no `npx prisma generate`, which could only succeed while the build cache held a `generated/` from an earlier deploy
+- A per-client rate limit that any caller could bypass by rotating `x-forwarded-for`
 
 Removed rather than fixed, once Docker stopped being the deploy path: the broken
 `docker build`, and `output: "standalone"` — which existed only to shrink an image

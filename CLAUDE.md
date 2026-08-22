@@ -151,6 +151,8 @@ RATE_LIMIT_SALT=...             # Keeps client rate-limit hashes stable across r
 
 Optional rate-limit overrides, with defaults: `RATE_LIMIT_CLIENT_HOUR` (3), `RATE_LIMIT_CLIENT_DAY` (10), `RATE_LIMIT_GLOBAL_DAY` (40), `RATE_LIMIT_GLOBAL_MONTH` (200). The monthly default is sized against a 1,000-search SerpAPI plan at 5 searches per run.
 
+`RATE_LIMIT_TRUSTED_PROXIES` (1) is not a tuning knob like the others: it is how many proxies sit in front of the app, and it decides which `x-forwarded-for` entry is believed. Too high and a caller can forge an identity per request, retiring the per-client caps; too low and every caller shares one limit. Both directions log a warning on the first request that shows them.
+
 ## The run catalog
 
 `/runs` lists the newest `CATALOG_LIMIT` (15) COMPLETED runs, all downloadable; the newest `DETAILED_RUNS` (5) also show an inline snippet of the report. Both constants live in `src/server/catalog.ts` and are imported by `scripts/db_cleanup.ts`, so retention and display cannot drift apart.
@@ -165,7 +167,7 @@ Because every listed run offers downloads, readiness for all 15 is answered with
 
 ## Rate limiting and abuse
 
-`POST /api/flybox` is unauthenticated and every run costs the operator 5 SerpAPI searches, an OpenAI call and a headless browser crawling up to 100 third-party sites. `src/server/rateLimit.ts` enforces per-client and global caps before a job is created. The client is identified by a **salted SHA-256 of its IP**, stored on `Job.clientHash`; the raw address is never stored. Without `RATE_LIMIT_SALT` a per-process salt is generated, so limits reset on redeploy — an unsalted hash of an IPv4 address is trivially reversible, so degrading to that is not acceptable.
+`POST /api/flybox` is unauthenticated and every run costs the operator 5 SerpAPI searches, an OpenAI call and a headless browser crawling up to 100 third-party sites. `src/server/rateLimit.ts` enforces per-client and global caps before a job is created. The client is identified by a **salted SHA-256 of its IP**, stored on `Job.clientHash`; the raw address is never stored. That IP is read by **counting in from the right** of `x-forwarded-for`, because each proxy appends the peer it heard from — so the rightmost entries are infrastructure's and anything further left may have been typed by the caller. Reading the leftmost, the usual "client IP" convention, made the header a free identity. Without `RATE_LIMIT_SALT` a per-process salt is generated, so limits reset on redeploy — an unsalted hash of an IPv4 address is trivially reversible, so degrading to that is not acceptable.
 
 `src/app/robots.ts` disallows all crawlers. There is nothing to index and real cost in being crawled.
 

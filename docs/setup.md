@@ -37,6 +37,8 @@ Without `RATE_LIMIT_SALT` a per-process salt is generated, so limits reset on ev
 
 Optional rate-limit overrides, with defaults: `RATE_LIMIT_CLIENT_HOUR` (3), `RATE_LIMIT_CLIENT_DAY` (10), `RATE_LIMIT_GLOBAL_DAY` (40), `RATE_LIMIT_GLOBAL_MONTH` (200).
 
+`RATE_LIMIT_TRUSTED_PROXIES` (1) is not a tuning knob like the others: it is how many proxies sit in front of the app, and it decides which `x-forwarded-for` entry is believed. Too high and a caller can forge an identity per request, retiring the per-client caps; too low and every caller shares one limit. Both directions log a warning on the first request that shows them.
+
 ## Local Postgres
 
 `docker-compose.yml` runs a Postgres container and nothing else — the app itself runs on the host with `npm run dev`.
