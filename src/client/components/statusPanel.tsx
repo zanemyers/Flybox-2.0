@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { FiDownload, FiFile, FiFileText, FiSquare, FiWifiOff } from "react-icons/fi";
+// Type-only, so nothing from the server module reaches the bundle.
+import type { OutputName } from "@/server/handler";
 
 type Status = "IN_PROGRESS" | "COMPLETED" | "CANCELED" | "FAILED";
 
@@ -16,12 +18,19 @@ interface JobUpdate {
 
 const MAX_FAILURES = 5;
 
-/** How to render each output the server can name. Which of them a run actually promises comes from the poll, since it depends on the options it was started with. */
-const OUTPUT_META: Record<string, { type: string; Icon: typeof FiFile }> = {
+/* How to render each output the server can name. Which of them a run actually promises comes from
+   the poll, since it depends on the options it was started with.
+   `satisfies Record<OutputName, …>` rather than a plain Record<string, …>: an output added to
+   OUTPUT_FILES is now a compile error here instead of a row that throws on render. */
+const OUTPUT_META = {
   "report_summary.txt": { type: "TXT", Icon: FiFileText },
   "shop_details.xlsx": { type: "XLSX", Icon: FiFile },
   "report_raw.txt": { type: "TXT", Icon: FiFileText },
-};
+} satisfies Record<OutputName, { type: string; Icon: typeof FiFile }>;
+
+// Object.hasOwn, not `in` — "__proto__" resolves through the prototype chain, same as the
+// server's allow-list check. Narrows the poll's strings before they index OUTPUT_META.
+const isKnownOutput = (name: string): name is OutputName => Object.hasOwn(OUTPUT_META, name);
 
 const fileUrl = (jobId: string, name: string) => `/api/flybox/${jobId}/files/${name}`;
 
@@ -37,6 +46,7 @@ export default function StatusPanel({ jobId, onClose }: { jobId: string; onClose
   const [expected, setExpected] = useState<string[]>([]);
   const [pollError, setPollError] = useState<string | null>(null);
   const [polling, setPolling] = useState(true);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const progressAreaRef = useRef<HTMLPreElement>(null);
@@ -121,8 +131,14 @@ export default function StatusPanel({ jobId, onClose }: { jobId: string; onClose
     return () => clearInterval(id);
   }, [isRunning, startedAt]);
 
+  /* Two-press confirm, matching the reset control on the form, rather than window.confirm —
+     one destructive-action idiom for the app. Blur disarms, so an abandoned press does not linger. */
   const handleCancel = async () => {
-    if (!window.confirm("Cancel this job? This cannot be undone.")) return;
+    if (!confirmCancel) {
+      setConfirmCancel(true);
+      return;
+    }
+    setConfirmCancel(false);
     await fetch(`/api/flybox/${jobId}/cancel`, { method: "POST" });
   };
 
@@ -134,6 +150,8 @@ export default function StatusPanel({ jobId, onClose }: { jobId: string; onClose
 
   // A dead job (404) or exhausted retries must not leave "Cancel" as the only action.
   const canCancel = isRunning && polling;
+  // Arming escalates outline to filled, the way Reset escalates ghost to outline.
+  const actionClass = canCancel ? (confirmCancel ? "btn-error" : "btn-outline btn-error") : "btn-ghost border border-stroke";
 
   return (
     <div className={`panel border-l-2 ${spineClass}`}>
@@ -180,7 +198,7 @@ export default function StatusPanel({ jobId, onClose }: { jobId: string; onClose
           <div className="border-t border-rule pt-3">
             <span className="eyebrow mb-1 block">Output</span>
             <ul role="list" className="ms-0 list-none divide-y divide-rule">
-              {expected.map((name) => {
+              {expected.filter(isKnownOutput).map((name) => {
                 const { type, Icon } = OUTPUT_META[name];
                 const available = ready.has(name);
                 return (
@@ -204,13 +222,14 @@ export default function StatusPanel({ jobId, onClose }: { jobId: string; onClose
 
         <button
           type="button"
-          className={`btn h-10 w-full gap-2 ${canCancel ? "btn-outline btn-error" : "btn-ghost border border-stroke"}`}
+          className={`btn h-10 w-full gap-2 ${actionClass}`}
           onClick={canCancel ? handleCancel : onClose}
+          onBlur={() => setConfirmCancel(false)}
         >
           {canCancel ? (
             <>
               <FiSquare className="size-3.5" />
-              Cancel job
+              {confirmCancel ? "Confirm cancel" : "Cancel job"}
             </>
           ) : (
             "Close"
