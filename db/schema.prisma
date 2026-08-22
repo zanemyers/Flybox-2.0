@@ -18,8 +18,11 @@ model Job {
   /// died leaves this frozen, which is the only way to tell it apart from a slow one.
   heartbeatAt DateTime @default(now())
 
-  /// Salted SHA-256 of the client IP, used only to rate limit. The raw address
-  /// is never stored, so this cannot be read back as an identifier.
+  /// Salted SHA-256 of the client IP. The raw address is never stored, so this cannot be read back
+  /// as an identifier. No longer what the rate limiter counts — RunLedger is, because this row is
+  /// deleted on the catalog's schedule and a limit cannot be enforced from rows that vanish.
+  /// Kept for one release only: dropping a column in the same deploy that stops reading it means a
+  /// rollback meets a schema without it.
   clientHash String?
 
   /// What the run was for, so the catalog can describe it after the fact. The
@@ -45,6 +48,28 @@ model Job {
   @@index([createdAt])
   @@index([clientHash, createdAt])
   @@index([status, heartbeatAt])
+}
+
+/// One row per run admitted, and nothing else — the only thing the rate limiter counts.
+///
+/// It exists because Job cannot do this job: retention deletes failed and canceled runs outright
+/// and completed ones past the catalog window, so counting Job rows meant every cap silently
+/// shortened to "however many runs survived the last prune". Output retention is a product
+/// decision and abuse counting is a billing one; sharing rows made changing either change both.
+///
+/// Deliberately holds no location, payload, status or outcome. The global caps need only a
+/// timestamp; clientHash is the sole identifying field and db_cleanup clears it at
+/// CLIENT_HASH_TTL_MS, well before the row itself goes at RATE_LIMIT_WINDOW_MS.
+model RunLedger {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  /// Salted SHA-256 of the client IP, for the per-client caps only. Null when no address could be
+  /// determined, which those caps read as "global limits only".
+  clientHash String?
+
+  @@index([createdAt])
+  @@index([clientHash, createdAt])
 }
 
 enum JobStatus {

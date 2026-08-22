@@ -2,6 +2,7 @@
    so these pin the order and the boundaries of the limit checks. */
 import { describe, expect, it } from "vitest";
 import { type Counts, clientHashFrom, clientIpFrom, decide, isInternalAddress, type Limits } from "@/server/rateLimit";
+import { CLIENT_HASH_TTL_MS, ledgerCutoff, RATE_LIMIT_WINDOW_MS } from "@/server/retention";
 
 const L: Limits = { perClientHour: 3, perClientDay: 10, globalDay: 40, globalMonth: 200 };
 const counts = (c: Partial<Counts> = {}): Counts => ({ clientHour: 0, clientDay: 0, globalDay: 0, globalMonth: 0, ...c });
@@ -95,7 +96,7 @@ describe("clientIpFrom", () => {
     expect(ip("9.9.9.9, 203.0.113.7", 5)).toBe("203.0.113.7");
   });
 
-  it("never honours a count below one, which would read the caller's own entry", () => {
+  it("never honors a count below one, which would read the caller's own entry", () => {
     expect(ip("9.9.9.9, 203.0.113.7", 0)).toBe("203.0.113.7");
     expect(ip("9.9.9.9, 203.0.113.7", -4)).toBe("203.0.113.7");
   });
@@ -111,7 +112,7 @@ describe("clientIpFrom", () => {
    misconfigured count gets noticed, so the ranges platforms actually route through
    matter more than exhaustiveness. */
 describe("isInternalAddress", () => {
-  it("recognises the ranges a proxy hop appears on", () => {
+  it("recognizes the ranges a proxy hop appears on", () => {
     for (const ip of [
       "127.0.0.1",
       "10.0.0.1",
@@ -139,5 +140,37 @@ describe("isInternalAddress", () => {
     expect(isInternalAddress("10.0.0.1:8080")).toBe(true);
     expect(isInternalAddress("[::1]:8080")).toBe(true);
     expect(isInternalAddress("203.0.113.7:443")).toBe(false);
+  });
+});
+
+// ── Retention vs the windows it has to outlive ────────────────────────────────
+
+/* The defect these pin: the caps used to count Job rows, which retention deletes on the catalog's
+   schedule, so every window silently shortened to "whatever survived the last prune". Evidence has
+   to outlive the claim made from it. */
+describe("rate-limit evidence outlives the windows that count it", () => {
+  const HOUR_MS = 3_600_000;
+  const DAY_MS = 86_400_000;
+
+  it("keeps ledger rows at least as long as the longest window any cap counts over", () => {
+    // The monthly cap counts over exactly this window, so the two must be the same number.
+    expect(RATE_LIMIT_WINDOW_MS).toBeGreaterThanOrEqual(30 * DAY_MS);
+  });
+
+  it("outlives every shorter window too, so no cap can quietly count past its evidence", () => {
+    for (const window of [HOUR_MS, DAY_MS, 30 * DAY_MS]) {
+      expect(RATE_LIMIT_WINDOW_MS).toBeGreaterThanOrEqual(window);
+    }
+  });
+
+  it("keeps the client hash no longer than the longest per-client window needs it", () => {
+    // Per-client caps are hourly and daily, so a day is the most the hash can justify.
+    expect(CLIENT_HASH_TTL_MS).toBeGreaterThanOrEqual(DAY_MS);
+    expect(CLIENT_HASH_TTL_MS).toBeLessThan(RATE_LIMIT_WINDOW_MS);
+  });
+
+  it("does not tie the ledger to the catalog, which is what broke the caps", () => {
+    // A count, not a coupling: CATALOG_LIMIT is a number of runs and cannot bound a time window.
+    expect(ledgerCutoff().getTime()).toBeLessThanOrEqual(Date.now() - 30 * DAY_MS);
   });
 });

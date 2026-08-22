@@ -3,8 +3,17 @@
 /** Completed runs kept with their files. /runs lists exactly these. */
 export const CATALOG_LIMIT = 15;
 
-/** Longest window Job.clientHash is counted against; past it the hash identifies a visitor for no reason. */
+/** Longest window a per-client cap counts against; past it the hash identifies a visitor for no reason. */
 export const CLIENT_HASH_TTL_MS = 24 * 60 * 60_000;
+
+/* THE window every rate limit counts over, and the one the ledger is pruned by. One constant for
+   both directions on purpose: when the counted rows and the retained rows disagreed, the cap
+   quietly became "whatever survived the last prune". A limit can only be as long as its evidence.
+   Raising a cap's window past this does nothing until this moves with it. */
+export const RATE_LIMIT_WINDOW_MS = 30 * 24 * 60 * 60_000;
+
+/** Ledger rows past the longest window any cap counts over. Nothing reads them again. */
+export const ledgerCutoff = () => new Date(Date.now() - RATE_LIMIT_WINDOW_MS);
 
 /** Liveness, not age: a raw-mode crawl of one large site has no tight ceiling, so total age cannot tell a dead run from a slow one. */
 export const STALE_AFTER_MS = 15 * 60_000;

@@ -1,7 +1,7 @@
 import { hasKey } from "@/server/config";
 import { JobHandler, type Payload } from "@/server/handler";
 import { runFlybox } from "@/server/pipeline";
-import { checkRateLimit } from "@/server/rateLimit";
+import { reserveRun } from "@/server/rateLimit";
 import { MAX_RIVER_CHARS, MAX_RIVERS } from "@/shared/limits";
 
 /* The payload is deliberately tiny. Flybox funds its own API keys, so the search
@@ -54,7 +54,10 @@ export async function POST(request: Request) {
   /* Every run costs the operator 5 search credits, an OpenAI call and a headless
      browser crawling up to 100 third-party sites, and this endpoint is
      unauthenticated. Without this, one loop drains a month of quota. */
-  const limit = await checkRateLimit(request.headers);
+  /* Records the run in the same transaction that admits it. If job creation below then fails, the
+     ledger keeps a row for a run that never happened — the caller loses one from their quota rather
+     than gaining an uncounted run, which is the direction to err on a bill the operator pays. */
+  const limit = await reserveRun(request.headers);
   if (!limit.allowed) {
     return Response.json(
       { error: limit.reason },

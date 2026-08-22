@@ -1,5 +1,5 @@
 import { JobStatus, prisma } from "@/server/db";
-import { CATALOG_LIMIT, CLIENT_HASH_TTL_MS, staleCutoff } from "@/server/retention";
+import { CATALOG_LIMIT, CLIENT_HASH_TTL_MS, ledgerCutoff, staleCutoff } from "@/server/retention";
 
 /* Two statements. The first names everything that does not survive; the second is separate because an update in the same statement could race the delete for a row. */
 
@@ -27,6 +27,17 @@ async function cleanup() {
     data: { clientHash: null },
   });
   console.log(`  cleared the client hash on ${cleared.count} run(s) past the rate-limit window`);
+
+  /* The ledger is pruned by its own window and NOT by anything above. Tying it to the catalog is
+     exactly what broke the caps: these rows are the only evidence a limit has to count. */
+  const ledgerHashes = await prisma.runLedger.updateMany({
+    where: { clientHash: { not: null }, createdAt: { lt: new Date(Date.now() - CLIENT_HASH_TTL_MS) } },
+    data: { clientHash: null },
+  });
+  console.log(`  cleared the client hash on ${ledgerHashes.count} ledger row(s) past the per-client window`);
+
+  const ledgerRows = await prisma.runLedger.deleteMany({ where: { createdAt: { lt: ledgerCutoff() } } });
+  console.log(`  deleted ${ledgerRows.count} ledger row(s) past the longest rate-limit window`);
 }
 
 cleanup()

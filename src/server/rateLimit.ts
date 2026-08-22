@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@/server/db";
+import { RATE_LIMIT_WINDOW_MS } from "@/server/retention";
 
 /* The run endpoint is unauthenticated and every run now costs the operator
    real money — 5 SerpAPI searches plus an OpenAI call plus a headless browser
@@ -143,19 +144,49 @@ export function clientHashFrom(headers: Headers): string | null {
   return createHash("sha256").update(`${salt}:${ip}`).digest("hex");
 }
 
-export async function checkRateLimit(headers: Headers): Promise<Decision & { clientHash: string | null }> {
-  const clientHash = clientHashFrom(headers);
+/* Counts come from RunLedger, never from Job. Job rows are deleted on the catalog's schedule —
+   failed and canceled outright, completed past the newest CATALOG_LIMIT — so counting them made
+   every cap, per-client ones included, shorten to whatever survived the last prune. */
+type Tx = Pick<typeof prisma, "runLedger">;
+
+async function countRuns(tx: Tx, clientHash: string | null): Promise<Counts> {
   const now = Date.now();
   const hourAgo = new Date(now - 3_600_000);
   const dayAgo = new Date(now - DAY_MS);
-  const monthAgo = new Date(now - 30 * DAY_MS);
+  const windowAgo = new Date(now - RATE_LIMIT_WINDOW_MS);
 
   const [clientHour, clientDay, globalDay, globalMonth] = await Promise.all([
-    clientHash ? prisma.job.count({ where: { clientHash, createdAt: { gte: hourAgo } } }) : Promise.resolve(0),
-    clientHash ? prisma.job.count({ where: { clientHash, createdAt: { gte: dayAgo } } }) : Promise.resolve(0),
-    prisma.job.count({ where: { createdAt: { gte: dayAgo } } }),
-    prisma.job.count({ where: { createdAt: { gte: monthAgo } } }),
+    clientHash ? tx.runLedger.count({ where: { clientHash, createdAt: { gte: hourAgo } } }) : Promise.resolve(0),
+    clientHash ? tx.runLedger.count({ where: { clientHash, createdAt: { gte: dayAgo } } }) : Promise.resolve(0),
+    tx.runLedger.count({ where: { createdAt: { gte: dayAgo } } }),
+    tx.runLedger.count({ where: { createdAt: { gte: windowAgo } } }),
   ]);
 
-  return { ...decide({ clientHour, clientDay, globalDay, globalMonth }), clientHash };
+  return { clientHour, clientDay, globalDay, globalMonth };
+}
+
+/* One lock for all admissions, not one per client: the global caps are shared, so two different
+   callers checking concurrently would both pass a check neither could pass alone. Any arbitrary
+   constant works — it only has to be the same one everywhere. */
+const ADMISSION_LOCK_KEY = 7_735_401_299_100_001n;
+
+/** Counts and records in one transaction, so a burst of concurrent requests cannot all read the
+    same pre-insert totals and all pass. Counting then inserting separately let a parallel fan-out
+    take as many runs as it had connections, which is the whole cap gone in one request. */
+export async function reserveRun(headers: Headers): Promise<Decision & { clientHash: string | null }> {
+  const clientHash = clientHashFrom(headers);
+
+  return prisma.$transaction(async (tx) => {
+    /* Serializes admissions against each other and nothing else. Held for four counts and one
+       insert, on an endpoint capped at tens of runs a day, and released when the transaction ends
+       however it ends. A plain INSERT..SELECT guarded by a count still races under READ COMMITTED:
+       both statements would read a snapshot taken before either inserted. */
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${ADMISSION_LOCK_KEY})`;
+
+    const decision = decide(await countRuns(tx, clientHash));
+    // Recorded only when allowed, so a refusal cannot itself consume the quota it was refused by.
+    if (decision.allowed) await tx.runLedger.create({ data: { clientHash } });
+
+    return { ...decision, clientHash };
+  });
 }
