@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
-/* No Content-Security-Policy yet: it needs a nonce pipeline, not a header. Next streams inline scripts of its own, the
-   theme script has to run before first paint, and Leaflet writes inline style attributes. Tracked in docs/AUDIT.md. */
+/* The Content-Security-Policy is not here. It needs a per-request nonce, which a static header cannot carry, so it
+   lives in src/proxy.ts. These are the ones that are the same on every response. */
 const securityHeaders = [
   // Stops a response being reinterpreted as a type it never declared.
   { key: "X-Content-Type-Options", value: "nosniff" },
