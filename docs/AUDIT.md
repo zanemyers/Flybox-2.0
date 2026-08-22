@@ -1,6 +1,6 @@
 # Production Readiness Audit
 
-**Snapshot:** 2026-08-21, against `882e61f` on `redesign/tailwater`.
+**Snapshot:** 2026-08-21, last revised against `fc7a852` on `redesign/tailwater`.
 **Scope:** all of `src/`, `scripts/`, `db/`, plus `Dockerfile`, `next.config.ts`, `biome.json`, `tsconfig.json` — about 5,200 lines.
 
 This is a working list, not reference documentation. It goes stale as items are
@@ -8,9 +8,9 @@ fixed; check the commit above before trusting any line of it. When an item is
 done, delete it rather than marking it done — the changelog is where finished
 work belongs.
 
-State of the tree at the time of the audit: `npm run check` green (Biome clean,
-`tsc` clean, 150 server tests passing), no `any`, no non-null assertions,
-`strict` on, no meaningful dead exports.
+State of the tree: `npm run check` green (Biome clean, `tsc` clean, 169 server
+tests passing), no `any`, no non-null assertions, `strict` on, no dead exports.
+Note that green here says nothing about the Docker build — see item 2.
 
 ---
 
@@ -18,7 +18,7 @@ State of the tree at the time of the audit: `npm run check` green (Biome clean,
 
 ### 1. The per-client rate limit is bypassable
 
-`src/server/rateLimit.ts:83`
+`src/server/rateLimit.ts:79`
 
 `clientHashFrom` takes the **leftmost** `x-forwarded-for` entry. That header is
 client-supplied and proxies append to it, so a caller who sends
@@ -81,20 +81,6 @@ Everything else on this front is done — `X-Content-Type-Options`,
 `Strict-Transport-Security`, `poweredByHeader: false`, and the container no
 longer runs as root.
 
-**One unverified assumption in that last part:** the `Dockerfile` takes it on
-trust that `pwuser` exists in `mcr.microsoft.com/playwright:v1.62.0-noble`. It
-could not be checked from the dev sandbox — MCR's blob CDN host does not resolve
-there, so the image cannot be pulled. A single `docker build .` settles it: a
-missing user fails the `COPY --chown`, and failing that, `USER` fails at
-container start. Both are loud and happen before any traffic is served.
-
-Related, and also resting on that user: the documented pre-deploy command is
-`npx prisma migrate deploy`, which now runs as `pwuser`. `npx` wants a writable
-`HOME`. `/home/pwuser` exists and is owned by that user in Microsoft's images, so
-this should be fine, but `node_modules/.bin/prisma migrate deploy` would sidestep
-`npx`'s cache directory entirely. Changing it means editing the Render dashboard,
-so it is a decision, not a cleanup.
-
 A CSP is the piece left, and it is its own project: it needs a nonce pipeline
 rather than a static header, because Next streams inline scripts of its own, the
 theme script in `layout.tsx` must run before first paint, and Leaflet writes
@@ -111,7 +97,7 @@ HMR — so a policy that passes locally is not evidence it passes in production.
 
 ### 4. Reverse geocoding blocks the POST
 
-`src/app/api/flybox/route.ts:65`
+`src/app/api/flybox/route.ts:69`
 
 `reverseGeocode` is awaited — up to its 5s timeout — before the job is created,
 for a purely cosmetic catalog label. That latency lands directly on the user
@@ -125,11 +111,17 @@ pressing Run.
 
 ### 5. `OUTPUT_FILES` is re-encoded by hand
 
-`src/server/handler.ts`
+`src/server/handler.ts:205` and the readiness map above it
 
 `getUpdates` builds its readiness map by naming each output and its column again,
 and `getFile` switches over the same mapping a third time, rather than iterating
 `OUTPUT_FILES`. Adding a fourth output means editing three places.
+
+Left deliberately once, on 2026-08-21: collapsing `getFile`'s switch needs a
+dynamic `select` key, which Prisma cannot type, so it trades three explicit
+branches for a cast in a codebase that currently has none. Worth doing only if a
+fourth output actually arrives, or if someone finds a way to iterate
+`OUTPUT_FILES` that stays type-safe.
 
 The rest of what this item used to list is done: the dead `Job`/`JobMessage`
 re-exports in `db.ts`, the "two fixed outputs" docstring on the files route, the
@@ -157,8 +149,16 @@ Docker → native-Node switch, and it does not foreclose that switch.
   user's browser, including the IP exposure. The residual concern is only
   operational: that call sends no identifying `User-Agent`, unlike
   `geocode.ts`, so it is the path most likely to get rate-limited by Nominatim.
-- **No unhandled rejection from the fire-and-forget pipeline.** The `.catch` at
-  `route.ts:67` is present; the problem is only that it is silent (see item 3).
+- **No unhandled rejection from the fire-and-forget pipeline**, and it is no
+  longer silent — the `.catch` in `route.ts` logs with the job id.
+- **`pwuser` exists in the Playwright base image.** Settled by the `docker build`
+  run on 2026-08-21, which also turned up that `node_modules` needs the same
+  `--chown` as `.next`, because `prisma migrate deploy` writes to
+  `node_modules/@prisma/engines`. One residual unknown, not worth chasing until
+  a deploy is attempted: the pre-deploy command is `npx prisma migrate deploy`,
+  and `npx` wants a writable `HOME`. `node_modules/.bin/prisma migrate deploy`
+  would sidestep its cache directory, but changing it means editing the Render
+  dashboard.
 
 ---
 
@@ -168,10 +168,17 @@ Docker → native-Node switch, and it does not foreclose that switch.
 2. Item **4** — a small latency fix.
 3. Items **3, 5, 6** — hardening and cleanup. The CSP is the largest thing left.
 
-Fixed on 2026-08-21, from the original list: abandoned `IN_PROGRESS` runs living
-forever, the third file auto-downloading with no row in the panel, swallowed
-pipeline failures, the missing security headers, and the container running as
-root, the eight duplicated lint suppressions, and the small drift in `db.ts`,
-the files route, `tsconfig.json` and `catalog.ts`, the unlabelled catalog
-timestamps, the rivers cap the form did not enforce, and the duplicated river
-tag, and the four wrong claims in `CLAUDE.md`. See the changelog.
+## Fixed and removed from this list
+
+All on 2026-08-21. The changelog carries the detail.
+
+- Abandoned `IN_PROGRESS` runs living forever — now a `heartbeatAt` stamp, retired on poll and by `db_cleanup`
+- A third file auto-downloading with no row in the panel — the server declares the manifest now
+- Pipeline failures discarded by a silent `.catch`
+- Missing security headers, and the container running as root
+- Eight duplicated lint suppressions, and the rule that forced them
+- Catalog timestamps that showed the server's timezone as if it were the reader's
+- A rivers cap the form did not enforce but the route did
+- The river tag duplicated across two files
+- Four wrong claims in `CLAUDE.md`, one of which sent styling work at the wrong `--color-primary`
+- Small drift in `db.ts`, the files route, `tsconfig.json`, and `catalog.ts`
