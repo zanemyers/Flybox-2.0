@@ -24,11 +24,7 @@ function Downloads({ run, compact = false }: { run: CatalogRun; compact?: boolea
   if (!files.length) return null;
 
   return (
-    <ul
-      // biome-ignore lint/a11y/noRedundantRoles: not redundant here — WebKit drops list semantics when list-style is none, and role="list" restores them
-      role="list"
-      className={`ms-0 flex list-none flex-wrap gap-2 ${compact ? "justify-end" : "mt-3"}`}
-    >
+    <ul role="list" className={`ms-0 flex list-none flex-wrap gap-2 ${compact ? "justify-end" : "mt-3"}`}>
       {files.map(({ name, label, Icon }) => (
         <li key={name}>
           <a
@@ -80,7 +76,6 @@ export default async function Runs() {
         <p className="text-sm text-base-content/70">No completed runs yet. Start one from the home page and it will show up here.</p>
       ) : (
         <>
-          {/* biome-ignore lint/a11y/noRedundantRoles: not redundant here — WebKit drops list semantics when list-style is none, and role="list" restores them */}
           <ol role="list" className="ms-0 list-none">
             {detailed.map((run, i) => (
               <li key={run.id} className="border-t border-rule py-6 first:border-t-0 first:pt-0">
@@ -118,7 +113,6 @@ export default async function Runs() {
             <section className="mt-10">
               <h2 className="eyebrow">Earlier</h2>
               <hr className="my-2" />
-              {/* biome-ignore lint/a11y/noRedundantRoles: not redundant here — WebKit drops list semantics when list-style is none, and role="list" restores them */}
               <ul role="list" className="ms-0 list-none divide-y divide-rule">
                 {rest.map((run) => (
                   <li key={run.id} className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 py-3">

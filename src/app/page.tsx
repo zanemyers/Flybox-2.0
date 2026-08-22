@@ -56,7 +56,6 @@ export default function Home() {
             <h2 className="eyebrow">How it runs</h2>
             <hr className="my-2" />
             {/* The numerals are decorative — the list already numbers itself. */}
-            {/* biome-ignore lint/a11y/noRedundantRoles: not redundant here — WebKit drops list semantics when list-style is none, and role="list" restores them */}
             <ol className="ms-0 grid list-none grid-cols-[2.5rem_1fr] divide-y divide-rule" role="list">
               {steps.map((step, i) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: ordered steps, index IS the identity

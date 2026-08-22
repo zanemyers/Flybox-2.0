@@ -179,7 +179,6 @@ export default function StatusPanel({ jobId, onClose }: { jobId: string; onClose
         {expected.length > 0 && (
           <div className="border-t border-rule pt-3">
             <span className="eyebrow mb-1 block">Output</span>
-            {/* biome-ignore lint/a11y/noRedundantRoles: not redundant here — WebKit drops list semantics when list-style is none, and role="list" restores them */}
             <ul role="list" className="ms-0 list-none divide-y divide-rule">
               {expected.map((name) => {
                 const { type, Icon } = OUTPUT_META[name];

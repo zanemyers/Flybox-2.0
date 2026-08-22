@@ -101,7 +101,6 @@ export default function HowItWorks() {
         </div>
       </section>
 
-      {/* biome-ignore lint/a11y/noRedundantRoles: not redundant here — WebKit drops list semantics when list-style is none, and role="list" restores them */}
       <ol role="list" className="ms-0 list-none">
         {stages.map(({ code, title, detail, facts }) => (
           <li key={code} className="border-t border-rule py-8 last:border-b">
