@@ -6,22 +6,20 @@ import { HookMark } from "@/client/components/brand";
 import TagInput from "@/client/components/inputs/tagInput";
 import StatusPanel from "@/client/components/statusPanel";
 import { useForm } from "@/client/hooks/useForm";
+// Type-only, so nothing from the server module reaches the bundle.
+import type { Payload } from "@/server/handler";
 import { MAX_RIVER_CHARS, MAX_RIVERS } from "@/shared/limits";
 
 const MapInput = dynamic(() => import("@/client/components/inputs/mapInput"), {
   ssr: false,
 });
 
-/* Everything the operator pays for is fixed server-side, so the form is just
-   the three things a run actually varies: where, which rivers, and whether to
-   summarize. There are no API key fields — Flybox supplies its own. */
-interface FormState {
-  latitude: number;
-  longitude: number;
-  rivers: string[];
-  summarize: boolean;
-  shopDirectory: boolean;
-}
+/* Everything the operator pays for is fixed server-side, so the form is just the four things a run
+   actually varies: where, which rivers, whether to summarize, and whether to build the workbook.
+   There are no API key fields — Flybox supplies its own.
+   It IS the request body, so it is Payload rather than a structural twin that has to be kept in
+   step with it — submit() already takes a Payload, and the two matching was a coincidence. */
+type FormState = Payload;
 
 const DEFAULTS: FormState = {
   latitude: 44.427963,

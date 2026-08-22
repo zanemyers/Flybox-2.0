@@ -102,7 +102,7 @@ async function shopPhase(job: JobHandler, browser: StealthBrowser): Promise<Site
   await job.log("[..] Searching for shops via SerpAPI…");
 
   const { shops, searchesSpent } = await paginateShops((start) => fetchShopsPage(job, start));
-  const deduped = [...new Map(shops.map((s) => [s.website || s.name, s])).values()].slice(0, SERP_MAX_PAGES * SERP_PAGE_SIZE);
+  const deduped = [...new Map(shops.map((s) => [s.website || s.name, s])).values()];
   await job.log(`[..] Found ${deduped.length} shops using ${searchesSpent} of ${SERP_MAX_PAGES} SerpAPI searches. Scraping websites…`);
 
   const results: SiteInfo[] = [];
@@ -156,7 +156,7 @@ const CRAWL_KEYWORDS = ["report", "fishing", "fish", "conditions", "hatch", "fly
 const CRAWL_JUNK_WORDS = ["/page/", "/tag/", "/category/", "?page=", "wp-admin", "/feed/"];
 const CRAWL_CLICK_PHRASES = ["read more", "view report", "see report", "full report", "more info", "learn more"];
 
-/* Paths that never carry a fishing report however the site is organised. The
+/* Paths that never carry a fishing report however the site is organized. The
    privacy policy alone was 20% of one real 50,000-char payload. */
 const CRAWL_EXCLUDE = [
   "privacy",
@@ -229,7 +229,7 @@ async function crawlSite(baseUrl: string, browser: StealthBrowser, charBudget: n
   let totalChars = 0;
 
   while (queue.length > 0 && totalChars < charBudget) {
-    // Cancellation used to be checked only between whole sites, so a cancelled
+    // Cancellation used to be checked only between whole sites, so a canceled
     // job kept crawling the site already in flight.
     if (await isCanceled()) break;
 
@@ -291,7 +291,7 @@ async function crawlSite(baseUrl: string, browser: StealthBrowser, charBudget: n
 export function shouldTryFallback(err: unknown): boolean {
   const status = (err as { status?: number })?.status;
   if (typeof status === "number") {
-    if (status === 401 || status === 403) return false; // bad or unauthorised key
+    if (status === 401 || status === 403) return false; // bad or unauthorized key
     if (status === 400 || status === 422) return false; // malformed request
     if (status === 404) return true; // model not available to this account
     if (status === 429) return true; // rate/quota — a different model may have room
@@ -454,7 +454,7 @@ export async function runFlybox(job: JobHandler): Promise<void> {
     await job.complete();
   } catch (err) {
     // fail() only moves an IN_PROGRESS job, so a cancellation that surfaces as a
-    // thrown error is not relabelled FAILED.
+    // thrown error is not relabeled FAILED.
     await job.fail(String(err));
   } finally {
     await browser.close();

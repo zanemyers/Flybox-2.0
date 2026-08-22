@@ -272,8 +272,13 @@ export class JobHandler {
     await prisma.job.update({ where: { id: this.id }, data: { rawFile: new Uint8Array(Buffer.from(raw, "utf-8")) } });
   }
 
-  complete() {
-    return prisma.job.update({ where: { id: this.id }, data: { status: JobStatus.COMPLETED } });
+  /** Only from IN_PROGRESS, like fail(): isCanceled() caches for 1.5s, so a cancel can land
+      after the last check and an unconditional update would relabel it COMPLETED. */
+  async complete() {
+    await prisma.job.updateMany({
+      where: { id: this.id, status: JobStatus.IN_PROGRESS },
+      data: { status: JobStatus.COMPLETED },
+    });
   }
 
   /** Never downgrades a CANCELED job to FAILED — a user-initiated stop is not an error. */
