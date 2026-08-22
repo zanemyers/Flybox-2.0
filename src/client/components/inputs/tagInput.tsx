@@ -70,7 +70,7 @@ export default function TagInput({
         onClick={(e) => (e.currentTarget.querySelector("input") as HTMLInputElement)?.focus()}
       >
         {values.map((v) => (
-          <span key={v} className="inline-flex items-center gap-1 rounded-[2px] border border-primary/70 px-2 py-0.5 text-xs font-medium text-primary">
+          <span key={v} className="tag">
             {v}
             <button
               type="button"

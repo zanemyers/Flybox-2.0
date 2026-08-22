@@ -93,7 +93,7 @@ export default async function Runs() {
                     {run.rivers.length > 0 && (
                       <p className="mt-2 flex flex-wrap gap-1.5">
                         {run.rivers.map((r) => (
-                          <span key={r} className="rounded-[2px] border border-primary/70 px-2 py-0.5 text-xs font-medium text-primary">
+                          <span key={r} className="tag">
                             {r}
                           </span>
                         ))}
