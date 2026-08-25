@@ -86,6 +86,12 @@ async function scrapeShop(shop: SiteInfo, browser: StealthBrowser, job: JobHandl
     result = await browser.fetchPage(shop.website);
   }
 
+  // A site the address guard declined otherwise looks identical to one that simply failed.
+  if (result.refused) {
+    await job.log(`[??] Skipping ${shop.name} — ${result.error}`);
+    return shop;
+  }
+
   if (!result.html || result.blocked) return shop;
 
   try {
@@ -377,10 +383,12 @@ async function reportPhase(reportShops: SiteInfo[], job: JobHandler, browser: St
 
   if (texts.length === 0) return "No fishing report content found.";
 
-  const combined = texts.join("\n\n").slice(0, totalBudget);
-  const included = (combined.match(/^==== /gm) ?? []).length;
+  const { combined, included, cutShort } = packSites(texts, totalBudget);
+
   if (included < texts.length) {
-    await job.log(`[!!] Budget reached — ${included} of ${texts.length} crawled site(s) fit in the output.`);
+    await job.log(`[!!] Budget reached — ${included} of ${texts.length} crawled site(s) fit in the output${cutShort ? ", and that one is cut short" : ""}.`);
+  } else if (cutShort) {
+    await job.log("[!!] Budget reached — the crawled site is cut short in the output.");
   }
 
   // Only when summarizing: in raw mode this text IS the report, and storing it twice cost a second copy of up to 500 KB.
@@ -402,6 +410,24 @@ async function reportPhase(reportShops: SiteInfo[], job: JobHandler, browser: St
 
   await job.log("[OK] Summary complete.");
   return summary;
+}
+
+/** Fits whole site blocks into a character budget, in order, and says what it left out.
+    `cutShort` is the one case a whole block cannot be kept: a single site larger than the budget. */
+export function packSites(texts: string[], budget: number): { combined: string; included: number; cutShort: boolean } {
+  const blocks: string[] = [];
+  let used = 0;
+
+  for (const text of texts) {
+    const cost = (blocks.length > 0 ? 2 : 0) + text.length; // 2 for the "\n\n" join
+    if (used + cost > budget) break;
+    blocks.push(text);
+    used += cost;
+  }
+
+  if (blocks.length > 0) return { combined: blocks.join("\n\n"), included: blocks.length, cutShort: false };
+  if (texts.length === 0) return { combined: "", included: 0, cutShort: false };
+  return { combined: texts[0].slice(0, budget), included: 1, cutShort: true };
 }
 
 /** Keeps shops whose name, website or address mentions one of the river terms.

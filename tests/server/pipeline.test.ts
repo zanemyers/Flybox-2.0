@@ -4,7 +4,7 @@
    while staying green — which is exactly what happened to getPriority when it
    changed to match on the URL path instead of the whole absolute URL. */
 import { describe, expect, it } from "vitest";
-import { filterShopsByRivers, getPriority, paginateShops, SERP_MAX_PAGES, shouldTryFallback } from "@/server/pipeline";
+import { filterShopsByRivers, getPriority, packSites, paginateShops, SERP_MAX_PAGES, shouldTryFallback } from "@/server/pipeline";
 import { normalizeUrl } from "@/server/scraper";
 
 // ── shouldTryFallback ──────────────────────────────────────────────────────────
@@ -275,5 +275,66 @@ describe("normalizeUrl — tracking parameters", () => {
 
   it("strips the common ad-click ids too", () => {
     expect(normalizeUrl("https://shop.test/news?fbclid=abc&gclid=def")).toBe("https://shop.test/news");
+  });
+});
+
+// ── packSites ──────────────────────────────────────────────────────────────────
+
+// perSiteBudget is floored at 4,000, so past a dozen sites the shares exceed the total.
+describe("packSites", () => {
+  const site = (name: string, chars: number) => `==== ${name} ====\n${"x".repeat(chars)}`;
+
+  it("keeps everything when it all fits", () => {
+    const texts = [site("A", 100), site("B", 100)];
+    const { combined, included, cutShort } = packSites(texts, 10_000);
+    expect(included).toBe(2);
+    expect(cutShort).toBe(false);
+    expect(combined).toBe(texts.join("\n\n"));
+  });
+
+  it("stops at the last whole site that fits, and says how many", () => {
+    const texts = [site("A", 400), site("B", 400), site("C", 400)];
+    const { included, cutShort } = packSites(texts, 900);
+    expect(included).toBe(2);
+    expect(cutShort).toBe(false);
+  });
+
+  it("never emits a partial site block when a whole one was possible", () => {
+    const texts = [site("A", 400), site("B", 400), site("C", 400)];
+    const { combined, included } = packSites(texts, 900);
+    // One header per included site, and no orphaned header from the site that was dropped.
+    expect((combined.match(/^==== /gm) ?? []).length).toBe(included);
+    expect(combined).not.toContain("==== C ====");
+  });
+
+  it("stays inside the budget", () => {
+    const texts = [site("A", 400), site("B", 400), site("C", 400)];
+    expect(packSites(texts, 900).combined.length).toBeLessThanOrEqual(900);
+  });
+
+  it("counts the join between blocks, so two that only fit unseparated do not both go in", () => {
+    const texts = ["a".repeat(50), "b".repeat(50)];
+    // 50 + 2 + 50 = 102, one over.
+    expect(packSites(texts, 101).included).toBe(1);
+    expect(packSites(texts, 102).included).toBe(2);
+  });
+
+  /* The case the old header count could not express: one site bigger than the whole budget. */
+  it("cuts a single oversized site short rather than returning nothing", () => {
+    const { combined, included, cutShort } = packSites([site("A", 5_000)], 1_000);
+    expect(cutShort).toBe(true);
+    expect(included).toBe(1);
+    expect(combined.length).toBe(1_000);
+    expect(combined).toContain("==== A ====");
+  });
+
+  it("reports a cut-short first site even when others were dropped behind it", () => {
+    const { included, cutShort } = packSites([site("A", 5_000), site("B", 100)], 1_000);
+    expect(cutShort).toBe(true);
+    expect(included).toBe(1); // so the caller sees 1 of 2 and warns
+  });
+
+  it("has nothing to say about no sites", () => {
+    expect(packSites([], 1_000)).toEqual({ combined: "", included: 0, cutShort: false });
   });
 });
