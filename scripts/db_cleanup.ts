@@ -1,7 +1,7 @@
 import { JobStatus, prisma } from "@/server/db";
 import { CATALOG_LIMIT, CLIENT_HASH_TTL_MS, ledgerCutoff, staleCutoff } from "@/server/retention";
 
-/* Two statements. The first names everything that does not survive; the second is separate because an update in the same statement could race the delete for a row. */
+// One pass over runs, then two over the ledger — its hash and its row go on different windows.
 
 async function cleanup() {
   console.log("Starting cleanup...");
@@ -20,13 +20,6 @@ async function cleanup() {
           )
   `;
   console.log(`  deleted ${deleted} run(s) — failed, canceled, abandoned, or past the ${CATALOG_LIMIT}-run catalog`);
-
-  // A surviving run outlives the rate-limit window, so its hash has to be cleared on its own.
-  const cleared = await prisma.job.updateMany({
-    where: { clientHash: { not: null }, createdAt: { lt: new Date(Date.now() - CLIENT_HASH_TTL_MS) } },
-    data: { clientHash: null },
-  });
-  console.log(`  cleared the client hash on ${cleared.count} run(s) past the rate-limit window`);
 
   /* The ledger is pruned by its own window and NOT by anything above. Tying it to the catalog is
      exactly what broke the caps: these rows are the only evidence a limit has to count. */

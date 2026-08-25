@@ -1,7 +1,7 @@
 /* The run endpoint is unauthenticated and every run spends the operator's money,
    so these pin the order and the boundaries of the limit checks. */
-import { describe, expect, it } from "vitest";
-import { type Counts, clientHashFrom, clientIpFrom, decide, isInternalAddress, type Limits } from "@/server/rateLimit";
+import { beforeEach, describe, expect, it } from "vitest";
+import { allowDownload, type Counts, clientHashFrom, clientIpFrom, decide, isInternalAddress, type Limits, resetDownloadCounts } from "@/server/rateLimit";
 import { CLIENT_HASH_TTL_MS, ledgerCutoff, RATE_LIMIT_WINDOW_MS } from "@/server/retention";
 
 const L: Limits = { perClientHour: 3, perClientDay: 10, globalDay: 40, globalMonth: 200 };
@@ -172,5 +172,55 @@ describe("rate-limit evidence outlives the windows that count it", () => {
   it("does not tie the ledger to the catalog, which is what broke the caps", () => {
     // A count, not a coupling: CATALOG_LIMIT is a number of runs and cannot bound a time window.
     expect(ledgerCutoff().getTime()).toBeLessThanOrEqual(Date.now() - 30 * DAY_MS);
+  });
+});
+
+// ── allowDownload ──────────────────────────────────────────────────────────────
+
+// In memory and much looser than the run caps, but it still has to bound something.
+describe("allowDownload", () => {
+  const from = (ip: string) => new Headers({ "x-forwarded-for": ip });
+  const T0 = 1_000_000;
+
+  beforeEach(() => resetDownloadCounts());
+
+  it("allows a normal burst of clicks", () => {
+    for (let i = 0; i < 60; i++) {
+      expect(allowDownload(from("203.0.113.9"), T0 + i).allowed).toBe(true);
+    }
+  });
+
+  it("refuses past the per-minute cap", () => {
+    for (let i = 0; i < 60; i++) allowDownload(from("203.0.113.9"), T0 + i);
+    const verdict = allowDownload(from("203.0.113.9"), T0 + 60);
+    expect(verdict.allowed).toBe(false);
+    expect(verdict.reason).toMatch(/too many downloads/i);
+  });
+
+  it("tells the caller how long to wait, and never zero", () => {
+    for (let i = 0; i < 60; i++) allowDownload(from("203.0.113.9"), T0 + i);
+    const verdict = allowDownload(from("203.0.113.9"), T0 + 60);
+    expect(verdict.retryAfterSeconds).toBeGreaterThanOrEqual(1);
+    expect(verdict.retryAfterSeconds).toBeLessThanOrEqual(60);
+  });
+
+  it("counts each caller separately", () => {
+    for (let i = 0; i < 60; i++) allowDownload(from("203.0.113.9"), T0 + i);
+    expect(allowDownload(from("203.0.113.9"), T0 + 60).allowed).toBe(false);
+    // A different address starts with a clean window.
+    expect(allowDownload(from("198.51.100.4"), T0 + 60).allowed).toBe(true);
+  });
+
+  it("forgets hits once they leave the window", () => {
+    for (let i = 0; i < 60; i++) allowDownload(from("203.0.113.9"), T0 + i);
+    expect(allowDownload(from("203.0.113.9"), T0 + 60).allowed).toBe(false);
+    // A minute and a bit later every one of those has aged out.
+    expect(allowDownload(from("203.0.113.9"), T0 + 61_000).allowed).toBe(true);
+  });
+
+  it("shares one bucket when no address can be attributed", () => {
+    const anon = new Headers();
+    for (let i = 0; i < 60; i++) allowDownload(anon, T0 + i);
+    expect(allowDownload(anon, T0 + 60).allowed).toBe(false);
   });
 });

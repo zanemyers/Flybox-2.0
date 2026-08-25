@@ -144,6 +144,43 @@ export function clientHashFrom(headers: Headers): string | null {
   return createHash("sha256").update(`${salt}:${ip}`).digest("hex");
 }
 
+// In memory, not Postgres: a download is not worth a database write per request, nor surviving a restart.
+const DOWNLOAD_WINDOW_MS = 60_000;
+const DOWNLOAD_LIMIT = num("RATE_LIMIT_DOWNLOADS_MINUTE", 60);
+// Swept only when large, which keeps the ordinary path off an O(keys) scan.
+const DOWNLOAD_KEYS_MAX = 10_000;
+
+const downloads = new Map<string, number[]>();
+
+/** Whether this caller may pull one more file. Callers with no address share a single bucket. */
+export function allowDownload(headers: Headers, now: number = Date.now()): Decision {
+  const key = clientHashFrom(headers) ?? "unattributed";
+  const cutoff = now - DOWNLOAD_WINDOW_MS;
+  const hits = (downloads.get(key) ?? []).filter((at) => at > cutoff);
+
+  if (hits.length >= DOWNLOAD_LIMIT) {
+    downloads.set(key, hits);
+    // Until the oldest hit in the window ages out, which is the soonest one more could be allowed.
+    return { allowed: false, reason: "Too many downloads. Try again shortly.", retryAfterSeconds: Math.max(1, Math.ceil((hits[0] - cutoff) / 1000)) };
+  }
+
+  hits.push(now);
+  downloads.set(key, hits);
+
+  if (downloads.size > DOWNLOAD_KEYS_MAX) {
+    for (const [candidate, times] of downloads) {
+      if (times.every((at) => at <= cutoff)) downloads.delete(candidate);
+    }
+  }
+
+  return { allowed: true };
+}
+
+/** Test seam only: module state would otherwise leak a caller's hits between cases. */
+export function resetDownloadCounts(): void {
+  downloads.clear();
+}
+
 /* Counts come from RunLedger, never from Job. Job rows are deleted on the catalog's schedule —
    failed and canceled outright, completed past the newest CATALOG_LIMIT — so counting them made
    every cap, per-client ones included, shorten to whatever survived the last prune. */
@@ -173,7 +210,7 @@ const ADMISSION_LOCK_KEY = 7_735_401_299_100_001n;
 /** Counts and records in one transaction, so a burst of concurrent requests cannot all read the
     same pre-insert totals and all pass. Counting then inserting separately let a parallel fan-out
     take as many runs as it had connections, which is the whole cap gone in one request. */
-export async function reserveRun(headers: Headers): Promise<Decision & { clientHash: string | null }> {
+export async function reserveRun(headers: Headers): Promise<Decision> {
   const clientHash = clientHashFrom(headers);
 
   return prisma.$transaction(async (tx) => {
@@ -187,6 +224,6 @@ export async function reserveRun(headers: Headers): Promise<Decision & { clientH
     // Recorded only when allowed, so a refusal cannot itself consume the quota it was refused by.
     if (decision.allowed) await tx.runLedger.create({ data: { clientHash } });
 
-    return { ...decision, clientHash };
+    return decision;
   });
 }

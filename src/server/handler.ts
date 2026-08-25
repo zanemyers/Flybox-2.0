@@ -110,6 +110,11 @@ const OPENAI_MAX_RETRIES = 2;
 
 export const STALE_MESSAGE = "[!!] This run stopped without finishing — the server was likely restarted mid-run. Start a new one.";
 
+// A run writes one line per shop and per crawled page, so a big raw-mode crawl reaches thousands.
+const MAX_LOG_LINES = 500;
+
+export const TRUNCATED_MESSAGE = `[??] Earlier lines dropped — showing the last ${MAX_LOG_LINES}.`;
+
 /** A job still marked in-flight that nothing has stamped since the cutoff: its process is gone. */
 export function isStale(job: { status: JobStatus; heartbeatAt: Date }, now: number = Date.now()): boolean {
   return job.status === JobStatus.IN_PROGRESS && now - job.heartbeatAt.getTime() > STALE_AFTER_MS;
@@ -135,13 +140,11 @@ export class JobHandler {
     readonly payload: Payload,
   ) {}
 
-  /** clientHash is the salted IP hash used for rate limiting; the raw address
-      is never stored. Null when no client address could be determined. */
-  static async create(payload: Payload, clientHash: string | null = null): Promise<JobHandler> {
+  /** Stores what the run was for, never who asked: the rate limiter's IP hash lives on RunLedger. */
+  static async create(payload: Payload): Promise<JobHandler> {
     const job = await prisma.job.create({
       data: {
         status: JobStatus.IN_PROGRESS,
-        clientHash,
         latitude: payload.latitude,
         longitude: payload.longitude,
         rivers: payload.rivers,
@@ -189,7 +192,13 @@ export class JobHandler {
                ("rawFile"       IS NOT NULL) AS "hasRaw"
         FROM "Job" WHERE "id" = ${id}
       `,
-      prisma.jobMessage.findMany({ where: { jobId: id }, orderBy: { createdAt: "asc" }, select: { message: true } }),
+      // Newest first, reversed below: "oldest first, limited" would pin the log to the run's start.
+      prisma.jobMessage.findMany({
+        where: { jobId: id },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: { message: true },
+        take: MAX_LOG_LINES + 1,
+      }),
     ]);
 
     const job = rows[0];
@@ -200,7 +209,14 @@ export class JobHandler {
     const ready: Record<OutputColumn, boolean> = { primaryFile: job.hasPrimary, secondaryFile: job.hasSecondary, rawFile: job.hasRaw };
     const expected = expectedOutputs(job);
 
-    const lines = messages.map((m) => m.message);
+    // One over the cap was read, so a full page means something was left behind.
+    const truncated = messages.length > MAX_LOG_LINES;
+    const lines = messages
+      .slice(0, MAX_LOG_LINES)
+      .reverse()
+      .map((m) => m.message);
+    if (truncated) lines.unshift(TRUNCATED_MESSAGE);
+
     let status = job.status;
 
     // Whoever polls an abandoned run is the only one who will ever ask about it, so the poll retires it. db_cleanup catches the unwatched.

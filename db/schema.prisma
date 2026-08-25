@@ -13,59 +13,37 @@ model Job {
   status    JobStatus @default(IN_PROGRESS)
   createdAt DateTime  @default(now())
 
-  /// Last moment the pipeline proved it was still running. Touched by the cancel
-  /// check, which already runs per shop and per crawled page. A run whose process
-  /// died leaves this frozen, which is the only way to tell it apart from a slow one.
+  /// Last proof the pipeline was alive, stamped by the cancel check. Frozen means the process died.
   heartbeatAt DateTime @default(now())
 
-  /// Salted SHA-256 of the client IP. The raw address is never stored, so this cannot be read back
-  /// as an identifier. No longer what the rate limiter counts — RunLedger is, because this row is
-  /// deleted on the catalog's schedule and a limit cannot be enforced from rows that vanish.
-  /// Kept for one release only: dropping a column in the same deploy that stops reading it means a
-  /// rollback meets a schema without it.
-  clientHash String?
-
-  /// What the run was for, so the catalog can describe it after the fact. The
-  /// payload used to live only in memory on JobHandler.
+  /// What the run was for, so the catalog can describe it after the fact.
   latitude      Float?
   longitude     Float?
-  /// Reverse-geocoded label for the coordinates, e.g. "Yellowstone National Park".
-  /// Null when lookup failed; the catalog falls back to the raw coordinates.
+  /// Reverse-geocoded label, e.g. "Yellowstone National Park". Null on failure; the page shows coordinates.
   locationName  String?
   rivers        String[] @default([])
   summarized    Boolean  @default(false)
-  /// Whether the run was asked for the shop workbook. The shop phase runs either way — the report phase needs its fishingReport flags — so this only decides whether the xlsx is built and stored.
+  /// Whether the xlsx is built. The shop phase runs either way — the report phase needs its fishingReport flags.
   shopDirectory Boolean  @default(true)
 
-  /// primaryFile is report_summary.txt — the summary when summarized, otherwise
-  /// the raw crawled text. rawFile holds the crawled text in BOTH cases, so a
-  /// summarized run can still offer the source it was built from.
+  /// report_summary.txt — the summary when summarized, the raw crawled text otherwise.
   primaryFile   Bytes?
   secondaryFile Bytes?
+  /// The crawled source. Written on summarized runs only: in raw mode primaryFile already is that text.
   rawFile       Bytes?
   jobMessages   JobMessage[]
 
   @@index([createdAt])
-  @@index([clientHash, createdAt])
   @@index([status, heartbeatAt])
 }
 
-/// One row per run admitted, and nothing else — the only thing the rate limiter counts.
-///
-/// It exists because Job cannot do this job: retention deletes failed and canceled runs outright
-/// and completed ones past the catalog window, so counting Job rows meant every cap silently
-/// shortened to "however many runs survived the last prune". Output retention is a product
-/// decision and abuse counting is a billing one; sharing rows made changing either change both.
-///
-/// Deliberately holds no location, payload, status or outcome. The global caps need only a
-/// timestamp; clientHash is the sole identifying field and db_cleanup clears it at
-/// CLIENT_HASH_TTL_MS, well before the row itself goes at RATE_LIMIT_WINDOW_MS.
+/// One row per admitted run and nothing else — the only thing the rate limiter counts.
+/// Never count Job rows instead: retention deletes them, which silently shortens every cap.
 model RunLedger {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
 
-  /// Salted SHA-256 of the client IP, for the per-client caps only. Null when no address could be
-  /// determined, which those caps read as "global limits only".
+  /// Salted SHA-256 of the client IP. Null when no address was determined — then only global caps apply.
   clientHash String?
 
   @@index([createdAt])

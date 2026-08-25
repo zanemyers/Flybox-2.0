@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const job = await JobHandler.create(parsed.payload, limit.clientHash);
+    const job = await JobHandler.create(parsed.payload);
     /* The catch is required — an unhandled rejection would take the process down — but runFlybox already handles its own
        failures, so reaching here means job.fail() or the browser teardown threw and the row may be stuck IN_PROGRESS. */
     runFlybox(job).catch((err) => console.error(`Flybox job ${job.id} threw past its own error handling:`, err));
