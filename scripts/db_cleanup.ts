@@ -1,13 +1,12 @@
 import { JobStatus, prisma } from "@/server/db";
-import { CATALOG_LIMIT, CLIENT_HASH_TTL_MS, ledgerCutoff, staleCutoff } from "@/server/retention";
+import { CATALOG_LIMIT, clientHashCutoff, ledgerCutoff, staleCutoff } from "@/server/retention";
 
 // One pass over runs, then two over the ledger — its hash and its row go on different windows.
 
 async function cleanup() {
   console.log("Starting cleanup...");
 
-  /* Three disjoint reasons to go, so the OFFSET subquery reads the pre-delete snapshot without interference from the other two. */
-  /* Abandoned runs go outright rather than being marked FAILED first: only handler.retire() has a client watching, and this pass would delete them anyway. */
+  // Three disjoint reasons, so the OFFSET subquery reads the pre-delete snapshot. Abandoned runs go outright, not FAILED first.
   const deleted = await prisma.$executeRaw`
     DELETE FROM "Job"
     WHERE "status" IN (${JobStatus.FAILED}::"JobStatus", ${JobStatus.CANCELED}::"JobStatus")
@@ -21,10 +20,9 @@ async function cleanup() {
   `;
   console.log(`  deleted ${deleted} run(s) — failed, canceled, abandoned, or past the ${CATALOG_LIMIT}-run catalog`);
 
-  /* The ledger is pruned by its own window and NOT by anything above. Tying it to the catalog is
-     exactly what broke the caps: these rows are the only evidence a limit has to count. */
+  // Pruned by its own window, never the catalog's — these rows are the only evidence a cap can count.
   const ledgerHashes = await prisma.runLedger.updateMany({
-    where: { clientHash: { not: null }, createdAt: { lt: new Date(Date.now() - CLIENT_HASH_TTL_MS) } },
+    where: { clientHash: { not: null }, createdAt: { lt: clientHashCutoff() } },
     data: { clientHash: null },
   });
   console.log(`  cleared the client hash on ${ledgerHashes.count} ledger row(s) past the per-client window`);
@@ -39,5 +37,6 @@ cleanup()
     process.exitCode = 1;
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    // A disconnect that fails on the way out is not worth changing the exit code for.
+    await prisma.$disconnect().catch(() => {});
   });

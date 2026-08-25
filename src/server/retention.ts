@@ -6,6 +6,9 @@ export const CATALOG_LIMIT = 15;
 /** Longest window a per-client cap counts against; past it the hash identifies a visitor for no reason. */
 export const CLIENT_HASH_TTL_MS = 24 * 60 * 60_000;
 
+/** Ledger hashes past every per-client window. The row survives to be counted; the hash does not. */
+export const clientHashCutoff = () => new Date(Date.now() - CLIENT_HASH_TTL_MS);
+
 /* THE window every rate limit counts over, and the one the ledger is pruned by. One constant for
    both directions on purpose: when the counted rows and the retained rows disagreed, the cap
    quietly became "whatever survived the last prune". A limit can only be as long as its evidence.
