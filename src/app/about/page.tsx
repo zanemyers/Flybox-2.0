@@ -82,8 +82,8 @@ export default function About() {
       <Feature index="01" img={idea} heading="Where the idea came from" priority>
         <p>
           Flybox started as an idea by one of <RescueRiver />
-          &apos;s founders, both to help with marketing — so they could know which flies to make, what colors to use, and where to promote certain flies — and
-          as a tool for fly-fishing enthusiasts.
+          &apos;s founders. It was partly a marketing tool: knowing which flies to make, what colors to use, and where to promote certain flies. It was also
+          meant for fly-fishing enthusiasts.
         </p>
       </Feature>
 

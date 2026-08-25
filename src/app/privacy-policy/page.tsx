@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPolicy() {
   return (
-    <LegalPage title="Privacy Policy" updated="2026-08-16">
+    <LegalPage title="Privacy Policy" updated="2026-08-22">
       <p>
         Flybox values your privacy. This Privacy Policy explains what information we collect, how we use it, and your rights regarding that information. The{" "}
         <Link className="link link-primary" href="/terms-of-service">
@@ -23,7 +23,7 @@ export default function PrivacyPolicy() {
         <p>Flybox does not require an account, an API key, or any personal information to use the website.</p>
         <p>There is no analytics or tracking on this site. The only information tied to your use of it is:</p>
         <ul>
-          <li>A salted, one-way hash of your IP address, stored with each run purely to enforce rate limits (see below)</li>
+          <li>A salted, one-way hash of your IP address, kept separately from any run and used only to enforce rate limits (see below)</li>
           <li>The map position and any river names you enter, stored with the run so it can be listed on the Recent runs page</li>
         </ul>
         <p>Standard server logs kept by our hosting provider are outside our control and subject to their policy.</p>
@@ -76,8 +76,8 @@ export default function PrivacyPolicy() {
           </li>
           <li>
             <strong>OpenStreetMap</strong> — receives coordinates from our server, to turn them into a place name for the Recent runs page. Separately, your
-            browser loads the map tiles and runs the map search box directly against OpenStreetMap, so it also sees your IP address, the part of the map you are
-            looking at, and whatever you type into that search box.
+            browser loads the map tiles and runs the map search box directly against OpenStreetMap. It therefore also sees your IP address, the part of the map
+            you are looking at, and whatever you type into that search box.
           </li>
         </ul>
         <p>
@@ -103,16 +103,17 @@ export default function PrivacyPolicy() {
 
       <Clause heading="Data Removal Requests">
         <p>
-          If you are a business owner and believe information displayed on Flybox is inaccurate or should be removed, open an issue on our <GithubIssues /> and
-          the request will be evaluated case by case. Issues there are publicly visible.
+          If you are a business owner and believe information displayed on Flybox is inaccurate or should be removed, open an issue on our <GithubIssues />. The
+          request will be evaluated case by case. Issues there are publicly visible.
         </p>
       </Clause>
 
       <Clause heading="Personal Privacy">
         <p>
           Flybox has no accounts, no sign-in, and no advertising or analytics trackers. The only thing we store that relates to you personally is the salted
-          hash of your IP address described above. It is kept solely to enforce rate limits, and it is cleared once it is older than the longest limit window —
-          about a day — even when the run itself stays listed for longer.
+          hash of your IP address described above. It is kept solely to enforce rate limits, and it is cleared after about a day — the longest window any
+          per-client limit counts over — even when the run itself stays listed for longer. What is left after that is an anonymous timestamp with nothing
+          identifying attached, kept for 30 days so the site-wide monthly cap can still be counted.
         </p>
       </Clause>
 

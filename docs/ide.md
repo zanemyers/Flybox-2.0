@@ -36,7 +36,7 @@ After any schema change in `db/schema.prisma`, regenerate the client:
 npx prisma generate
 ```
 
-The generated client outputs to `generated/prisma/`, which is gitignored — so a fresh clone needs this before `npm run typecheck` or `npm run build` will pass. Neither script regenerates it, which is why `npx prisma generate` is a step in the Render build command.
+The generated client outputs to `generated/prisma/`, which is gitignored. A fresh clone therefore needs this before `npm run typecheck` or `npm run build` will pass. Neither script regenerates it, which is why `npx prisma generate` is a step in the Render build command.
 
 ## Type Checking
 

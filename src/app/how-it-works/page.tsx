@@ -24,7 +24,7 @@ const stages: Stage[] = [
     code: "01",
     title: "Find the shops",
     detail:
-      "Your map position becomes a Google Maps search for fly-fishing shops, run through SerpAPI. Results come back 20 at a time, and Flybox stops asking for pages as soon as one comes back short — a quiet location costs a single search instead of five.",
+      "Your map position becomes a Google Maps search for fly-fishing shops, run through SerpAPI. Results come back 20 at a time, and Flybox stops asking for pages as soon as one comes back short. A quiet location costs a single search instead of five.",
     facts: [
       ["Provider", "SerpAPI maps"],
       ["Page size", "20 results"],
@@ -60,7 +60,7 @@ const stages: Stage[] = [
     code: "04",
     title: "Crawl for reports",
     detail:
-      "Shops that publish reports get crawled properly: a priority queue walks each site, preferring paths that look like report archives and ignoring PDFs, privacy policies, carts and tracking-tagged duplicates. Only whole pages are kept, so nothing arrives cut off mid-sentence.",
+      "Shops that publish reports get crawled properly. A priority queue walks each site, preferring paths that look like report archives. It ignores PDFs, privacy policies, carts and tracking-tagged duplicates. Only whole pages are kept, so nothing arrives cut off mid-sentence.",
     facts: [
       ["Strategy", "priority queue"],
       ["Concurrency", "3 sites at once"],
@@ -72,8 +72,8 @@ const stages: Stage[] = [
     title: "Summarize",
     detail: (
       <>
-        The collected text is sent to OpenAI once, with instructions to merge duplicate waters, keep the three most recent dates for each, and cite its sources.
-        Turn <code>Summarize with AI</code> off and this step is skipped entirely — you get the crawled text instead, and a far larger allowance of it.
+        The collected text is sent to OpenAI once. The instructions are to merge duplicate waters, keep the three most recent dates for each, and cite its
+        sources. Turn <code>Summarize with AI</code> off and this step is skipped entirely. You get the crawled text instead, and a far larger allowance of it.
       </>
     ),
     facts: [
