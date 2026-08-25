@@ -2,6 +2,7 @@ import type { CheerioAPI } from "cheerio";
 import * as cheerio from "cheerio";
 import type { FetchResult } from "@/server/browser";
 import { needsPlaywright, type StealthBrowser } from "@/server/browser";
+import { checkUrl } from "@/server/net";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -220,40 +221,66 @@ async function readCapped(res: Response, contentType: string): Promise<string> {
   return decoderFor(contentType).decode(body);
 }
 
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const MAX_REDIRECTS = 5;
+
 export async function httpFetch(url: string, retries = 2): Promise<FetchResult> {
   const controller = new AbortController();
+  // One budget for the whole chain, hops included — the same span `redirect: "follow"` covered.
   const timeout = setTimeout(() => controller.abort(), 10_000);
 
   try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-      },
-      redirect: "follow",
-    });
+    let target = url;
 
-    // Knowable from the status alone, and the body of a 403 was never content worth reading.
-    if (res.status === 403 || res.status === 429) {
-      await discard(res);
-      return { html: null, status: res.status, blocked: true, jsRendered: false };
+    for (let hop = 0; ; hop++) {
+      // Per hop, not once up front: `redirect: "follow"` walked the chain inside fetch, unseen.
+      const verdict = await checkUrl(target);
+      if (!verdict.ok) return { html: null, status: 0, blocked: false, jsRendered: false, refused: true, error: verdict.reason };
+
+      const res = await fetch(target, {
+        signal: controller.signal,
+        headers: {
+          "User-Agent": USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+        },
+        redirect: "manual",
+      });
+
+      if (REDIRECT_STATUSES.has(res.status)) {
+        await discard(res);
+        if (hop >= MAX_REDIRECTS) return { html: null, status: res.status, blocked: false, jsRendered: false, error: "too many redirects" };
+
+        const location = res.headers.get("location");
+        if (!location) return { html: null, status: res.status, blocked: false, jsRendered: false, error: `${res.status} with no location` };
+        try {
+          target = new URL(location, target).href;
+        } catch {
+          return { html: null, status: res.status, blocked: false, jsRendered: false, error: "unparseable redirect target" };
+        }
+        continue;
+      }
+
+      // Knowable from the status alone, and the body of a 403 was never content worth reading.
+      if (res.status === 403 || res.status === 429) {
+        await discard(res);
+        return { html: null, status: res.status, blocked: true, jsRendered: false };
+      }
+
+      /* Absent content-type is not treated as a refusal — plenty of small sites omit it — and the
+         byte cap still bounds whatever comes back. Returning rather than throwing matters: the
+         retry below is for transport failures, and a PDF will still be a PDF next time. */
+      const contentType = res.headers.get("content-type") ?? "";
+      if (contentType && !HTML_TYPE.test(contentType)) {
+        await discard(res);
+        return { html: null, status: res.status, blocked: false, jsRendered: false, error: `skipped ${contentType.split(";")[0].trim()}` };
+      }
+
+      const html = await readCapped(res, contentType);
+      const blocked = BLOCKED_OR_FORBIDDEN.some((phrase) => html.includes(phrase));
+      const jsRendered = !blocked && MOUNT_POINT.test(html) && stripTags(html).trim().length < 200;
+      return { html, status: res.status, blocked, jsRendered };
     }
-
-    /* Absent content-type is not treated as a refusal — plenty of small sites omit it — and the
-       byte cap still bounds whatever comes back. Returning rather than throwing matters: the
-       retry below is for transport failures, and a PDF will still be a PDF next time. */
-    const contentType = res.headers.get("content-type") ?? "";
-    if (contentType && !HTML_TYPE.test(contentType)) {
-      await discard(res);
-      return { html: null, status: res.status, blocked: false, jsRendered: false, error: `skipped ${contentType.split(";")[0].trim()}` };
-    }
-
-    const html = await readCapped(res, contentType);
-    const blocked = BLOCKED_OR_FORBIDDEN.some((phrase) => html.includes(phrase));
-    const jsRendered = !blocked && MOUNT_POINT.test(html) && stripTags(html).trim().length < 200;
-    return { html, status: res.status, blocked, jsRendered };
   } catch (err) {
     if (retries > 0) return httpFetch(url, retries - 1);
     return { html: null, status: 0, blocked: false, jsRendered: false, error: String(err) };
@@ -365,18 +392,16 @@ function cacheRobots(origin: string, entry: RobotsEntry): void {
   }
 }
 
-/** Never rejects: an unreachable or unparseable robots.txt means no rules, which means allowed. */
+/** Never rejects: an unreachable or unparseable robots.txt means no rules, which means allowed.
+    Via httpFetch for the address guard and redirects — http→https on robots.txt is common. */
 async function fetchRobots(origin: string): Promise<RobotsEntry> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5_000);
   try {
-    const res = await fetch(`${origin}/robots.txt`, { signal: controller.signal });
-    const text = res.ok ? await res.text() : "";
+    const { html, status } = await httpFetch(`${origin}/robots.txt`);
+    // Only a 2xx body is a rule set: a stray "Disallow:" in a 404 template would shut us out.
+    const text = status >= 200 && status < 300 ? (html ?? "") : "";
     return { ...parseRobots(text), fetchedAt: Date.now() };
   } catch {
     return { ...ALLOW_ALL, fetchedAt: Date.now() };
-  } finally {
-    clearTimeout(timer);
   }
 }
 
