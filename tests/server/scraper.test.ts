@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { StealthBrowser } from "@/server/browser";
 
 /* Stubbed open: these tests use unresolvable hostnames, which the real guard refuses. See net.test.ts. */
-const checkUrl = vi.hoisted(() => vi.fn(async () => ({ ok: true }) as { ok: boolean; reason?: string }));
+type Verdict = { ok: boolean; reason?: string };
+// Typed with the url parameter, so a test can branch on it and `mock.calls` is indexable.
+const checkUrl = vi.hoisted(() => vi.fn(async (_url: string): Promise<Verdict> => ({ ok: true })));
 vi.mock("@/server/net", () => ({ checkUrl }));
 
 const { extractAnchors, httpFetch, includesAny, isAllowedByRobots, normalizeUrl, sameDomain, scrapeShopDetails, scrapeVisibleText } = await import(
@@ -210,8 +212,7 @@ function mockRobotsFetch(body: string, ok = true) {
 
 describe("isAllowedByRobots", () => {
   beforeEach(() => {
-    // Each test needs a clean robots cache — reimport would work but resetting
-    // via a fresh origin per test is simpler and avoids module reload overhead.
+    // Each test needs a clean robots cache; a fresh origin per test is simpler than reimporting the module.
   });
 
   afterEach(() => {
@@ -488,8 +489,7 @@ describe("scrapeShopDetails — email extraction", () => {
 
 // ── httpFetch: what it refuses to read ────────────────────────────────────────
 
-/** Real Response, so headers.get and the body stream behave as they do in production.
-    Passing no headers means no content-type at all, which a Response built from a string cannot do. */
+/** A real Response, so headers.get and the body stream behave as in production; no headers means no content-type at all. */
 function streamResponse(body: string, headers: Record<string, string> = {}, status = 200) {
   const bytes = new TextEncoder().encode(body);
   return new Response(

@@ -146,7 +146,7 @@ Tailwind CSS v4 + DaisyUI v5. Dark mode is the `data-theme` attribute, so use `i
 
 ## Testing
 
-Vitest, node environment, `tests/**/*.test.ts` (see `vitest.config.ts`). `tests/tsconfig.json` type-checks the test tree, which the root `tsconfig.json` excludes.
+Vitest, node environment, `tests/**/*.test.ts` (see `vitest.config.ts`). The root `tsconfig.json` excludes `tests/`, so `tests/tsconfig.json` covers that tree — `npm run typecheck` runs both, or a type error in a test survives every check.
 
 There is **no client-side test coverage** — the vitest environment is `node` only and the config's `include` glob does not match `.tsx`. Adding component tests means adding jsdom and widening that glob.
 
