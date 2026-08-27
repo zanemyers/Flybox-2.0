@@ -1,5 +1,0 @@
--- CreateEnum
-CREATE TYPE "JobStatus" AS ENUM ('IN_PROGRESS', 'COMPLETED', 'CANCELED', 'FAILED');
-
--- AlterTable
-ALTER TABLE "Job" ADD COLUMN     "status" "JobStatus" NOT NULL DEFAULT 'IN_PROGRESS';
