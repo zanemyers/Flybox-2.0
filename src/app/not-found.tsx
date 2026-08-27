@@ -7,9 +7,7 @@ export const metadata: Metadata = {
   description: "That page does not exist.",
 };
 
-/* A sounder with nothing under it. Dashes rather than zeroes: a depth of 0.0 would be a reading,
-   and the point is that there is no reading. Reuses the readout well from /how-it-works, so this
-   page adds no primitive of its own and brand.tsx stays at two drawings. */
+/* A sounder with nothing under it. Dashes, not zeroes: 0.0 would be a reading, and the point is that there is none. */
 const sounder: [string, string][] = [
   ["Status", "404"],
   ["Route", "not found"],
@@ -34,13 +32,11 @@ export default function NotFound() {
           </Link>
         </div>
 
-        {/* aria-hidden: the eyebrow and heading already say 404 and not-found, so a screen reader
-            would only get a list of dashes out of this. On the wrapper, not the <dl>, so the
-            attribute sits on an element that is unambiguously not focusable. */}
+        {/* aria-hidden: the heading already says 404, so this is just a list of dashes. On the wrapper, so the attribute sits on something unfocusable. */}
         <div aria-hidden="true" className="w-full md:max-w-sm md:justify-self-end">
-          <dl className="well select-none text-xs">
+          <dl className="well select-none divide-y divide-rule text-xs">
             {sounder.map(([label, value]) => (
-              <div key={label} className="flex items-baseline justify-between gap-3 border-b border-rule py-1.5 last:border-b-0">
+              <div key={label} className="flex items-baseline justify-between gap-3 py-1.5">
                 <dt className="eyebrow shrink-0">{label}</dt>
                 <dd className="readout text-nowrap text-right text-micro text-accent">{value}</dd>
               </div>

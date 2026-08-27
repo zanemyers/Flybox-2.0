@@ -3,15 +3,14 @@ import { FiDownload, FiFile, FiFileText, FiMapPin } from "react-icons/fi";
 import { type CatalogRun, DETAILED_RUNS, recentRuns } from "@/server/catalog";
 
 export const metadata: Metadata = {
-  title: "Recent runs — Flybox",
+  title: "Runs — Flybox",
   description: "The most recent Flybox runs, with their reports available to download.",
 };
 
 // Reads the jobs table on every request; a cached page would always be stale.
 export const dynamic = "force-dynamic";
 
-/* Formatted on the server, so the zone is the server's and not the reader's — UTC on Render. Label it rather than
-   implying local time, and carry the exact instant in dateTime for anything reading the page rather than looking at it. */
+/* Formatted server-side, so the zone is the server's (UTC on Render) — labelled as such, with the exact instant in dateTime. */
 const fmtDate = (d: Date) =>
   `${d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" })} UTC`;
 
@@ -51,8 +50,7 @@ function Location({ run }: { run: CatalogRun }) {
     <div className="flex items-start gap-2">
       <FiMapPin className="mt-0.5 size-3.5 shrink-0 text-primary" />
       <div>
-        {/* The name is the headline; coordinates are the fine print beneath it.
-            When the lookup failed there is no name, so the coordinates take over. */}
+        {/* The name is the headline, coordinates the fine print — with no name, the coordinates take over. */}
         <span className="block font-medium">{run.locationName ?? coords ?? "Unknown location"}</span>
         {run.locationName && coords && <span className="readout block text-micro text-base-content/70">{coords}</span>}
       </div>
@@ -79,9 +77,9 @@ export default async function Runs() {
         <p className="text-sm text-base-content/70">No completed runs yet. Start one from the home page and it will show up here.</p>
       ) : (
         <>
-          <ol role="list" className="ms-0 list-none">
+          <ol role="list" className="ms-0 list-none divide-y divide-rule">
             {detailed.map((run, i) => (
-              <li key={run.id} className="border-t border-rule py-6 first:border-t-0 first:pt-0">
+              <li key={run.id} className="py-6 first:pt-0">
                 <div className="grid gap-4 md:grid-cols-[2.5rem_minmax(0,1fr)]">
                   <span className="readout text-micro text-mark">{String(i + 1).padStart(2, "0")}</span>
                   <div>

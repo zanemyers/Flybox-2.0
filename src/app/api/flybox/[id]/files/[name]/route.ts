@@ -1,14 +1,13 @@
 import { isOutputName, JobHandler, OUTPUT_FILES } from "@/server/handler";
 import { allowDownload } from "@/server/rateLimit";
 
-/** Streams one of a job's outputs. Split out of the 2s poll so the blobs are
-    read once, on download, instead of on every update. */
+/** Streams one of a job's outputs. Split out of the 2s poll so a blob is read on download, not on every update. */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string; name: string }> }) {
   const { id, name } = await params;
 
   if (!isOutputName(name)) return Response.json({ error: "Unknown output file" }, { status: 404 });
 
-  // /runs publishes the job ids that address this route, and each hit reads a blob out of Postgres.
+  // run publishes the job ids that address this route, and each hit reads a blob out of Postgres.
   const gate = allowDownload(request.headers);
   if (!gate.allowed) {
     return Response.json(

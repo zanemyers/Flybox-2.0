@@ -58,13 +58,11 @@ function Feature({
 
 const links = [
   {
-    index: "01",
     title: "How it works",
     description: "The five stages a run goes through, from the Maps search to the finished report — and the numbers behind each one.",
     href: "/how-it-works",
   },
   {
-    index: "02",
     title: "Rescue River",
     description: "The organization Flybox was built for, bringing hope and healing to survivors of trafficking and exploitation.",
     href: "https://rescueriver.com/pages/about",
@@ -117,13 +115,13 @@ export default function About() {
       <div className="mt-8 border-t border-rule pt-8">
         <h2 className="eyebrow">Read next</h2>
         <ul role="list" className="ms-0 mt-3 list-none divide-y divide-rule">
-          {links.map(({ index, title, description, href }) => {
+          {links.map(({ title, description, href }, i) => {
             const external = href.startsWith("http");
             return (
               <li key={title}>
                 <Link href={href} className="group flex items-baseline gap-4 py-4">
                   <span aria-hidden="true" className="readout text-micro text-mark">
-                    {index}
+                    {String(i + 1).padStart(2, "0")}
                   </span>
                   <span className="flex-1">
                     <span className="block font-semibold">{title}</span>

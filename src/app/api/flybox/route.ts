@@ -4,10 +4,7 @@ import { runFlybox } from "@/server/pipeline";
 import { reserveRun } from "@/server/rateLimit";
 import { MAX_RIVER_CHARS, MAX_RIVERS } from "@/shared/limits";
 
-/* The payload is deliberately tiny. Flybox funds its own API keys, so the search
-   term and summary prompt are server-side constants rather than form fields —
-   an editable prompt would be a free LLM and an editable search term would be a
-   general-purpose Maps scraper, both billed to the operator. */
+// Deliberately tiny: the search term and summary prompt are constants in config.ts, never fields.
 function parsePayload(body: unknown): { payload: Payload } | { error: string } {
   if (typeof body !== "object" || body === null) return { error: "Expected a JSON object." };
   const b = body as Record<string, unknown>;
@@ -51,12 +48,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Summarization is unavailable right now. Re-run with summarization turned off." }, { status: 503 });
   }
 
-  /* Every run costs the operator 5 search credits, an OpenAI call and a headless
-     browser crawling up to 100 third-party sites, and this endpoint is
-     unauthenticated. Without this, one loop drains a month of quota. */
-  /* Records the run in the same transaction that admits it. If job creation below then fails, the
-     ledger keeps a row for a run that never happened — the caller loses one from their quota rather
-     than gaining an uncounted run, which is the direction to err on a bill the operator pays. */
+  // Admitted and recorded in one transaction (see rateLimit.ts), so a later failure costs the caller a run rather than granting a free one.
   const limit = await reserveRun(request.headers);
   if (!limit.allowed) {
     return Response.json(
@@ -67,8 +59,7 @@ export async function POST(request: Request) {
 
   try {
     const job = await JobHandler.create(parsed.payload);
-    /* The catch is required — an unhandled rejection would take the process down — but runFlybox already handles its own
-       failures, so reaching here means job.fail() or the browser teardown threw and the row may be stuck IN_PROGRESS. */
+    // runFlybox handles its own failures, so reaching here means fail() threw and the row may be stuck IN_PROGRESS.
     runFlybox(job).catch((err) => console.error(`Flybox job ${job.id} threw past its own error handling:`, err));
     return Response.json({ jobId: job.id });
   } catch (err) {

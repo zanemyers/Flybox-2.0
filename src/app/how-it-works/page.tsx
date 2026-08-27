@@ -17,8 +17,7 @@ interface Stage {
   facts: [string, string][];
 }
 
-/* Kept honest against src/server/pipeline.ts — if a number changes there, change
-   it here. These are the constants a curious user would actually want. */
+/* Kept honest against src/server/pipeline.ts — if a number changes there, change it here. */
 const stages: Stage[] = [
   {
     code: "01",
@@ -114,9 +113,9 @@ export default function HowItWorks() {
                 <p className="prose-measure mt-2 text-sm">{detail}</p>
               </div>
 
-              <dl className="well h-fit text-xs">
+              <dl className="well h-fit divide-y divide-rule text-xs">
                 {facts.map(([k, v]) => (
-                  <div key={k} className="flex items-baseline justify-between gap-3 border-b border-rule py-1.5 last:border-b-0">
+                  <div key={k} className="flex items-baseline justify-between gap-3 py-1.5">
                     <dt className="eyebrow shrink-0">{k}</dt>
                     <dd className="readout text-accent text-right text-micro text-nowrap">{v}</dd>
                   </div>
