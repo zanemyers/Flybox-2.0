@@ -82,7 +82,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             {children}
           </main>
           <footer className="border-t border-rule bg-base-100">
-            <div className="shell flex flex-col gap-3 py-4 md:h-14 md:flex-row md:items-center md:justify-between md:gap-0 md:py-0">
+            <div className="shell flex flex-col max-md:gap-3 max-md:py-4 md:h-14 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-2.5">
                 {/* Every page is already dynamic for the nonce, so this is the request's year, not the build's. */}
                 <span className="eyebrow">© {new Date().getFullYear()} Zane Myers</span>
