@@ -63,7 +63,6 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
   const [show, setShow] = useState(false);
   const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [position, setPosition] = useState<[number, number]>([latitude, longitude]);
   const [search, setSearch] = useState("");
   const [flyTo, setFlyTo] = useState<[number, number] | null>(null);
   const [searchError, setSearchError] = useState("");
@@ -84,7 +83,6 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
       }
       const lat = Number(data[0].lat);
       const lng = Number(data[0].lon);
-      setPosition([lat, lng]);
       setFlyTo([lat, lng]);
       onChange(round6(lat), round6(lng));
     } catch {
@@ -94,11 +92,9 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
     }
   };
 
-  useEffect(() => {
-    const lat = Number.isFinite(latitude) ? latitude : DEFAULT_LAT;
-    const lng = Number.isFinite(longitude) ? longitude : DEFAULT_LNG;
-    setPosition([lat, lng]);
-  }, [latitude, longitude]);
+  /* Derived, not state: the parent owns the coordinate, exactly as it owns an <input>'s value. The
+     defaults only stand in for a non-finite prop, which Leaflet cannot be handed. */
+  const position: [number, number] = [Number.isFinite(latitude) ? latitude : DEFAULT_LAT, Number.isFinite(longitude) ? longitude : DEFAULT_LNG];
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -107,10 +103,7 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
     else if (dialog.open) dialog.close();
   }, [show]);
 
-  const pick = (lat: number, lng: number) => {
-    setPosition([lat, lng]);
-    onChange(round6(lat), round6(lng));
-  };
+  const pick = (lat: number, lng: number) => onChange(round6(lat), round6(lng));
 
   return (
     <div className="w-full">
