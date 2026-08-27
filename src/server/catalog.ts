@@ -6,8 +6,7 @@ export const DETAILED_RUNS = 5;
 
 const SNIPPET_CHARS = 420;
 
-/* Generous head: the separator strip below can eat most of what it reads, and a
-   byte cut can land mid-character, so take far more than SNIPPET_CHARS needs. */
+/* Generous head: the separator strip can eat most of what it reads, and a byte cut can land mid-character. */
 const SNIPPET_HEAD_BYTES = 4_000;
 
 export interface CatalogRun {
@@ -25,8 +24,7 @@ export interface CatalogRun {
   hasShops: boolean;
 }
 
-/** Trims to a word boundary and strips the crawler's `--- url ---` separators,
-    which are noise in a preview. */
+/** Trims to a word boundary and strips the crawler's `--- url ---` separators, which are noise in a preview. */
 function toSnippet(bytes: Uint8Array | null): string | null {
   if (!bytes?.length) return null;
   const text = Buffer.from(bytes)

@@ -1,8 +1,4 @@
-/* Reverse-geocodes a run's coordinates once, at job creation, so the catalog can
-   say "Yellowstone National Park" instead of two numbers. Nominatim's usage
-   policy requires an identifying User-Agent and asks for at most 1 request per
-   second — one lookup per run is comfortably inside that. Failure is not an
-   error: the catalog falls back to showing the coordinates. */
+/* Reverse-geocodes once per run so the catalog can name a place. Nominatim requires an identifying User-Agent; failure is not an error, the catalog shows coordinates. */
 
 const ENDPOINT = "https://nominatim.openstreetmap.org/reverse";
 const TIMEOUT_MS = 5_000;
@@ -24,9 +20,7 @@ interface NominatimAddress {
   country?: string;
 }
 
-/** Builds a short human label from Nominatim's address parts.
-    Prefers a named feature (a park, a lake) over the enclosing town, because
-    "Yellowstone National Park" is more useful than "Teton County". */
+/** Builds a short label from Nominatim's address parts, preferring a named feature over the enclosing town. */
 export function labelFromAddress(address: NominatimAddress | undefined): string | null {
   if (!address) return null;
 

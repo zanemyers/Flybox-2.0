@@ -37,8 +37,7 @@ model Job {
   @@index([status, heartbeatAt])
 }
 
-/// One row per admitted run and nothing else — the only thing the rate limiter counts.
-/// Never count Job rows instead: retention deletes them, which silently shortens every cap.
+/// One row per admitted run — the only thing the rate limiter counts. Never count Job rows: retention deletes them, shortening every cap.
 model RunLedger {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())

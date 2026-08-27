@@ -41,9 +41,7 @@ export const viewport: Viewport = {
   ],
 };
 
-/* Must run synchronously before first paint, so it is an inline <script> rather
-   than next/script — `beforeInteractive` is queued into self.__next_s and runs
-   after the initial paint, which flashed the light theme on every load. */
+/* Must run before first paint, so an inline <script>: `beforeInteractive` is queued into self.__next_s and flashed the light theme on every load. */
 const themeInit = `(function(){try{var s=localStorage.getItem('flybox-theme');var t=(s==='light'||s==='dark')?s:(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);document.documentElement.style.colorScheme=t;}catch(e){}})();`;
 
 const legalLinks = [
@@ -52,8 +50,7 @@ const legalLinks = [
 ];
 
 const socialLinks = [
-  // FaGlobe, not FiExternalLink: it sits at the same solid weight as the three
-  // brand logos beside it, which a 2px-stroke glyph does not.
+  // FaGlobe, not FiExternalLink: it matches the solid weight of the three brand logos beside it.
   { name: "Website", href: "https://rescueriver.com/", icon: FaGlobe },
   { name: "LinkedIn", href: "https://www.linkedin.com/company/rescue-river/", icon: FaLinkedinIn },
   { name: "Facebook", href: "https://www.facebook.com/rescueriver", icon: FaFacebook },
@@ -61,17 +58,11 @@ const socialLinks = [
 ];
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  /* Next stamps its own script tags with the nonce from proxy.ts, but the theme script below is ours, so it has to be
-     attached by hand. Reading a header here is also what opts every page into the dynamic rendering a nonce requires. */
+  /* Next nonces its own script tags, but the theme script below is ours. Reading a header here is also what opts every page into dynamic rendering. */
   const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   return (
-    /* The font variables MUST live on <html>, not <body>: Tailwind's @theme emits
-       --font-sans/--font-mono on :root, and a custom property is resolved on the
-       element that declares it. With the variables one level down on <body>,
-       var(--font-plex-mono) was undefined at :root, so --font-mono computed to
-       the guaranteed-invalid value and inherited as empty — IBM Plex never
-       loaded and every .eyebrow/.readout/.console rendered in proportional sans. */
+    /* The font variables MUST be on <html>, not <body>: @theme emits --font-sans/--font-mono on :root, and one level down they were undefined there, so IBM Plex never loaded. */
     <html lang="en" className={`${plexSans.variable} ${plexMono.variable}`} suppressHydrationWarning>
       <head>
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static string, must execute before first paint */}
@@ -86,8 +77,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         </a>
         <div className="flex min-h-dvh flex-col">
           <Header />
-          {/* tabIndex={-1} keeps main out of the tab sequence but lets the skip link
-              actually move focus here; without it the link was a no-op. */}
+          {/* tabIndex={-1} keeps main out of the tab sequence but lets the skip link move focus here; without it the link was a no-op. */}
           <main id="main" tabIndex={-1} className="grow focus:outline-none">
             {children}
           </main>

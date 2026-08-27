@@ -1,25 +1,12 @@
-/* Flybox theme.
-   Blue leads, cream carries, salmon and olive accent. Every color below is
-   either one of the brand hexes exactly, or a lightness-shifted version of one
-   chosen so it clears WCAG on the surface it actually sits on. Ratios in the
-   comments were computed oklch -> Oklab -> linear sRGB -> WCAG luminance, and
-   the hex beside each value is its exact sRGB round-trip.
-
-   Brand source colors:
-     #0d667a  deep teal-blue   the main color
-     #cb6551  salmon           warm highlight
-     #787818  olive            secondary highlight
-     #bfc131  yellow-green     bright accent, dark mode only
-     #faf7ef  cream            the ground */
+/* Flybox theme. Blue leads, cream carries, salmon and olive accent. Every color is a brand hex or a lightness-shift of one that clears WCAG where it sits; ratios are oklch -> Oklab -> linear sRGB -> WCAG luminance, and each hex is that value's exact sRGB round-trip.
+   Source: #0d667a teal-blue (main) · #cb6551 salmon · #787818 olive · #bfc131 yellow-green (dark only) · #faf7ef cream (the ground) */
 
 @import "tailwindcss";
 @plugin "daisyui" {
   themes: false; /* our two themes below are the only ones */
 }
 
-/* ─────────────────────────────────────────────────────────────────── LIGHT
-   Cream ground (hue 90) + deep blue ink (hue 225).
-   ink/base-100 14.80:1  base-200 13.79:1  base-300 12.14:1  sunken 13.10:1 */
+/* ── LIGHT. Cream ground (hue 90) + deep blue ink (hue 225). ink/base-100 14.80:1  base-200 13.79:1  base-300 12.14:1  sunken 13.10:1 */
 @plugin "daisyui/theme" {
   name: "light";
   default: true;
@@ -33,14 +20,12 @@
   --color-primary: oklch(47.2% 0.081 218.3); /* #0d667a EXACT. 6.14 on b100, 5.43 on sunken */
   --color-primary-content: oklch(98% 0.008 90); /* 6.21 on the blue fill */
 
-  --color-secondary: oklch(62.4% 0.134 32.5); /* #cb6551 EXACT — salmon. FILLS AND MARKS ONLY:
-                                                 3.55 on cream clears 3:1 for UI shapes but not the
-                                                 4.5 text needs. Use text-mark when salmon is text. */
+  /* #cb6551 EXACT. FILLS AND MARKS ONLY: 3.55 on cream clears 3:1 for UI shapes, not the 4.5 text needs — use text-mark for salmon text. */
+  --color-secondary: oklch(62.4% 0.134 32.5);
   --color-secondary-content: oklch(22% 0.05 32); /* 4.61 on the salmon fill */
 
-  --color-accent: oklch(48% 0.106 109.6); /* #626200 — olive, darkened from #787818 far enough to
-                                             clear 4.5 even as text on the inline-code chip
-                                             (base-content/8 over base-200): 4.57 there, 6.01 on b100 */
+  /* #626200 — olive darkened from #787818 enough to clear 4.5 as text on the inline-code chip (4.57 there, 6.01 on b100). */
+  --color-accent: oklch(48% 0.106 109.6);
   --color-accent-content: oklch(98% 0.008 90);
 
   --color-neutral: oklch(30% 0.04 222);
@@ -52,14 +37,12 @@
   --color-success-content: oklch(98% 0.008 90);
   --color-warning: oklch(53.5% 0.134 32.5); /* #ad4a37 — the text-safe salmon, 4.55 on sunken */
   --color-warning-content: oklch(98% 0.008 32);
-  --color-error: oklch(45.5% 0.18 25); /* #a4091b — deeper and more saturated than salmon so the
-                                          two never read as the same signal. 6.62 on sunken */
+  /* #a4091b — deeper and more saturated than salmon, so the two never read as one signal. 6.62 on sunken. */
+  --color-error: oklch(45.5% 0.18 25);
   --color-error-content: oklch(98% 0.008 25);
 
-  --radius-selector: 0.25rem; /* the summarize toggle is the only control this reaches. DaisyUI renders its track at
-                                 --radius-selector + padding + border, so 0.25rem lands at an 8px track and a 4px knob:
-                                 boxy with the corner knocked off. A .toggle override here would be inert — DaisyUI's
-                                 own rule wins — so tune this token, not the component. */
+  /* Reaches only the summarize toggle; DaisyUI adds padding and border, so 0.25rem lands an 8px track on a 4px knob. A .toggle override would be inert, so tune this token. */
+  --radius-selector: 0.25rem;
   --radius-field: 0.25rem;
   --radius-box: 0.375rem;
   --size-selector: 0.25rem;
@@ -69,15 +52,8 @@
   --noise: 0; /* no DaisyUI noise texture */
 }
 
-/* ──────────────────────────────────────────────────────────────────── DARK
-   The ground is the same blue family as #0d667a, so the app still reads blue.
-   ink/base-100 14.38:1  base-200 13.12:1  base-300 11.16:1  sunken 15.72:1 */
-/* No `prefersdark`. It applied this theme under a prefers-color-scheme media query, which
-   the theme script in layout.tsx already does before first paint — so it only ever decided
-   the no-JS render, and there it selected DaisyUI's dark colors while the non-DaisyUI tokens
-   below stayed light: dark panels holding a cream well, hero text on a cream gradient.
-   Reaching the same coherence the other way would mean a second copy of the six dark token
-   values in a media query, which is how annotated color values drift. No JS now means light. */
+/* ── DARK. Ground is the same blue family as #0d667a, so the app still reads blue. ink/base-100 14.38:1  base-200 13.12:1  base-300 11.16:1  sunken 15.72:1 */
+/* No `prefersdark`: layout.tsx's theme script already sets the attribute before first paint, and under a media query the DaisyUI colors flipped while the tokens below stayed light. No JS now means light. */
 @plugin "daisyui/theme" {
   name: "dark";
   color-scheme: "dark";
@@ -91,8 +67,8 @@
   --color-primary-content: oklch(20% 0.035 218); /* 8.30 on the fill */
   --color-secondary: oklch(75% 0.115 32.5); /* #ed927f — salmon, safe as text here (7.48) */
   --color-secondary-content: oklch(20% 0.035 32);
-  --color-accent: oklch(82% 0.13 110.3); /* #c9cc61 — the bright yellow-green, which only reads
-                                            well on a dark ground */
+  /* #c9cc61 — the bright yellow-green, which only reads well on a dark ground. */
+  --color-accent: oklch(82% 0.13 110.3);
   --color-accent-content: oklch(20% 0.035 110);
 
   --color-neutral: oklch(34% 0.036 222);
@@ -107,10 +83,8 @@
   --color-error: oklch(70.5% 0.16 22); /* #f37272 — 6.18 on b100 */
   --color-error-content: oklch(18% 0.035 22);
 
-  --radius-selector: 0.25rem; /* the summarize toggle is the only control this reaches. DaisyUI renders its track at
-                                 --radius-selector + padding + border, so 0.25rem lands at an 8px track and a 4px knob:
-                                 boxy with the corner knocked off. A .toggle override here would be inert — DaisyUI's
-                                 own rule wins — so tune this token, not the component. */
+  /* See the light theme: tune this token, not .toggle. */
+  --radius-selector: 0.25rem;
   --radius-field: 0.25rem;
   --radius-box: 0.375rem;
   --size-selector: 0.25rem;
@@ -120,9 +94,7 @@
   --noise: 0;
 }
 
-/* ───────────────────────────────────────────────── non-DaisyUI tokens
-   Declared as var() indirections so Tailwind emits border-stroke / bg-sunken /
-   text-mark utilities while the value still resolves per theme at the use site. */
+/* ── non-DaisyUI tokens. var() indirections, so Tailwind emits border-stroke / bg-sunken / text-mark while the value still resolves per theme at the use site. */
 @theme {
   --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
@@ -135,12 +107,7 @@
   --text-micro: 0.6875rem; /* 11px — uppercase tracked labels only, never prose */
 }
 
-/* Light lives on :root, not [data-theme="light"], so it is the fallback as well as
-   a theme — matching `default: true` on the DaisyUI block above. Under the attribute
-   selector these five were undefined until the theme script ran or if JS never ran,
-   and an undefined var() means border-stroke and border-rule resolve to currentColor:
-   every hairline in the app came back as full-strength ink. Dark below is the only
-   override, and equal specificity means source order decides, so it must stay last. */
+/* Light on :root, not [data-theme="light"], so it is the fallback too — under the attribute selector these were undefined until the script ran, and an undefined var() resolves every hairline to currentColor. Dark below is the only override, and equal specificity means it must stay last. */
 :root {
   /* stroke clears 3:1 on every surface a control can sit on: 4.04 / 3.76 / 3.31 / 3.58 */
   --stroke: oklch(57.5% 0.03 222);
@@ -161,11 +128,7 @@
   --depth-bottom: oklch(19% 0.036 228);
 }
 
-/* THE ALPHA FLOOR. One rule, both themes, text and borders alike: /70 is the
-   floor for anything that carries information (light ink/70 measures 7.18:1 on
-   base-100). Below /70 is permitted ONLY for hairlines and decorative marks.
-   Do NOT reintroduce base-content/60, /50 or /40 as text, and never put an
-   alpha modifier on the focus ring. */
+/* THE ALPHA FLOOR. /70 is the minimum for anything carrying information, text or border, in both themes (light ink/70 measures 7.18:1 on base-100). Below it is hairlines and decorative marks only — never base-content/60 as text, and never alpha on the focus ring. */
 
 body {
   min-height: 100dvh;
@@ -208,8 +171,7 @@ body {
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-primary;
   }
-  /* DaisyUI's .btn draws its own focus ring, so the global rule above never
-     reaches a button. Restate it at higher specificity. */
+  /* DaisyUI's .btn draws its own focus ring, so the global rule above never reaches a button — restated here at higher specificity. */
   .btn:focus-visible {
     @apply outline-2 outline-offset-2 outline-primary;
   }
@@ -224,8 +186,7 @@ body {
     @apply max-w-[68ch] text-pretty;
   }
 
-  /* Etched label — tracked 11px mono uppercase. Our labels only: never prose,
-     never user-entered text, never more than three words. */
+  /* Etched label — tracked 11px mono uppercase. Our labels only: never prose, never user text, never more than three words. */
   .eyebrow {
     @apply font-mono text-micro font-medium uppercase tracking-[0.08em] text-base-content/70;
   }
@@ -233,32 +194,27 @@ body {
     @apply font-mono tabular-nums;
   }
 
-  /* .field-shell is the same box as .field, for controls that are not a bare
-     <input> (the tag wrapper), so they cannot drift out of the height contract. */
+  /* The same box as .field, for controls that are not a bare <input> (the tag wrapper), so they cannot drift out of the height contract. */
   .field-shell {
     @apply w-full rounded-field border border-stroke bg-base-100 px-3 min-h-10 text-base sm:min-h-9 sm:text-sm;
   }
 
-  /* Shared control contract. 16px/40px below sm (iOS zooms any input under 16px
-     on focus); 14px/36px from sm up. Always --color-stroke. */
+  /* Shared control contract: 16px/40px below sm (iOS zooms any input under 16px on focus), 14px/36px from sm up. Always --color-stroke. */
   .field {
     @apply w-full rounded-field border border-stroke bg-base-100 px-3 h-10 text-base sm:h-9 sm:text-sm placeholder:text-base-content/70 focus-visible:border-primary disabled:opacity-70 read-only:cursor-default;
   }
 
-  /* Outline chip. The text always names the state, so color is never the only
-     signal. Fixed height so a row of chips shares one baseline. */
+  /* Outline chip. The text always names the state, so color is never the only signal; fixed height keeps a row on one baseline. */
   .chip {
     @apply inline-flex h-5 shrink-0 items-center gap-1.5 rounded-xs border px-1.5 font-mono text-micro font-medium uppercase leading-none tracking-[0.08em];
   }
 
-  /* User-entered value, echoed back: a river name in the form and again on the
-     run that used it. Sentence case, unlike .chip — this is user data, not a label. */
+  /* User-entered value echoed back, e.g. a river name. Sentence case, unlike .chip — this is user data, not a label. */
   .tag {
     @apply inline-flex items-center gap-1 rounded-xs border border-primary/70 px-2 py-0.5 text-xs font-medium text-primary;
   }
 
-  /* Panel + header band — the single card structure in the app. min-h keeps the
-     band the same height whether or not it holds a chip. */
+  /* Panel + header band, the single card structure in the app. min-h keeps the band level whether or not it holds a chip. */
   .panel {
     @apply rounded-box border border-rule bg-base-200;
   }
@@ -269,14 +225,11 @@ body {
     @apply px-4 py-4 sm:px-5 sm:py-5;
   }
 
-  /* An icon-only control. The VISIBLE box is size-8; the 44px tap target is a
-     transparent ::before, so padding can never eat the content box the way
-     `size-7 p-2.5` did (28px box - 20px padding = 8px for a 14px icon). */
+  /* Icon-only control. The visible box is size-8; the 44px tap target is a transparent ::before, so padding cannot eat the content box. */
   .icon-btn {
     @apply relative grid size-8 shrink-0 place-items-center rounded-field text-base-content/70 transition-colors hover:bg-base-content/8 hover:text-base-content focus-visible:text-base-content;
   }
-  /* The 44px target overhangs the 32px box by 6px per side, so any row of these
-     MUST use gap-3 (12px) or more, or adjacent targets overlap and steal clicks. */
+  /* The 44px target overhangs the 32px box by 6px a side, so any row of these MUST use gap-3 (12px) or more or adjacent targets steal clicks. */
   .icon-btn::before {
     content: "";
     @apply absolute left-1/2 top-1/2 size-11 -translate-x-1/2 -translate-y-1/2;
@@ -292,8 +245,7 @@ body {
     @apply rounded-field bg-sunken px-3 py-2.5 inset-ring inset-ring-rule;
   }
 
-  /* THE ONLY ANIMATION IN THE APP. Indeterminate by design — the updates
-     endpoint returns no phase or count, so any percentage would be invented. */
+  /* THE ONLY ANIMATION IN THE APP. Indeterminate by design — the updates endpoint returns no phase or count, so any percentage would be invented. */
   .run-bar {
     @apply relative h-0.5 overflow-hidden bg-sunken;
   }
@@ -329,8 +281,7 @@ body {
   /* biome-ignore-end lint/complexity/noImportantStyles: end kill-switch */
 }
 
-/* Leaflet, themed. Scoped to .leaflet-tile so the attribution and zoom controls
-   are NOT inverted — filtering .leaflet-container garbles both. */
+/* Leaflet, themed. Scoped to .leaflet-tile so attribution and zoom controls are NOT inverted — filtering .leaflet-container garbles both. */
 [data-theme="dark"] .leaflet-tile {
   filter: invert(0.94) hue-rotate(180deg) saturate(0.55) brightness(0.9) contrast(0.95);
 }

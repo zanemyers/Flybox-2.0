@@ -1,10 +1,4 @@
-/* Everything the operator pays for is fixed here, server-side.
-
-   Flybox funds its own API keys, so anything a caller can change is something a
-   caller can abuse. The search term and the summary prompt used to be form
-   fields: an editable prompt turns the endpoint into a free LLM ("write me an
-   essay"), and an editable search term turns it into a general-purpose Google
-   Maps scraper. Neither is worth the flexibility on a single-purpose tool. */
+/* Everything the operator pays for is fixed here. An editable prompt would be a free LLM endpoint; an editable search term, a general-purpose Maps scraper. */
 
 export const SEARCH_TERM = "Fly Fishing Shops";
 

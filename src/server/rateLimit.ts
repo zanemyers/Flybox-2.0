@@ -2,10 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@/server/db";
 import { RATE_LIMIT_WINDOW_MS } from "@/server/retention";
 
-/* The run endpoint is unauthenticated and every run now costs the operator
-   real money — 5 SerpAPI searches plus an OpenAI call plus a headless browser
-   crawling up to 100 third-party sites. Without a limit, one curl loop drains
-   a month of search quota in seconds. */
+/* The run endpoint is unauthenticated and every run costs real money, so without a limit one curl loop drains a month of search quota. */
 
 const num = (name: string, fallback: number) => {
   const raw = Number(process.env[name]);
@@ -42,9 +39,7 @@ export interface Decision {
   retryAfterSeconds?: number;
 }
 
-/** Pure: given counts already used, decide whether one more run is allowed.
-    Client limits are checked first so a busy user gets a specific message
-    rather than being told the whole service is full. */
+/** Pure: given counts already used, decide whether one more run is allowed. Client limits come first, so a busy user gets a specific message. */
 export function decide(counts: Counts, l: Limits = limits()): Decision {
   if (counts.clientHour >= l.perClientHour) {
     return { allowed: false, reason: `Rate limit: ${l.perClientHour} runs per hour. Try again shortly.`, retryAfterSeconds: 3600 };
@@ -61,10 +56,7 @@ export function decide(counts: Counts, l: Limits = limits()): Decision {
   return { allowed: true };
 }
 
-/* A per-process salt when none is configured. The point of hashing is that the
-   stored value is not an identifier; an unsalted SHA-256 of an IPv4 address is
-   trivially reversible by brute force, so a missing salt must not silently
-   degrade to that. The cost is that limits reset on redeploy. */
+/* A per-process salt when none is configured, because an unsalted SHA-256 of an IPv4 address is trivially reversible. The cost is that limits reset on redeploy. */
 const salt =
   process.env.RATE_LIMIT_SALT ||
   (() => {
@@ -74,17 +66,13 @@ const salt =
     return randomBytes(32).toString("hex");
   })();
 
-/* A proxy appends the address it received the request from, so the RIGHTMOST entries were written by infrastructure and
-   anything further left may have been typed by the caller. Reading the leftmost — the usual "client IP" convention — let
-   anyone rotate X-Forwarded-For for a fresh identity per request, which retired the per-client caps entirely. Count in
-   from the right instead, by however many proxies sit in front of the app. */
+/* A proxy appends the peer it heard from, so the RIGHTMOST entries are infrastructure's and anything further left may have been typed by the caller. */
 const TRUSTED_PROXIES = num("RATE_LIMIT_TRUSTED_PROXIES", 1);
 
 let warnedShortChain = false;
 let warnedInternalAddress = false;
 
-/** Loopback, RFC1918, link-local, carrier NAT, IPv6 loopback and unique-local. A public app never has one of these as a
-    caller, so selecting one means the entry belongs to infrastructure and the trusted count is too low. */
+/** A public app never has one of these as a caller, so selecting one means the entry is infrastructure's and the trusted count is too low. */
 export function isInternalAddress(ip: string): boolean {
   // [::1]:8080 keeps the port outside the brackets, so take what is inside them rather than trimming the ends.
   const bracketed = /^\[([^\]]+)\]/.exec(ip);
@@ -110,8 +98,7 @@ export function clientIpFrom(headers: Headers, trustedProxies: number = TRUSTED_
   // Nothing forwarded this, so there is no proxy whose word to take. x-real-ip is a guess, and only better than nothing.
   if (chain.length === 0) return headers.get("x-real-ip")?.trim() || null;
 
-  /* Fewer hops than configured means the count is too high for this deployment, which is the one setting that reopens
-     the hole above. Fall back to the rightmost — the single entry a proxy definitely wrote — and say so once. */
+  /* Fewer hops than configured means the count is too high, so fall back to the rightmost — the one entry a proxy definitely wrote — and say so once. */
   if (chain.length < trusted) {
     if (!warnedShortChain) {
       warnedShortChain = true;
@@ -124,8 +111,7 @@ export function clientIpFrom(headers: Headers, trustedProxies: number = TRUSTED_
 
   const selected = chain[chain.length - trusted];
 
-  /* The opposite misconfiguration to the one above, and the quiet one: a count set too low picks a proxy's own address,
-     which is the same for everybody, so every caller shares a single limit and legitimate traffic starts getting 429s. */
+  /* The quiet misconfiguration: a count set too low picks a proxy's own address, which is the same for everybody, so every caller shares one limit. */
   if (selected && isInternalAddress(selected) && !warnedInternalAddress) {
     warnedInternalAddress = true;
     console.warn(
@@ -136,8 +122,7 @@ export function clientIpFrom(headers: Headers, trustedProxies: number = TRUSTED_
   return selected;
 }
 
-/** Salted hash of the caller's IP. Returns null when no address can be
-    determined, which callers treat as "global limits only". */
+/** Salted hash of the caller's IP. Null when no address can be determined, which callers read as "global limits only". */
 export function clientHashFrom(headers: Headers): string | null {
   const ip = clientIpFrom(headers);
   if (!ip) return null;
@@ -181,9 +166,7 @@ export function resetDownloadCounts(): void {
   downloads.clear();
 }
 
-/* Counts come from RunLedger, never from Job. Job rows are deleted on the catalog's schedule —
-   failed and canceled outright, completed past the newest CATALOG_LIMIT — so counting them made
-   every cap, per-client ones included, shorten to whatever survived the last prune. */
+/* Counts come from RunLedger, never Job: Job rows are deleted on the catalog's schedule, so counting them shortened every cap to whatever survived the last prune. */
 type Tx = Pick<typeof prisma, "runLedger">;
 
 async function countRuns(tx: Tx, clientHash: string | null): Promise<Counts> {
@@ -202,22 +185,15 @@ async function countRuns(tx: Tx, clientHash: string | null): Promise<Counts> {
   return { clientHour, clientDay, globalDay, globalMonth };
 }
 
-/* One lock for all admissions, not one per client: the global caps are shared, so two different
-   callers checking concurrently would both pass a check neither could pass alone. Any arbitrary
-   constant works — it only has to be the same one everywhere. */
+/* One lock for all admissions, not one per client: the global caps are shared, so two callers could both pass a check neither passes alone. */
 const ADMISSION_LOCK_KEY = 7_735_401_299_100_001n;
 
-/** Counts and records in one transaction, so a burst of concurrent requests cannot all read the
-    same pre-insert totals and all pass. Counting then inserting separately let a parallel fan-out
-    take as many runs as it had connections, which is the whole cap gone in one request. */
+/** Counts and records in one transaction: counting then inserting separately let a parallel fan-out take as many runs as it had connections. */
 export async function reserveRun(headers: Headers): Promise<Decision> {
   const clientHash = clientHashFrom(headers);
 
   return prisma.$transaction(async (tx) => {
-    /* Serializes admissions against each other and nothing else. Held for four counts and one
-       insert, on an endpoint capped at tens of runs a day, and released when the transaction ends
-       however it ends. A plain INSERT..SELECT guarded by a count still races under READ COMMITTED:
-       both statements would read a snapshot taken before either inserted. */
+    /* Serializes admissions and nothing else. A count-guarded INSERT..SELECT still races under READ COMMITTED: both statements read a pre-insert snapshot. */
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${ADMISSION_LOCK_KEY})`;
 
     const decision = decide(await countRuns(tx, clientHash));

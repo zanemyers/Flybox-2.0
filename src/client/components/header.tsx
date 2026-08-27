@@ -69,9 +69,7 @@ export default function Header() {
             })}
           </ul>
           <span className="hidden h-4 w-px bg-rule sm:block" />
-          {/* aria-pressed carries the state; the icons cross-fade in one grid cell
-              so the button never changes size, and both are hidden from AT since
-              the label already says what pressing will do. */}
+          {/* aria-pressed carries the state; the icons cross-fade in one grid cell so the button never resizes, and both are hidden from AT. */}
           <button
             type="button"
             onClick={toggleTheme}

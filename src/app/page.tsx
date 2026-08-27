@@ -4,7 +4,7 @@ import { ContourField } from "@/client/components/brand";
 import FlyboxForm from "@/client/components/flyboxForm";
 
 export const metadata: Metadata = {
-  title: "Flybox — Fly Fishing Report Tool",
+  title: "Home — Flybox",
   description: "Find local fly fishing shops, scrape their fishing reports, and get an AI-powered summary for any location.",
 };
 
@@ -43,9 +43,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* DOM order is visual order at every width — no `order` utilities. The form
-          comes first because it is the task, and it keeps the wider track. Reversing
-          them at lg made keyboard focus jump back up-and-left after the last field. */}
+      {/* DOM order is visual order at every width — no `order` utilities. Reversing them at lg made keyboard focus jump up-and-left after the last field. */}
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,6fr)_minmax(0,4fr)]">
         <div className="min-w-0">
           <FlyboxForm />

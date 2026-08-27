@@ -18,18 +18,14 @@ interface JobUpdate {
 
 const MAX_FAILURES = 5;
 
-/* How to render each output the server can name. Which of them a run actually promises comes from
-   the poll, since it depends on the options it was started with.
-   `satisfies Record<OutputName, …>` rather than a plain Record<string, …>: an output added to
-   OUTPUT_FILES is now a compile error here instead of a row that throws on render. */
+/* How to render each output the server can name; which a run promises comes from the poll. `satisfies` makes a new output a compile error, not a row that throws on render. */
 const OUTPUT_META = {
   "report_summary.txt": { type: "TXT", Icon: FiFileText },
   "shop_details.xlsx": { type: "XLSX", Icon: FiFile },
   "report_raw.txt": { type: "TXT", Icon: FiFileText },
 } satisfies Record<OutputName, { type: string; Icon: typeof FiFile }>;
 
-// Object.hasOwn, not `in` — "__proto__" resolves through the prototype chain, same as the
-// server's allow-list check. Narrows the poll's strings before they index OUTPUT_META.
+// Object.hasOwn, not `in` — "__proto__" resolves through the prototype chain, same as the server's allow-list check.
 const isKnownOutput = (name: string): name is OutputName => Object.hasOwn(OUTPUT_META, name);
 
 const fileUrl = (jobId: string, name: string) => `/api/flybox/${jobId}/files/${name}`;
@@ -54,8 +50,7 @@ export default function StatusPanel({ jobId, onClose }: { jobId: string; onClose
   const failureCountRef = useRef(0);
 
   useEffect(() => {
-    // `stopped` guards against an in-flight response landing after the interval
-    // was cleared, which could regress a finished job back to "Running".
+    // `stopped` guards an in-flight response landing after the interval was cleared, which could regress a finished job to "Running".
     let stopped = false;
     let timer: ReturnType<typeof setInterval> | undefined;
 
@@ -131,8 +126,7 @@ export default function StatusPanel({ jobId, onClose }: { jobId: string; onClose
     return () => clearInterval(id);
   }, [isRunning, startedAt]);
 
-  /* Two-press confirm, matching the reset control on the form, rather than window.confirm —
-     one destructive-action idiom for the app. Blur disarms, so an abandoned press does not linger. */
+  /* Two-press confirm, matching the form's reset, rather than window.confirm. Blur disarms, so an abandoned press does not linger. */
   const handleCancel = async () => {
     if (!confirmCancel) {
       setConfirmCancel(true);
@@ -171,16 +165,14 @@ export default function StatusPanel({ jobId, onClose }: { jobId: string; onClose
       {isRunning && <div className="run-bar" />}
 
       <div className="panel-body flex flex-col gap-3">
-        {/* Announced once per state change. The log itself is not a live region —
-            it rewrites in full every 2s and would flood a screen reader. */}
+        {/* Announced once per state change. The log is not a live region: it rewrites in full every 2s and would flood a screen reader. */}
         <p className="sr-only" aria-live="polite">
           {title}
         </p>
 
         <div className="flex items-center justify-between gap-3">
           <span className="text-sm">{title}</span>
-          {/* Only while running: the job has no finishedAt, so a clock on a terminal
-              job would report time-since-start rather than how long it took. */}
+          {/* Only while running: with no finishedAt, a clock on a terminal job would report time-since-start, not how long it took. */}
           {isRunning && startedAt !== null && <span className="readout text-micro text-base-content/70">{elapsed(startedAt, now)}</span>}
         </div>
 

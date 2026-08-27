@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
-/* The Content-Security-Policy is not here. It needs a per-request nonce, which a static header cannot carry, so it
-   lives in src/proxy.ts. These are the ones that are the same on every response. */
+/* The CSP is not here: it needs a per-request nonce, so it lives in src/proxy.ts. These are the headers that never vary. */
 const securityHeaders = [
   // Stops a response being reinterpreted as a type it never declared.
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -11,8 +10,7 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   // The app asks for none of these, so neither can anything injected into it.
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
-  /* This host only. includeSubDomains would commit every other zm1.org name to HTTPS, which is not this app's call.
-     Browsers ignore the header when it arrives over plain HTTP, so it is inert in local dev. */
+  /* This host only: includeSubDomains would commit every other zm1.org name to HTTPS, which is not this app's call. */
   { key: "Strict-Transport-Security", value: "max-age=31536000" },
 ];
 

@@ -21,9 +21,7 @@ const DEFAULT_LNG = -110.588455;
 const round6 = (n: number) => Math.round(n * 1e6) / 1e6;
 const fmt = (n: number) => (Number.isFinite(n) ? n.toFixed(6) : "—");
 
-/* Defined at module scope on purpose: as inner functions they were fresh
-   component types on every render, so React unmounted and remounted them,
-   re-firing flyTo/setView and leaking the invalidateSize timeout. */
+/* Module scope on purpose: as inner functions they were fresh component types every render, so React remounted them and re-fired flyTo. */
 
 function LocationSelector({ onPick }: { onPick: (lat: number, lng: number) => void }) {
   useMapEvents({
@@ -117,8 +115,7 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
   return (
     <div className="w-full">
       {/* items-end is what aligns the button against the labeled readouts — keep it. */}
-      {/* Position is the one required input, but it is two spans and a button —
-          nothing announced when it changed. */}
+      {/* Position is the one required to be input, but it is two spans and a button, so nothing announced when it changed. */}
       <output aria-live="polite" className="sr-only">
         Position {fmt(latitude)}, {fmt(longitude)}
       </output>
@@ -141,8 +138,7 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
         </button>
       </div>
 
-      {/* Named by the visible heading rather than an aria-label, so the accessible name
-          and the one on screen cannot drift. Without it this announced as an unnamed dialog. */}
+      {/* Named by the visible heading, not an aria-label, so the accessible name cannot drift from the one on screen. */}
       <dialog ref={dialogRef} aria-labelledby={titleId} className="modal" onClose={() => setShow(false)}>
         <div className="modal-box panel max-h-dvh w-full max-w-none overflow-y-auto rounded-none bg-base-200 p-0 shadow-none sm:w-11/12 sm:max-w-3xl sm:rounded-box">
           <div className="panel-head">
@@ -175,9 +171,7 @@ export default function MapInput({ latitude, longitude, onChange }: { latitude: 
                 <span className="hidden sm:inline">Search</span>
               </button>
             </div>
-            {/* Status rather than the run-bar: swapping the button's contents for a bar would
-                resize it, and a Nominatim round trip is worth saying out loud either way.
-                Never set at the same time as searchError — the catch and the finally batch together. */}
+            {/* Status rather than the run-bar, which would resize the button. Never set at the same time as searchError — the catch and finally batch together. */}
             {searching && (
               <p role="status" className="mt-1.5 text-xs text-base-content/70">
                 Searching…

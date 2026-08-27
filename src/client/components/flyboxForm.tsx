@@ -14,11 +14,7 @@ const MapInput = dynamic(() => import("@/client/components/inputs/mapInput"), {
   ssr: false,
 });
 
-/* Everything the operator pays for is fixed server-side, so the form is just the four things a run
-   actually varies: where, which rivers, whether to summarize, and whether to build the workbook.
-   There are no API key fields — Flybox supplies its own.
-   It IS the request body, so it is Payload rather than a structural twin that has to be kept in
-   step with it — submit() already takes a Payload, and the two matching was a coincidence. */
+/* The four things a run varies: where, which rivers, whether to summarize, whether to build the workbook. Typed as Payload because it IS the request body, not a twin to keep in step. */
 type FormState = Payload;
 
 const DEFAULTS: FormState = {
@@ -31,8 +27,7 @@ const DEFAULTS: FormState = {
 
 const STORAGE_KEY = "flybox-form";
 
-/* `label` is optional: a section holding a single, already-labeled control does
-   not need a header above its header. The rule still separates the groups. */
+/* `label` is optional: a section holding one already-labeled control does not need a header above its header. */
 function Section({ label, children }: { label?: string; children: React.ReactNode }) {
   return (
     <section className="mt-4 border-t border-rule pt-4 first:mt-0 first:border-t-0 first:pt-0">
@@ -86,9 +81,7 @@ export default function FlyboxForm() {
   const [submitError, setSubmitError] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
-  /* Closing the status panel unmounts it and remounts this form; without this
-     focus lands on <body> and the keyboard user loses their place. Gated on the
-     close action so it never steals focus on a normal page load. */
+  /* Closing the panel remounts this form, and without this focus lands on <body>. Gated on the close action so it never steals focus on a normal load. */
   const [returnedFromRun, setReturnedFromRun] = useState(false);
 
   useEffect(() => {

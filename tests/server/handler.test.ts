@@ -19,12 +19,10 @@ const SAMPLE_SHOP: SiteInfo = {
   socialMedia: ["Facebook", "Instagram"],
 };
 
-/** Reads a generated workbook back so assertions can inspect real cell values
-    rather than buffer lengths. */
+/** Reads a generated workbook back, so assertions inspect real cell values rather than buffer lengths. */
 async function loadSheet(buffer: Buffer) {
   const wb = new ExcelJS.Workbook();
-  // exceljs's type declarations globally augment `Buffer extends ArrayBuffer`,
-  // creating a phantom mismatch with real Node Buffers. Runtime is fine.
+  // exceljs globally augments `Buffer extends ArrayBuffer`, creating a phantom mismatch with real Node Buffers. Runtime is fine.
   // biome-ignore lint/suspicious/noExplicitAny: exceljs type-declaration bug
   await wb.xlsx.load(buffer as any);
   return wb.worksheets[0];
@@ -159,9 +157,7 @@ describe("isStale", () => {
     expect(isStale({ status: JobStatus.IN_PROGRESS, heartbeatAt: beat(2 * 3 * 90_000) }, NOW)).toBe(false);
   });
 
-  /* The reaper must never touch a job that already reached a terminal state:
-     COMPLETED runs sit in the catalog for as long as retention allows, and their
-     heartbeat stops the moment they finish. */
+  /* The reaper must never touch a terminal job: COMPLETED runs sit in the catalog for as long as retention allows, and their heartbeat stops when they finish. */
   it("never reaps a job that already finished, however old", () => {
     const ancient = beat(400 * 24 * 3_600_000);
     for (const status of [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELED]) {
@@ -183,8 +179,7 @@ describe("expectedOutputs", () => {
     expect(expectedOutputs({ shopDirectory: false })).toEqual(["report_summary.txt"]);
   });
 
-  /* report_raw.txt is the catalog's record of what a summary was built from, not
-     something the caller asked for — auto-downloading it was the defect here. */
+  /* report_raw.txt is the catalog's record of what a summary was built from, not something the caller asked for — auto-downloading it was the defect. */
   it("never promises the raw source text", () => {
     for (const shopDirectory of [true, false]) {
       expect(expectedOutputs({ shopDirectory })).not.toContain("report_raw.txt");

@@ -9,18 +9,11 @@ import { extractAnchors, httpFetch, includesAny, isAllowedByRobots, normalizeUrl
 
 // ── Shop phase ────────────────────────────────────────────────────────────────
 
-/* SerpAPI bills every paginated request separately and its google_maps engine
-   returns at most 20 results per page — there is no `num` parameter to raise
-   that, so 100 listings genuinely costs 5 searches. The only lever is to stop
-   asking for pages that do not exist: a page shorter than SERP_PAGE_SIZE is the
-   last one. A rural search returning 12 shops used to burn all 5 searches, four
-   of them on empty pages. */
+/* SerpAPI bills per page and returns at most 20 with no `num` to raise it, so 100 listings costs 5 searches; the only lever is stopping early, and a short page is the last one. */
 export const SERP_PAGE_SIZE = 20;
 export const SERP_MAX_PAGES = 5;
 
-/** Walks SerpAPI pages until one comes back short. `fetchPage` returns null to
-    mean "the request failed", which is NOT the same as "there are no more
-    results" — on failure we stop rather than assume the listing ended. */
+/** Walks SerpAPI pages until one comes back short. `fetchPage` returns null for "request failed", which is NOT "no more results" — on failure we stop rather than assume the end. */
 export async function paginateShops(
   fetchPage: (start: number) => Promise<SiteInfo[] | null>,
   maxPages = SERP_MAX_PAGES,
@@ -123,8 +116,7 @@ async function shopPhase(job: JobHandler, browser: StealthBrowser): Promise<Site
       if (scraped % 10 === 0) await job.log(`[->] scraped ${scraped}/${deduped.length}`);
     });
 
-  // PromisePool collects rejections instead of throwing; silently discarding them
-  // dropped shops from the spreadsheet with no trace.
+  // PromisePool collects rejections instead of throwing, and discarding them dropped shops from the spreadsheet with no trace.
   for (const err of errors) {
     await job.log(`[!!] Shop scrape failed for ${err.item?.name ?? "unknown"}: ${String(err)}`);
   }
@@ -141,29 +133,20 @@ const TOKEN_CHAR_LIMIT = 50_000;
 const RAW_CHAR_LIMIT = 500_000;
 const MIN_SITE_CHAR_BUDGET = 4_000;
 const MAX_CRAWL_DELAY_SEC = 5;
-/* Luna is the cheap tier and this is structured extraction, not reasoning, so
-   reasoning effort is pinned OFF — reasoning tokens bill at the output rate and
-   the family defaults to a non-zero effort. Terra is the escape hatch: it only
-   runs if Luna has already failed every SDK retry, and it costs ~10x, so it must
-   never become the default path. */
+/* Reasoning pinned OFF: this is structured extraction, and reasoning tokens bill at the output rate. Terra costs ~10x and runs only after Luna exhausts every SDK retry. */
 const OPENAI_MODEL = "gpt-5.6-luna";
 const OPENAI_FALLBACK_MODEL = "gpt-5.6-terra";
 const OPENAI_REASONING_EFFORT = "none" as const;
 
-/* Output is the majority of the per-call cost, and an unbounded digest on a
-   pathological run is the one way this gets expensive. */
+/* Output is most of the per-call cost, and an unbounded digest on a pathological run is the one way this gets expensive. */
 const MAX_OUTPUT_TOKENS = 6_000;
 
-/* Report content is not always filed under a fishing word. On a real crawl of
-   northplatteflyfishing.com the reports lived at /news, so matching only
-   fishing vocabulary skipped the one page that mattered. The section words
-   below are what shops actually use for their report archives. */
+/* Report content is not always filed under a fishing word — on northplatteflyfishing.com the reports lived at /news. */
 const CRAWL_KEYWORDS = ["report", "fishing", "fish", "conditions", "hatch", "fly", "river", "stream", "creek", "water", "news", "blog", "journal", "update"];
 const CRAWL_JUNK_WORDS = ["/page/", "/tag/", "/category/", "?page=", "wp-admin", "/feed/"];
 const CRAWL_CLICK_PHRASES = ["read more", "view report", "see report", "full report", "more info", "learn more"];
 
-/* Paths that never carry a fishing report however the site is organized. The
-   privacy policy alone was 20% of one real 50,000-char payload. */
+/* Paths that never carry a report however the site is organized. The privacy policy alone was 20% of one real 50,000-char payload. */
 const CRAWL_EXCLUDE = [
   "privacy",
   "terms",
@@ -182,13 +165,10 @@ const CRAWL_EXCLUDE = [
   "gift-card",
 ];
 
-/* Non-HTML assets. A PDF fetched and handed to cheerio comes back as binary
-   noise: one real payload was 39% a single PATHFINDER_INFOSHEET.pdf, complete
-   with %PDF/endstream/endobj markers. */
+/* Non-HTML assets. A PDF handed to cheerio comes back as binary noise — one real payload was 39% a single PDF, %PDF/endstream markers and all. */
 const BINARY_EXT = /\.(pdf|docx?|xlsx?|pptx?|zip|rar|gz|tar|jpe?g|png|gif|webp|svg|ico|mp4|mp3|wav|avi|mov|css|js)$/i;
 
-/** Path + query of a URL, or the input unchanged if it will not parse. Keyword
-    matching must not see the hostname: on flyshop.com every link contains "fly". */
+/** Path + query, or the input unchanged if it will not parse. Keyword matching must not see the hostname: on flyshop.com every link contains "fly". */
 function urlPath(url: string): string {
   try {
     const u = new URL(url);
@@ -235,8 +215,7 @@ async function crawlSite(baseUrl: string, browser: StealthBrowser, charBudget: n
   let totalChars = 0;
 
   while (queue.length > 0 && totalChars < charBudget) {
-    // Cancellation used to be checked only between whole sites, so a canceled
-    // job kept crawling the site already in flight.
+    // Cancellation used to be checked only between whole sites, so a canceled job kept crawling the site already in flight.
     if (await isCanceled()) break;
 
     const item = queue.pop();
@@ -258,10 +237,7 @@ async function crawlSite(baseUrl: string, browser: StealthBrowser, charBudget: n
     const $ = cheerio.load(result.html);
     const text = scrapeVisibleText($);
     if (text) {
-      /* Add whole pages only. Slicing the joined result cut the last page off
-         mid-sentence, which is worse than simply not including it. If even the
-         first page overflows we keep a word-boundary-trimmed prefix, because
-         some content beats none. */
+      /* Whole pages only. Slicing the joined result cut the last page mid-sentence; if even the first overflows we keep a word-boundary prefix, because some content beats none. */
       const chunk = `--- ${url} ---\n${text}`;
       if (totalChars + chunk.length <= charBudget) {
         chunks.push(chunk);
@@ -290,10 +266,7 @@ async function crawlSite(baseUrl: string, browser: StealthBrowser, charBudget: n
   return chunks.join("\n\n");
 }
 
-/* The SDK already retried 429s and 5xxs with backoff before throwing, so by the
-   time an error reaches us the question is only whether a DIFFERENT model could
-   succeed. It could not for auth, quota, or a malformed request — those fail the
-   same way on every model, and retrying just wastes time and money. */
+/* The SDK already retried 429s and 5xxs, so the only question left is whether a DIFFERENT model could succeed — which it cannot for auth, quota or a malformed request. */
 export function shouldTryFallback(err: unknown): boolean {
   const status = (err as { status?: number })?.status;
   if (typeof status === "number") {
@@ -356,10 +329,7 @@ async function reportPhase(reportShops: SiteInfo[], job: JobHandler, browser: St
   const { summarize: wantsSummary } = job.payload;
   await job.log(`[..] Crawling ${uniqueSites.length} shop site(s) for fishing reports…`);
 
-  /* Each site gets a share of the budget. Previously every site could crawl up
-     to the full limit and the concatenation was then truncated to the same
-     limit, so if the first site filled its budget the rest contributed nothing.
-     Raw mode has no prompt to fit, so it gets a far larger allowance. */
+  /* Each site gets a share of the budget: when every site could crawl to the full limit, the first to fill it left the rest nothing. Raw mode has no prompt, so it gets far more. */
   const totalBudget = wantsSummary ? TOKEN_CHAR_LIMIT : RAW_CHAR_LIMIT;
   const perSiteBudget = Math.max(MIN_SITE_CHAR_BUDGET, Math.floor(totalBudget / Math.max(1, uniqueSites.length)));
 
@@ -412,8 +382,7 @@ async function reportPhase(reportShops: SiteInfo[], job: JobHandler, browser: St
   return summary;
 }
 
-/** Fits whole site blocks into a character budget, in order, and says what it left out.
-    `cutShort` is the one case a whole block cannot be kept: a single site larger than the budget. */
+/** Fits whole site blocks into a budget, in order, and says what it left out. `cutShort` is the one case a whole block cannot be kept: one site larger than the budget. */
 export function packSites(texts: string[], budget: number): { combined: string; included: number; cutShort: boolean } {
   const blocks: string[] = [];
   let used = 0;
@@ -430,9 +399,7 @@ export function packSites(texts: string[], budget: number): { combined: string; 
   return { combined: texts[0].slice(0, budget), included: 1, cutShort: true };
 }
 
-/** Keeps shops whose name, website or address mentions one of the river terms.
-    Callers must skip this when `rivers` is empty — an empty term list matches
-    nothing, which would drop every shop rather than disabling the filter. */
+/** Keeps shops whose name, website or address mentions a river term. Callers must skip this when `rivers` is empty: an empty list matches nothing and would drop every shop. */
 export function filterShopsByRivers<T extends Pick<SiteInfo, "name" | "website" | "address">>(shops: T[], rivers: string[]): T[] {
   const riverTerms = rivers.map((r) => r.toLowerCase().trim()).filter(Boolean);
   if (riverTerms.length === 0) return shops;
@@ -447,8 +414,7 @@ export async function runFlybox(job: JobHandler): Promise<void> {
   try {
     await browser.launch();
 
-    /* Started, not awaited: naming the coordinates took up to 5s off the front of the POST when the route did it, and
-       the catalog does not need the label until the run is listed. Awaited after the phase it overlaps, which is minutes. */
+    /* Started, not awaited: naming the coordinates put up to 5s on the front of the POST, and the catalog needs the label only once the run is listed. */
     const naming = job.resolveLocationName();
 
     const allShops = await shopPhase(job, browser);
@@ -479,8 +445,7 @@ export async function runFlybox(job: JobHandler): Promise<void> {
     await job.saveSummary(summary);
     await job.complete();
   } catch (err) {
-    // fail() only moves an IN_PROGRESS job, so a cancellation that surfaces as a
-    // thrown error is not relabeled FAILED.
+    // fail() only moves an IN_PROGRESS job, so a cancellation surfacing as a thrown error is not relabeled FAILED.
     await job.fail(String(err));
   } finally {
     await browser.close();

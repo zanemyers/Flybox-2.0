@@ -1,5 +1,4 @@
-/* The run endpoint is unauthenticated and every run spends the operator's money,
-   so these pin the order and the boundaries of the limit checks. */
+/* The run endpoint is unauthenticated and every run spends real money, so these pin the order and boundaries of the limit checks. */
 import { beforeEach, describe, expect, it } from "vitest";
 import { allowDownload, type Counts, clientHashFrom, clientIpFrom, decide, isInternalAddress, type Limits, resetDownloadCounts } from "@/server/rateLimit";
 import { CLIENT_HASH_TTL_MS, ledgerCutoff, RATE_LIMIT_WINDOW_MS } from "@/server/retention";
@@ -61,9 +60,7 @@ describe("clientHashFrom", () => {
     expect(h({})).toBeNull();
   });
 
-  /* The whole point of the change: whatever a caller puts in front of the entry the proxy
-     appended must not change who we think they are. Reading the leftmost value made
-     rotating this header a free identity, which meant no per-client limit at all. */
+  /* Whatever a caller puts in front of the proxy-appended entry must not change who we think they are; the leftmost value made this header a free identity. */
   it("gives the same identity however the caller pads the header", () => {
     const real = h({ "x-forwarded-for": "203.0.113.7" });
     expect(h({ "x-forwarded-for": "9.9.9.9, 203.0.113.7" })).toBe(real);
@@ -108,9 +105,7 @@ describe("clientIpFrom", () => {
   });
 });
 
-/* Not a security boundary — the trusted-proxy count is. This only decides whether a
-   misconfigured count gets noticed, so the ranges platforms actually route through
-   matter more than exhaustiveness. */
+/* Not a security boundary — the trusted-proxy count is. This only decides whether a misconfigured count gets noticed. */
 describe("isInternalAddress", () => {
   it("recognizes the ranges a proxy hop appears on", () => {
     for (const ip of [
@@ -145,9 +140,7 @@ describe("isInternalAddress", () => {
 
 // ── Retention vs the windows it has to outlive ────────────────────────────────
 
-/* The defect these pin: the caps used to count Job rows, which retention deletes on the catalog's
-   schedule, so every window silently shortened to "whatever survived the last prune". Evidence has
-   to outlive the claim made from it. */
+/* The defect these pin: counting Job rows, which retention deletes, shortened every window to "whatever survived the last prune". */
 describe("rate-limit evidence outlives the windows that count it", () => {
   const HOUR_MS = 3_600_000;
   const DAY_MS = 86_400_000;

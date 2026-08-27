@@ -5,9 +5,7 @@ import { JobStatus, prisma } from "@/server/db";
 import { reverseGeocode } from "@/server/geocode";
 import { STALE_AFTER_MS, staleCutoff } from "@/server/retention";
 
-/* Deliberately small. The search term and summary prompt are server-side
-   constants (see config.ts) because Flybox funds its own keys, and the API keys
-   themselves never leave the server. */
+/* Deliberately small: the search term and summary prompt are constants in config.ts, and the API keys never leave the server. */
 export interface Payload {
   latitude: number;
   longitude: number;
@@ -56,13 +54,10 @@ export const OUTPUT_FILES = {
 export type OutputName = keyof typeof OUTPUT_FILES;
 export type OutputColumn = (typeof OUTPUT_FILES)[OutputName]["column"];
 
-// Object.hasOwn, not `in`: `"__proto__" in OUTPUT_FILES` is true via the
-// prototype chain, which would let a bogus name past this allow-list.
+// Object.hasOwn, not `in`: `"__proto__" in OUTPUT_FILES` is true via the prototype chain, which would pass this allow-list.
 export const isOutputName = (name: string): name is OutputName => Object.hasOwn(OUTPUT_FILES, name);
 
-/* One reader per blob column. `satisfies` makes it exhaustive, so a column added to OUTPUT_FILES will not compile until
-   it has one here — where the switch this replaces ended in `default`, quietly serving the workbook for anything new.
-   Each still selects a single column: pulling all three to return one is what keeping blobs out of queries was about. */
+/* One reader per blob column, exhaustive via `satisfies` — the switch this replaces ended in `default`, quietly serving the workbook for anything new. Each selects a single column. */
 const readColumn = {
   primaryFile: async (id: string) => (await prisma.job.findUnique({ where: { id }, select: { primaryFile: true } }))?.primaryFile ?? null,
   secondaryFile: async (id: string) => (await prisma.job.findUnique({ where: { id }, select: { secondaryFile: true } }))?.secondaryFile ?? null,
@@ -74,8 +69,7 @@ export function expectedOutputs(job: { shopDirectory: boolean }): OutputName[] {
   return job.shopDirectory ? ["report_summary.txt", "shop_details.xlsx"] : ["report_summary.txt"];
 }
 
-/** Builds the shop directory workbook. Emoji conversion happens here and only
-    here — SiteInfo keeps sellsOnline/fishingReport as booleans everywhere else. */
+/** Builds the shop directory workbook. Emoji conversion happens here and only here — SiteInfo keeps the flags as booleans everywhere else. */
 export async function buildShopWorkbook(shops: SiteInfo[]): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Shops");
@@ -101,10 +95,7 @@ export async function buildShopWorkbook(shops: SiteInfo[]): Promise<Buffer> {
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
-/* The SDK's own timeout aborts the underlying request, unlike the hand-rolled
-   Promise.race it replaces, which left the request running and billable. It also
-   retries 429/5xx with backoff and honors Retry-After, so the pipeline does not
-   need to parse error strings to work out how long to wait. */
+/* The SDK's timeout aborts the request, unlike the Promise.race it replaces, which left it running and billable. It also retries 429/5xx and honors Retry-After. */
 const OPENAI_TIMEOUT_MS = 90_000;
 const OPENAI_MAX_RETRIES = 2;
 
@@ -155,8 +146,7 @@ export class JobHandler {
     return new JobHandler(job.id, payload);
   }
 
-  /* Names the coordinates for the catalog. Deliberately swallows everything: the label is cosmetic, the catalog falls
-     back to the raw coordinates, and this runs alongside the shop phase where a rejection would surface unhandled. */
+  /* Swallows everything: the label is cosmetic, the catalog falls back to coordinates, and this runs alongside the shop phase where a rejection would surface unhandled. */
   async resolveLocationName(): Promise<void> {
     try {
       const name = await reverseGeocode(this.payload.latitude, this.payload.longitude);
@@ -167,8 +157,7 @@ export class JobHandler {
     }
   }
 
-  /** Only an in-flight job can be canceled — an unconditional update would turn
-      an already COMPLETED job into CANCELED and discard its outputs. */
+  /** Only an in-flight job can be canceled — an unconditional update would turn a COMPLETED job into CANCELED and discard its outputs. */
   static async cancel(id: string) {
     const { count } = await prisma.job.updateMany({
       where: { id, status: JobStatus.IN_PROGRESS },
@@ -177,10 +166,7 @@ export class JobHandler {
     return { canceled: count > 0 };
   }
 
-  /* Polled every 2s. The file blobs are deliberately NOT selected here: reading
-     and base64-encoding a multi-hundred-KB xlsx on every poll dominated both the
-     query and the response. Readiness is a boolean; the bytes are served by
-     GET /api/flybox/[id]/files/[name]. */
+  /* Polled every 2s, so the blobs are NOT selected here — base64-encoding a multi-hundred-KB xlsx dominated both the query and the response. Readiness is a boolean. */
   static async getUpdates(id: string) {
     const [rows, messages] = await Promise.all([
       prisma.$queryRaw<
@@ -204,8 +190,7 @@ export class JobHandler {
     const job = rows[0];
     if (!job) throw new Error(`Job ${id} not found`);
 
-    /* Keyed by column rather than by output name, so the name-to-column mapping exists only in OUTPUT_FILES, and
-       exhaustive over the columns, so adding one is a compile error here instead of a file that never reports ready. */
+    /* Keyed by column, not output name, so the mapping lives only in OUTPUT_FILES; exhaustive, so adding one is a compile error rather than a file that never reports ready. */
     const ready: Record<OutputColumn, boolean> = { primaryFile: job.hasPrimary, secondaryFile: job.hasSecondary, rawFile: job.hasRaw };
     const expected = expectedOutputs(job);
 
@@ -252,9 +237,7 @@ export class JobHandler {
     return prisma.jobMessage.create({ data: { jobId: this.id, message } });
   }
 
-  /* Called between every shop and every crawled page, so the result is cached
-     briefly: an uncached check was one DB round-trip per item. CANCELED is
-     terminal, so once seen it is never re-queried. */
+  /* Called per shop and per crawled page, so the answer is cached briefly. CANCELED is terminal, so once seen it is never re-queried. */
   private canceled = false;
   private canceledCheckedAt = 0;
 
@@ -282,14 +265,12 @@ export class JobHandler {
     await this.log("[OK] Report summary saved.");
   }
 
-  /** The crawled source text, kept even on summarized runs so the catalog can
-      offer both the report and what it was built from. */
+  /** The crawled source text. Written on summarized runs only — in raw mode primaryFile already is this text. */
   async saveRawText(raw: string) {
     await prisma.job.update({ where: { id: this.id }, data: { rawFile: new Uint8Array(Buffer.from(raw, "utf-8")) } });
   }
 
-  /** Only from IN_PROGRESS, like fail(): isCanceled() caches for 1.5s, so a cancel can land
-      after the last check and an unconditional update would relabel it COMPLETED. */
+  /** Only from IN_PROGRESS, like fail(): isCanceled() caches for 1.5s, so a cancel can land after the last check. */
   async complete() {
     await prisma.job.updateMany({
       where: { id: this.id, status: JobStatus.IN_PROGRESS },

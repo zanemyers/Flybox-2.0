@@ -175,8 +175,7 @@ describe("checkUrl", () => {
   });
 
   it("refuses a host that does not resolve, rather than letting it through", async () => {
-    // Thrown from the implementation rather than mockRejectedValue, which builds its rejected
-    // promise at setup time and gets reported as unhandled before the call consumes it.
+    // Thrown from the implementation, not mockRejectedValue, which builds its rejected promise at setup and reads as unhandled.
     const fail = async () => {
       throw new Error("ENOTFOUND");
     };

@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-/* A nonce is the only way to keep script-src strict here: Next inlines its own streaming scripts, and the theme script in
-   layout.tsx must run before first paint, so neither can be reached by a static header. The cost is static rendering —
-   a nonce is per-request, so every page renders on demand. Six pages on a low-traffic tool, one already dynamic. */
+/* A nonce is the only way to keep script-src strict: Next inlines its own streaming scripts and the theme script must run before first paint. The cost is static rendering. */
 
 const OSM_TILES = "https://*.tile.openstreetmap.org";
 const NOMINATIM = "https://nominatim.openstreetmap.org";
@@ -10,8 +8,7 @@ const NOMINATIM = "https://nominatim.openstreetmap.org";
 export function policy(nonce: string, dev: boolean): string {
   return [
     "default-src 'self'",
-    /* strict-dynamic lets the nonced bootstrap pull the chunks it needs without naming each one, and it makes host
-       allow-lists in script-src moot — a script the bootstrap did not load cannot run whatever its origin. */
+    /* strict-dynamic lets the nonced bootstrap pull its chunks without naming each one, and makes host allow-lists moot. */
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`,
     // React eval()s in development to rebuild server stack traces; production does not.
     `style-src 'self' ${dev ? "'unsafe-inline'" : `'nonce-${nonce}'`}`,
@@ -27,7 +24,7 @@ export function policy(nonce: string, dev: boolean): string {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    // Omitted in dev: it would rewrite this http origin's own subresources to https.
+    // Omitted in dev: it would rewrite this http origin's own sub-resources to https.
     ...(dev ? [] : ["upgrade-insecure-requests"]),
   ].join("; ");
 }
@@ -36,8 +33,7 @@ export function proxy(request: NextRequest) {
   const nonce = btoa(crypto.randomUUID());
   const csp = policy(nonce, process.env.NODE_ENV === "development");
 
-  /* On the request as well as the response: Next reads the nonce back out of the request's CSP header to stamp its own
-     script tags, so without the request copy the framework's own scripts are the ones the policy blocks. */
+  /* On the request as well as the response: Next reads the nonce back off the request to stamp its own script tags. */
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);

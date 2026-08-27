@@ -9,8 +9,7 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
     console.error(error);
   }, [error]);
 
-  // Set imperatively because a client component cannot export metadata, so the
-  // tab would otherwise keep the title of whichever page just failed.
+  // Set imperatively because a client component cannot export metadata, so the tab would keep the failed page's title.
   useEffect(() => {
     document.title = "Something went wrong — Flybox";
   }, []);
@@ -21,8 +20,7 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
         <ContourField />
       </div>
 
-      {/* Left-aligned like every other page. The watermark is a sibling column
-          rather than an absolute overlay, so it can never sit behind the copy. */}
+      {/* The watermark is a sibling column, not an absolute overlay, so it can never sit behind the copy. */}
       <div className="relative grid items-center gap-10 md:grid-cols-[minmax(0,46ch)_1fr]">
         <div>
           <span className="eyebrow">Error 500 · Unexpected error</span>

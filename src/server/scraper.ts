@@ -29,10 +29,7 @@ const ECOMMERCE_SCRIPTS = ["cdn.shopify.com", "woocommerce", "bigcommerce", "squ
 const ECOMMERCE_PATH_PREFIXES = ["/cart", "/checkout", "/collections", "/products"]; // Shopify/WooCommerce path conventions
 const ECOMMERCE_HREF_SUBSTRINGS = ["add-to-cart", "addtocart"]; // button/class patterns safe to substring-match
 
-/* Fishing-report path detection is TOKEN based, not substring based. Substring
-   matching made "/terms-and-conditions" (via "conditions") and
-   "/shop/hatchery-supply" (via "hatch") read as fishing reports, which was true
-   of nearly every commerce site. */
+/* Report detection is TOKEN based, not substring: "conditions" matched /terms-and-conditions and "hatch" matched /shop/hatchery-supply. */
 
 // Adjacent token pairs that identify a report page on their own.
 const REPORT_STRONG_PHRASES = [
@@ -100,9 +97,7 @@ export function includesAny(target: string, terms: string[]): boolean {
   return terms.some((t) => lower.includes(t));
 }
 
-/* Tracking parameters do not change the page, but they do change the string, so
-   /grey-reef and /grey-reef?utm_source=local were crawled and billed as two
-   separate pages in a real run. */
+/* Tracking params do not change the page but do change the string, so /grey-reef and /grey-reef?utm_source=local were crawled twice. */
 const TRACKING_PARAMS = /^(utm_|fbclid$|gclid$|msclkid$|mc_cid$|mc_eid$|_ga$|ref$|source$)/i;
 
 export function normalizeUrl(url: string): string {
@@ -134,8 +129,7 @@ export function pathTokens(pathname: string): string[] {
     .filter(Boolean);
 }
 
-/** True when a URL path looks like a fishing report page. Token based, so
-    "/terms-and-conditions" and "/shop/hatchery-supply" no longer qualify. */
+/** True when a URL path looks like a fishing report page. Token based, so "/terms-and-conditions" no longer qualifies. */
 export function isReportPath(pathname: string): boolean {
   const tokens = pathTokens(pathname);
   if (tokens.length === 0) return false;
@@ -153,20 +147,14 @@ export function isReportPath(pathname: string): boolean {
 
 // ── HTTP fetcher ─────────────────────────────────────────────────────────────
 
-// A JS shell: a mount-point div and almost no server-rendered text. Detected with
-// regexes rather than a cheerio parse — this ran on every fetch, and the page is
-// parsed properly by the caller anyway.
+// A JS shell: a mount-point div and almost no server-rendered text. Regex, not cheerio — this runs on every fetch.
 const MOUNT_POINT = /<[a-z]+[^>]*\sid=["'](?:root|app|__next)["']/i;
 const stripTags = (html: string) => html.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ");
 
-/* A crawler aimed at arbitrary third-party sites is eventually handed something enormous. Nothing
-   above this could survive the per-site text budget anyway, and ten of these run at once. */
+/* A crawler pointed at arbitrary sites is eventually handed something enormous, and ten of these run at once. */
 const MAX_BODY_BYTES = 2_000_000;
 
-/* Markup only, screened by what the response IS rather than what its URL is called. BINARY_EXT in
-   pipeline.ts tests the pathname, so a PDF served from an extensionless URL still reached cheerio
-   as binary noise — one real payload was 39% exactly that. text/css and text/javascript are
-   excluded deliberately: they are text/*, and never worth parsing. */
+/* Screened by what the response IS, not what its URL is called: a PDF from an extensionless URL reached cheerio as binary noise. css and javascript are excluded deliberately. */
 const HTML_TYPE = /^\s*(?:text\/(?:html|plain|xml)|application\/(?:xhtml\+xml|xml))\s*(?:;|$)/i;
 
 /** Frees the connection when we have decided not to read a body. */
@@ -178,8 +166,7 @@ async function discard(res: Response): Promise<void> {
   }
 }
 
-/* res.text(), which this replaces, honored the declared charset, and windows-1252 pages are not
-   rare on small business sites. An unknown or absent label falls back to utf-8. */
+/* res.text() honored the declared charset, and windows-1252 is not rare on small business sites; an unknown label falls back to utf-8. */
 function decoderFor(contentType: string): TextDecoder {
   const label = /charset=([\w-]+)/i.exec(contentType)?.[1];
   try {
@@ -189,8 +176,7 @@ function decoderFor(contentType: string): TextDecoder {
   }
 }
 
-/** Reads at most MAX_BODY_BYTES and then stops pulling. Truncated markup still parses — cheerio is
-    lenient — so a capped read of a huge page beats refusing it outright. */
+/** Reads at most MAX_BODY_BYTES then stops pulling. Truncated markup still parses, so a capped read beats refusing outright. */
 async function readCapped(res: Response, contentType: string): Promise<string> {
   if (!res.body) return res.text();
 
@@ -207,8 +193,7 @@ async function readCapped(res: Response, contentType: string): Promise<string> {
   // Stopped on the cap rather than on end-of-stream, so the rest is never pulled.
   if (total >= MAX_BODY_BYTES) await discard(res);
 
-  /* Clamped, because the loop above stops BETWEEN chunks: one chunk larger than the cap would
-     otherwise sail past it whole, and a body can arrive as a single chunk. */
+  /* Clamped because the loop stops BETWEEN chunks: one chunk larger than the cap would sail past whole, and a body can arrive as one chunk. */
   const capped = Math.min(total, MAX_BODY_BYTES);
   const body = new Uint8Array(capped);
   let at = 0;
@@ -267,9 +252,7 @@ export async function httpFetch(url: string, retries = 2): Promise<FetchResult> 
         return { html: null, status: res.status, blocked: true, jsRendered: false };
       }
 
-      /* Absent content-type is not treated as a refusal — plenty of small sites omit it — and the
-         byte cap still bounds whatever comes back. Returning rather than throwing matters: the
-         retry below is for transport failures, and a PDF will still be a PDF next time. */
+      /* Absent content-type is not a refusal — small sites omit it — and the byte cap still bounds the read. Returning, not throwing: the retry is for transport failures. */
       const contentType = res.headers.get("content-type") ?? "";
       if (contentType && !HTML_TYPE.test(contentType)) {
         await discard(res);
@@ -303,9 +286,7 @@ interface RobotsRule {
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** Parses the `User-agent: *` group. Directive NAMES are lowercased; values keep
-    their case, because rule paths are case-sensitive and the URL path is not
-    lowercased either. Consecutive User-agent lines form one group. */
+/** Parses the `User-agent: *` group. Directive NAMES are lowercased, values are not, because rule paths are case-sensitive. Consecutive User-agent lines form one group. */
 export function parseRobots(robotsTxt: string): { rules: RobotsRule[]; crawlDelay: number } {
   const rules: RobotsRule[] = [];
   let crawlDelay = 0;
@@ -343,8 +324,7 @@ export function parseRobots(robotsTxt: string): { rules: RobotsRule[]; crawlDela
   return { rules, crawlDelay };
 }
 
-/** Returns the matched pattern's length as its specificity, or -1 for no match.
-    Supports `*` wildcards and a trailing `$` anchor. */
+/** Returns the matched pattern's length as its specificity, or -1 for no match. Supports `*` wildcards and a trailing `$` anchor. */
 export function robotsMatchLength(pattern: string, pathname: string): number {
   if (!pattern.includes("*") && !pattern.endsWith("$")) {
     return pathname.startsWith(pattern) ? pattern.length : -1;
@@ -365,26 +345,19 @@ interface RobotsEntry {
   fetchedAt: number;
 }
 
-/* Caches the PARSED rules, not the raw text: parseRobots ran again for every page crawled on a
-   site, and the crawler consults robots for every URL it visits.
-
-   Bounded and expiring because this is module-level state in a long-lived server. Unbounded it
-   grew with every origin ever crawled, and a permanent entry means a site that starts disallowing
-   us never takes effect. Real crawlers re-read robots.txt roughly daily. */
+/* Caches PARSED rules, not raw text, since robots is consulted per URL. Bounded and expiring: module state in a long-lived server, and a permanent entry means a new Disallow never takes effect. */
 const ROBOTS_TTL_MS = 6 * 60 * 60_000;
 const ROBOTS_CACHE_MAX = 500;
 const robotsCache = new Map<string, RobotsEntry>();
 
-/* In-flight fetches, so ten shops starting on one origin at once make one request rather than ten.
-   Concurrent misses used to each fetch the same robots.txt. */
+/* In-flight fetches, so ten shops starting on one origin make one request rather than ten. */
 const robotsInFlight = new Map<string, Promise<RobotsEntry>>();
 
 const ALLOW_ALL: RobotsEntry = { rules: [], crawlDelay: 0, fetchedAt: 0 };
 
 function cacheRobots(origin: string, entry: RobotsEntry): void {
   robotsCache.set(origin, entry);
-  /* Map iterates in insertion order, so the first key is the oldest. FIFO rather than LRU: a crawl
-     visits one origin's pages together, so recency and insertion order barely differ here. */
+  /* Map iterates in insertion order, so the first key is the oldest. FIFO not LRU: a crawl visits one origin's pages together. */
   while (robotsCache.size > ROBOTS_CACHE_MAX) {
     const oldest = robotsCache.keys().next().value;
     if (oldest === undefined) break;
@@ -392,8 +365,7 @@ function cacheRobots(origin: string, entry: RobotsEntry): void {
   }
 }
 
-/** Never rejects: an unreachable or unparseable robots.txt means no rules, which means allowed.
-    Via httpFetch for the address guard and redirects — http→https on robots.txt is common. */
+/** Never rejects: an unreachable or unparseable robots.txt means no rules, so allowed. Via httpFetch for the address guard and redirects. */
 async function fetchRobots(origin: string): Promise<RobotsEntry> {
   try {
     const { html, status } = await httpFetch(`${origin}/robots.txt`);
@@ -468,9 +440,7 @@ function getContactLink($: CheerioAPI, baseUrl: string): string | null {
   }
 }
 
-// Extracts an email from a page using five strategies in order of reliability.
-// The fifth needs baseUrl: it fetches the contact page and retries the first four
-// there (baseUrl is omitted on that recursive call to prevent loops).
+// Five strategies in order of reliability; the fifth fetches the contact page, with baseUrl omitted on that call to prevent loops.
 async function extractEmail($: CheerioAPI, baseUrl: string, browser: StealthBrowser): Promise<string> {
   let email = "";
 
@@ -502,9 +472,7 @@ async function extractEmail($: CheerioAPI, baseUrl: string, browser: StealthBrow
   });
   if (email) return email;
 
-  // 3. JSON-LD structured data — some sites embed contact info in schema.org markup.
-  //    The value must be a string and only the address itself is kept: an
-  //    "email": "Email us at info@shop.com" used to be stored whole.
+  // 3. JSON-LD — the value must be a string, and only the address is kept ("Email us at info@shop.com" was stored whole).
   $('script[type="application/ld+json"]').each((_, el) => {
     try {
       const data = JSON.parse($(el).html() ?? "{}");
@@ -521,8 +489,7 @@ async function extractEmail($: CheerioAPI, baseUrl: string, browser: StealthBrow
   });
   if (email) return email;
 
-  // 4. Regex over the page's visible TEXT, not its raw HTML. Scanning the HTML
-  //    matched src/srcset filenames such as "logo@2x.png".
+  // 4. Regex over visible TEXT, not raw HTML — scanning HTML matched src/srcset names like "logo@2x.png".
   for (const candidate of $("body").text().match(EMAIL_REGEX_ALL) ?? []) {
     if (isRealEmail(candidate)) return candidate;
   }
@@ -588,8 +555,7 @@ export async function scrapeShopDetails($: CheerioAPI, baseUrl: string, browser:
   return { email, sellsOnline, fishingReport, socialMedia: [...socialMedia] };
 }
 
-/** Body text with chrome stripped. Clones the body rather than re-parsing the
-    whole document, which was a second full cheerio pass on every crawled page. */
+/** Body text with chrome stripped. Clones the body rather than re-parsing, which was a second full cheerio pass per page. */
 export function scrapeVisibleText($: CheerioAPI): string {
   const $body = $("body").clone();
   $body.find("script, style, noscript, iframe, header, nav, footer").remove();

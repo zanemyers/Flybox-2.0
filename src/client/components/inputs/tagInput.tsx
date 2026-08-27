@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import React, { useId, useState } from "react";
 import { FiX } from "react-icons/fi";
 
 export default function TagInput({
@@ -72,8 +72,7 @@ export default function TagInput({
           </span>
         )}
       </div>
-      {/* The ring lives on the wrapper, not the inner input: the wrapper is the
-          perceived control, and the input's own outline is suppressed. */}
+      {/* The ring lives on the wrapper, not the inner input: the wrapper is the perceived control, and the input's own outline is suppressed. */}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: click-to-focus wrapper for tag input */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: inner input handles keyboard interaction */}
       <div

@@ -1,5 +1,4 @@
-/* Regression tests for the specific scraper defects fixed on this branch:
-   substring-based report detection, and robots.txt case/wildcard handling. */
+/* Regressions for the scraper defects fixed on this branch: substring report detection, and robots.txt case/wildcard handling. */
 import { describe, expect, it } from "vitest";
 import { isReportPath, parseRobots, robotsMatchLength } from "@/server/scraper";
 

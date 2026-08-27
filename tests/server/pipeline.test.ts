@@ -1,15 +1,10 @@
-/* These tests import the real implementations from pipeline.ts. They previously
-   kept local COPIES of getRetryDelay, getPriority and the river filter, so
-   pipeline.ts had no coverage at all and the copies could drift from the source
-   while staying green — which is exactly what happened to getPriority when it
-   changed to match on the URL path instead of the whole absolute URL. */
+/* Imports the real implementations: local copies gave pipeline.ts no coverage and drifted from the source while staying green. */
 import { describe, expect, it } from "vitest";
 import { filterShopsByRivers, getPriority, packSites, paginateShops, SERP_MAX_PAGES, shouldTryFallback } from "@/server/pipeline";
 import { normalizeUrl } from "@/server/scraper";
 
 // ── shouldTryFallback ──────────────────────────────────────────────────────────
-// The SDK has already retried 429s and 5xxs with backoff before throwing, so the
-// only question left is whether a DIFFERENT model could plausibly succeed.
+// The SDK already retried 429s and 5xxs, so the only question left is whether a DIFFERENT model could succeed.
 
 const apiError = (status: number) => Object.assign(new Error(`HTTP ${status}`), { status });
 
@@ -77,8 +72,7 @@ describe("getPriority", () => {
     expect(getPriority("https://shop.test/fishing", "https://shop.test/gallery", "Photo Gallery")).toBe(Infinity);
   });
 
-  // The hostname must not feed the keyword match: on a fly-shop domain, every
-  // single link used to score as relevant, so the crawler had no priority order.
+  // The hostname must not feed the keyword match: on a fly-shop domain every link scored as relevant, leaving no priority order.
   it("ignores keywords in the hostname", () => {
     expect(getPriority("https://flyfishingshop.test/", "https://flyfishingshop.test/about-us", "About Us")).toBe(Infinity);
     expect(getPriority("https://troutfishing.test/", "https://troutfishing.test/shipping", "Shipping")).toBe(Infinity);
@@ -152,8 +146,7 @@ describe("filterShopsByRivers", () => {
 });
 
 // ── SerpAPI pagination ─────────────────────────────────────────────────────────
-// SerpAPI bills each paginated request separately, so these tests pin how many
-// searches a run actually costs. Getting this wrong costs real money.
+// SerpAPI bills each paginated request separately, so these pin how many searches a run actually costs.
 
 const shop = (name: string): Parameters<typeof filterShopsByRivers>[0][number] & Record<string, unknown> =>
   ({ name, website: `https://${name}.test`, address: "" }) as never;
@@ -229,9 +222,7 @@ describe("paginateShops — how many SerpAPI searches a run costs", () => {
 });
 
 // ── Crawl targeting, pinned to a real payload ──────────────────────────────────
-// These paths and sizes come from an actual 50,020-char run against
-// northplatteflyfishing.com, where a PDF and the privacy policy consumed 60% of
-// the budget and the reports at /news were the content that mattered.
+// Paths and sizes from a real 50,020-char run where a PDF and the privacy policy took 60% of the budget and /news held the reports.
 
 const REAL_BASE = "https://northplatteflyfishing.com/grey-reef";
 const link = (path: string, text = "Read more") => getPriority(REAL_BASE, `https://northplatteflyfishing.com${path}`, text);

@@ -1,5 +1,4 @@
-/* The catalog's snippet is the only place a report body is rendered inline, so
-   these pin the trimming rules. labelFromAddress decides what a run is called. */
+/* The catalog snippet is the only place a report body renders inline, so these pin the trimming rules. */
 import { describe, expect, it } from "vitest";
 import { labelFromAddress } from "@/server/geocode";
 

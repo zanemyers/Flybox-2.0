@@ -9,10 +9,7 @@ export const CLIENT_HASH_TTL_MS = 24 * 60 * 60_000;
 /** Ledger hashes past every per-client window. The row survives to be counted; the hash does not. */
 export const clientHashCutoff = () => new Date(Date.now() - CLIENT_HASH_TTL_MS);
 
-/* THE window every rate limit counts over, and the one the ledger is pruned by. One constant for
-   both directions on purpose: when the counted rows and the retained rows disagreed, the cap
-   quietly became "whatever survived the last prune". A limit can only be as long as its evidence.
-   Raising a cap's window past this does nothing until this moves with it. */
+/* THE window every cap counts over AND the one the ledger is pruned by. One constant for both: a limit can only be as long as its evidence. */
 export const RATE_LIMIT_WINDOW_MS = 30 * 24 * 60 * 60_000;
 
 /** Ledger rows past the longest window any cap counts over. Nothing reads them again. */

@@ -1,6 +1,4 @@
-/* The only two pieces of brand drawing in the app. Both are pure SVG with no
-   state and no client boundary. Utility glyphs come from react-icons/fi — don't
-   grow this file into an icon set. */
+/* The only two brand drawings in the app, both pure SVG. Utility glyphs come from react-icons/fi — don't grow this into an icon set. */
 
 /** Shepherd's-crook hook: eye, shank, bend, point, barb. Replaces tackle_box.png. */
 export function HookMark({ className }: { className?: string }) {
@@ -16,8 +14,7 @@ export function HookMark({ className }: { className?: string }) {
       aria-hidden="true"
       focusable="false"
     >
-      {/* The drawing spans y 1.7-14.9, so it is nudged down to sit on the
-          viewBox's optical center; without this every centered instance rides high. */}
+      {/* The drawing spans y 1.7-14.9, so it is nudged onto the viewBox's optical center; without this every centered instance rides high. */}
       <g transform="translate(0 1.6)">
         {/* eye */}
         <circle cx="6.6" cy="3.2" r="1.5" strokeWidth={1.2} />
@@ -30,8 +27,7 @@ export function HookMark({ className }: { className?: string }) {
   );
 }
 
-/** Bathymetric contour field: one authored path, six offset copies. Sits behind
-    the home hero and the 404. Decorative — well below the /70 alpha floor. */
+/** Bathymetric contour field: one authored path, six offset copies. Decorative — well below the /70 alpha floor. */
 export function ContourField() {
   return (
     <svg viewBox="0 0 1440 320" preserveAspectRatio="none" className="absolute inset-0 h-full w-full text-accent" aria-hidden="true" focusable="false">
