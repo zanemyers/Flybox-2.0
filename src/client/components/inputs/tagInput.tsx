@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useId, useState } from "react";
+import { type ChangeEvent, type KeyboardEvent, useId, useState } from "react";
 import { FiX } from "react-icons/fi";
 
 export default function TagInput({
@@ -31,17 +31,16 @@ export default function TagInput({
       .split(",")
       .map((n) => n.trim().slice(0, maxLength))
       .filter(Boolean);
-    if (names.length) {
-      const merged = [...values];
-      for (const name of names) if (!merged.includes(name) && merged.length < max) merged.push(name);
-      onChange(merged);
-    }
+    const merged = [...values];
+    for (const name of names) if (!merged.includes(name) && merged.length < max) merged.push(name);
+    // Only when something landed: every name could be a duplicate or past the cap.
+    if (merged.length > values.length) onChange(merged);
     setDraft("");
   };
 
   const remove = (name: string) => onChange(values.filter((v) => v !== name));
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
       add(draft);
@@ -49,7 +48,7 @@ export default function TagInput({
     if (e.key === "Backspace" && draft === "" && values.length > 0) remove(values[values.length - 1]);
   };
 
-  const onChangeDraft = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onChangeDraft = (e: ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     if (val.includes(",")) add(val);
     else setDraft(val);
@@ -77,7 +76,7 @@ export default function TagInput({
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: inner input handles keyboard interaction */}
       <div
         className="field-shell flex cursor-text flex-wrap items-center gap-1.5 py-1.5 has-[input:focus-visible]:border-primary has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-primary"
-        onClick={(e) => (e.currentTarget.querySelector("input") as HTMLInputElement)?.focus()}
+        onClick={(e) => e.currentTarget.querySelector("input")?.focus()}
       >
         {values.map((v) => (
           <span key={v} className="tag">

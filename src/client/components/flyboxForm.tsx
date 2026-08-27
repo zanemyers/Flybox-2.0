@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { HookMark } from "@/client/components/brand";
 import TagInput from "@/client/components/inputs/tagInput";
 import StatusPanel from "@/client/components/statusPanel";
@@ -28,9 +28,9 @@ const DEFAULTS: FormState = {
 const STORAGE_KEY = "flybox-form";
 
 /* `label` is optional: a section holding one already-labeled control does not need a header above its header. */
-function Section({ label, children }: { label?: string; children: React.ReactNode }) {
+function Section({ label, children }: { label?: string; children: ReactNode }) {
   return (
-    <section className="mt-4 border-t border-rule pt-4 first:mt-0 first:border-t-0 first:pt-0">
+    <section className="not-first:mt-4 not-first:border-t not-first:border-rule not-first:pt-4">
       {label && <span className="eyebrow mb-2.5 block">{label}</span>}
       {children}
     </section>
@@ -80,6 +80,7 @@ export default function FlyboxForm() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   /* Closing the panel remounts this form, and without this focus lands on <body>. Gated on the close action so it never steals focus on a normal load. */
   const [returnedFromRun, setReturnedFromRun] = useState(false);
@@ -94,20 +95,26 @@ export default function FlyboxForm() {
     // Corrupt JSON here used to throw inside the effect and blank the whole page.
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (!saved) return;
-      setForm((prev) => ({ ...prev, ...(JSON.parse(saved) as Partial<FormState>) }));
+      if (saved) setForm((prev) => ({ ...prev, ...(JSON.parse(saved) as Partial<FormState>) }));
     } catch {
       localStorage.removeItem(STORAGE_KEY);
     }
+    setLoaded(true);
   }, []);
 
   useEffect(() => {
+    /* Not before the read above has landed. On the mount pass `form` is still DEFAULTS, and writing
+       that overwrites what was saved — which StrictMode's second pass then reads back as defaults. */
+    if (!loaded) return;
+    // Identity, not equality: every update replaces the object, so this is only the DEFAULTS the form
+    // started with — nothing was loaded and nothing was touched, so there is nothing to remember.
+    if (form === DEFAULTS) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(form));
     } catch {
       /* storage full or blocked — the form still works, it just won't persist */
     }
-  }, [form]);
+  }, [form, loaded]);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -157,7 +164,7 @@ export default function FlyboxForm() {
         className="panel focus:outline-none"
         onSubmit={(e) => {
           e.preventDefault();
-          if (e.currentTarget.checkValidity()) handleSubmit();
+          if (e.currentTarget.checkValidity()) void handleSubmit();
           else e.currentTarget.reportValidity();
         }}
       >
