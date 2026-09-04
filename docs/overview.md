@@ -60,7 +60,7 @@ Output files are stored as `Bytes` on the `Job` row and streamed to the client â
 
 ## The Run Catalog
 
-`/runs` lists the newest 15 completed runs, all downloadable; the newest 5 also show a snippet of the report. The retention window lives in `src/server/retention.ts`. The page, the privacy policy, and `scripts/db_cleanup.ts` all read it, so what is promised and what is pruned cannot drift apart.
+`/runs` lists the newest 15 completed runs, all downloadable; the newest 5 also show a snippet of the report. `CATALOG_LIMIT` (15) lives in `src/server/retention.ts`, which the page, the privacy policy and `scripts/db_cleanup.ts` all read, so what is promised and what is pruned cannot drift apart. `DETAILED_RUNS` (5) is a display choice rather than a retention one, so it sits in `src/server/catalog.ts` beside the query.
 
 **The catalog is public** â€” anyone can see the location and download the outputs of any recent run. This is disclosed in the privacy policy; keep it that way if the retention or the listing changes.
 

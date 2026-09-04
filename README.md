@@ -8,69 +8,22 @@ Pick a location on the map, optionally filter by river, and press run. Flybox se
 
 Recent runs are listed publicly at `/runs`, where anyone can download their outputs — see the [privacy policy](src/app/privacy-policy/page.tsx).
 
-## Requirements
+## Quick Start
 
-- **SerpAPI key** — for Google Maps shop search (server-side)
-- **OpenAI API key** — for fishing report summarization (server-side; optional if you only use raw-text mode)
-- **PostgreSQL database** — for job tracking
-
-## Local Development
+You need Node 22+, a PostgreSQL database, a [SerpAPI key](https://serpapi.com/), and — only if you want summaries — an [OpenAI key](https://platform.openai.com/). Both keys are server-side.
 
 ```bash
 npm install
 npx tsx scripts/setup.ts       # add any missing .env settings
+npx prisma generate            # generate the Prisma client
 npx prisma migrate dev         # run DB migrations
 npm run dev                    # start dev server (Turbopack)
 ```
 
-## Local Postgres
+No Postgres handy? `npm run docker:up` starts one in a container, and the app still runs on the host.
 
-`docker-compose.yml` runs a Postgres container and nothing else — the app runs on the host.
-
-```bash
-npm run docker:up      # start it
-npm run docker:down    # stop (keeps data)
-npm run docker:reset   # stop and wipe the volume
-```
-
-Then migrate once it is accepting connections:
-
-```bash
-npx prisma migrate deploy
-```
-
-`SERP_API_KEY` and `OPENAI_API_KEY` are read at runtime from `.env` — Flybox
-supplies its own keys and never asks the user for one.
-
-## Deployment (Render)
-
-Native Node environment, no Docker.
-
-```
-Build:       npm run render:build     # install, prisma generate, chromium, next build
-Pre-deploy:  npm run render:migrate   # prisma migrate deploy
-Cron:        npm run render:cleanup   # prune per src/server/retention.ts
-Start:       npm start
-```
-
-Migrations are in pre-deploy, so a failed build cannot leave the database ahead of
-the code. The cron is what enforces the retention the privacy policy promises, so it
-is named here rather than living only in the dashboard. `render:migrate` and
-`render:cleanup` both target whatever `DIRECT_URL` and `DATABASE_URL` are in scope —
-neither is a local command.
-
-Environment variables: `DATABASE_URL` (supports a pooler), `DIRECT_URL` (direct
-connection, used by migrations), `SERP_API_KEY`, `OPENAI_API_KEY`, and
-`RATE_LIMIT_SALT` — without the salt, client rate limits reset on every deploy.
-
-`RATE_LIMIT_TRUSTED_PROXIES` (default 1) is not a tuning knob: it is how many proxies
-sit in front of the app, and it decides which `x-forwarded-for` entry is believed. Too
-high and a caller can forge an identity per request, retiring the per-client caps; too
-low and every caller shares one limit. Both directions log a warning on the first
-request that shows them.
-
-> `prisma generate` must stay in that chain. `generated/` is gitignored and nothing
-> else creates it, so a build without it fails on a clean checkout.
+[Setup](docs/setup.md) covers the environment variables, the local database and the Render
+deployment in full. This section is only meant to get a dev server up.
 
 ## Checks
 
@@ -78,20 +31,19 @@ request that shows them.
 npm run check   # lint + typecheck + tests
 ```
 
-`npm run lint` is Biome only and does not type-check; `npm run typecheck` runs `tsc`.
-
-`.github/workflows/checks.yml` runs the same three on every pull request and every push to
-`main`, as separate steps so a red run says which one failed. It needs no database: `prisma
-generate` is given a placeholder `DIRECT_URL` because `prisma.config.ts` resolves one at load,
-and every test that touches Prisma mocks it. It also runs `npx next typegen`, since `tsconfig.json`
-includes the gitignored `next-env.d.ts` and `tsc` cannot resolve the image imports without it.
+Biome does not type-check, so `npm run lint` alone is not enough. On a clean checkout
+`npm run typecheck` also needs `npx prisma generate` and `npx next typegen` to have run — both
+write gitignored files that `tsconfig.json` depends on. See [Setup](docs/setup.md#checks).
 
 ## Docs
 
 - [Overview](docs/overview.md) — pipeline, job system, rate limits, tech stack
-- [Setup](docs/setup.md) — local dev, local Postgres, Render deployment
+- [Setup](docs/setup.md) — local dev, environment variables, local Postgres, Render deployment
 - [IDE](docs/ide.md) — extensions and editor configuration
 - [Changelog](docs/CHANGELOG.md)
+
+`CLAUDE.md` is the agent-facing companion: the invariants and non-obvious patterns behind the
+code, rather than a second description of it.
 
 ## License
 

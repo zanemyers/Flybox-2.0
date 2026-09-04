@@ -2,6 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+It is deliberately **not** a description of the app — `docs/overview.md` is that, and `docs/setup.md`
+owns every setup, environment and deployment mechanic. What lives here is the part that cannot be
+recovered by reading the code: the constraints, and the things that were tried and broke.
+
+| Looking for | Read |
+|---|---|
+| How the pipeline, job system, catalog and rate limits work | `docs/overview.md` |
+| Env vars, local Postgres, Render deployment, checks | `docs/setup.md` |
+| Editor and extension configuration | `docs/ide.md` |
+| Why the code is the way it is, and what not to undo | this file |
+
 ## Project Overview
 
 Flybox is a fly-fishing data aggregation tool built for [Rescue River](https://rescueriver.com). It finds fly-fishing shops via SerpAPI (Google Maps) and scrapes their websites for contact info and fishing reports. Those reports are summarized with OpenAI. One unified pipeline does all of it, at `/api/flybox`.
@@ -17,112 +28,78 @@ npm run dev        # Start dev server (Turbopack)
 npm run build      # Build for production
 npm run lint       # Biome lint + format check (does NOT type-check)
 npm run format     # Format files (biome format --write)
-npm run typecheck  # tsc --noEmit — the only thing that type-checks
+npm run typecheck  # tsc --noEmit, over src/ and tests/
 npm test           # Vitest (run once); npm run test:watch to watch
-npm run check      # lint + typecheck + test, i.e. everything CI should run
+npm run check      # lint + typecheck + test, i.e. everything CI runs
+npm run docker:up  # Local Postgres container; :down keeps the volume, :reset wipes it
 npm run render:build    # Render's build command: install, generate, chromium, next build
 npm run render:migrate  # Render's pre-deploy command: prisma migrate deploy
 npm run render:cleanup  # Render's cron command: prune per src/server/retention.ts
 ```
 
-`render:build` touches no database, so it is safe to run locally.
-`render:migrate` and `render:cleanup` are not — they act on whatever `DIRECT_URL`
-and `DATABASE_URL` are in scope, which in a normal `.env` is the hosted database.
-
-`npm run lint` is Biome only. Biome is not a type checker, so **run `npm run typecheck` too** — or just `npm run check`.
-
-`.github/workflows/checks.yml` runs lint, typecheck and test on every PR and every push to `main`.
-It touches no database — but it **must** run `npx prisma generate` first, since `generated/` is
-gitignored and `src/server/db.ts` imports from it, so typecheck cannot compile without it. That
-step is handed a placeholder `DIRECT_URL`: `prisma.config.ts` resolves the variable eagerly at
-load and fails without one, even though `generate` only ever reads the schema. Typecheck and the
-tests need no database variables at all.
-
-It runs `npx next typegen` for the same reason: `tsconfig.json` includes `next-env.d.ts`, which is
-also gitignored and is written by `next build`, `next dev` or `next typegen`. Without it `tsc`
-cannot resolve the image imports in `src/client/images/*/index.ts` and fails with four
-`TS2307 Cannot find module './*.jpg'`. So **`npm run typecheck` needs one of those three to have
-run first** — on a clean checkout it cannot pass on its own. Both generate steps carry
-`if: ${{ !cancelled() }}` like the checks they feed, or a failed lint skips them and the later step
-fails for a reason that has nothing to do with its own code.
-
-**`biome.json` is strict JSON, so a comment in it is a parse error.** Biome answers a parse error by **silently falling back to its default config** rather than failing. The symptom is Biome suddenly checking 500+ files instead of 58, because every exclude in the file stopped applying.
-
-Local Postgres (the app itself runs on the host):
 ```bash
-npm run docker:up     # Start the Postgres container
-npm run docker:down   # Stop it, keep the volume
-npm run docker:reset  # Stop it and wipe the volume
-```
-
-Prisma:
-```bash
-npx prisma migrate dev      # Run DB migrations (dev)
-npx prisma migrate deploy   # Run DB migrations (prod)
+npx prisma migrate dev      # DB migrations (dev); migrate deploy for prod
 npx prisma generate         # Regenerate Prisma client (outputs to generated/prisma/)
 npx prisma studio           # Open DB browser
-```
-
-Setup scripts:
-```bash
-npx tsx scripts/setup.ts       # Append missing .env settings; never rewrites existing lines
+npx tsx scripts/setup.ts    # Append missing .env settings; never rewrites existing lines
 npx tsx scripts/db_cleanup.ts  # Prune jobs and the run ledger, each on its own window
 ```
 
-## Deployment
+**`render:migrate` and `render:cleanup` are not local commands.** They act on whatever `DIRECT_URL`
+and `DATABASE_URL` are in scope, which in a normal `.env` is the hosted database. `render:build`
+touches no database and is safe to run locally.
 
-Deployed on Render's **native Node environment** — there is no Dockerfile and no app image. Chromium comes from `npx playwright install chromium` in the build, so `RUN_HEADLESS` needs no value in production. `browser.ts` reads `process.env.RUN_HEADLESS !== "false"`, so unset means headless.
+**`npm run typecheck` cannot pass on a clean checkout.** It needs `npx prisma generate` (for
+`generated/prisma`, which `src/server/db.ts` imports) and `npx next typegen` (for `next-env.d.ts`,
+which `tsconfig.json` includes and the image imports resolve through). Both outputs are gitignored,
+and no check regenerates them for you. `npm run lint` is Biome only and is not a type checker.
 
-```
-Build:       npm run render:build
-Pre-deploy:  npm run render:migrate
-Cron:        npm run render:cleanup
-Start:       npm start
-```
+**Deployment is Render's native Node environment — there is no Dockerfile and no app image.** One
+was deleted; don't reintroduce one. `prisma generate` must stay in `render:build`: without it a
+clean checkout fails and only a warm build cache hides it.
 
-All three live in `package.json`, so the dashboard holds names rather than chains. A change to any of them then shows up in a diff. Migrations are in pre-deploy, not build. A build that fails therefore cannot leave the database ahead of the code, and the build itself never opens a database connection. The cron is named here for the same reason, plus one more. It enforces the retention the privacy policy promises, so it should not exist only in a dashboard.
+**`biome.json` is strict JSON, so a comment in it is a parse error.** Biome answers a parse error by **silently falling back to its default config** rather than failing. The symptom is Biome suddenly checking 500+ files instead of 58, because every exclude in the file stopped applying.
 
-**`prisma generate` must stay in it.** `generated/` is gitignored and nothing else creates it, while `src/server/db.ts` imports from it. A build without it fails on a clean checkout, and survives only on a warm build cache.
+## Invariants
 
-`docker-compose.yml` runs a Postgres container and nothing else, for local development. Credentials: `postgresql://flybox:flybox@localhost:5432/flybox`.
+Each of these was a defect once. `docs/overview.md` explains the designs; this is what not to undo.
 
-## Architecture
+**`pipeline.ts`**
+- **Each site gets a share of the prompt budget** (`TOKEN_CHAR_LIMIT / siteCount`, floored at 4k chars). Don't reintroduce a single global cap applied twice — that silently dropped every site after the first.
+- The OpenAI fallback (`gpt-5.6-terra`) is ~10x the primary's price, so it must only run after the primary has exhausted the SDK's retries. `reasoning: { effort: "none" }` is pinned and `max_output_tokens` capped — this is structured extraction, and reasoning tokens bill at the output rate.
+- The SDK's own `timeout` and `maxRetries` handle aborting and backoff. Do NOT reintroduce a `Promise.race` timeout, which billed for abandoned requests. An **empty** response is treated as failure, not success.
+- The shop phase is never skipped. `shopDirectory: false` decides whether the workbook is built, not whether shops are searched — the report phase filters on the `fishingReport` flags that phase sets.
 
-### Job-Based Async Pattern
+**`scraper.ts`**
+- **Report detection is token-based, not substring-based.** Substring matching made `/terms-and-conditions` and `/shop/hatchery-supply` read as fishing reports, which was true of nearly every commerce site. See `isReportPath()`.
+- **robots.txt**: directive *names* are lowercased, values are not — rule paths are case-sensitive and so is the URL path. Supports `*` wildcards, the `$` anchor, inline `#` comments, and consecutive `User-agent` lines as one group. Fetched once per origin, not once per page.
+- Email extraction order is mailto → Cloudflare `data-cfemail` → JSON-LD → visible-text regex → contact page. Candidates are matched against the page's **visible text**, and asset lookalikes (`logo@2x.png`) are rejected.
 
-1. **Client form** (`flyboxForm.tsx`) → `useForm` hook → `POST /api/flybox` as a **JSON body**
-2. **API route** validates the payload, creates a `Job` in PostgreSQL, fires off the pipeline async, returns `{ jobId }`. Invalid input gets a 400 with a specific message — it never starts a doomed job.
-3. **Client polls** `GET /api/flybox/[id]/updates` every 2 seconds — `statusPanel.tsx` renders messages and the output manifest. The poll response carries `{ message, status, createdAt, expected, files }`. `expected` is the manifest this run promised, decided by its options; `files` is readiness for those names only. The panel renders rows from `expected` and auto-downloads only what `files` reports, so nothing arrives that the caller did not ask for.
-4. **Downloads** come from `GET /api/flybox/[id]/files/[name]`, which streams the bytes. File blobs are deliberately kept out of the 2s poll. Reading and base64-encoding a several-hundred-KB xlsx every two seconds dominated both the query and the response.
-5. **Cancel** — `POST /api/flybox/[id]/cancel` sets a DB flag; the pipeline checks `isCanceled()` between steps *and* inside the crawl loop. Cancel only moves an `IN_PROGRESS` job, so it can't overwrite a terminal status.
+**`net.ts`** — the guard on every outbound fetch, and it imports nothing from the app.
+- **Every URL the crawler visits is chosen by a third party**, and the bytes land in `report_raw.txt`, which the public catalog serves. So a site redirecting to `http://169.254.169.254/` or `http://127.0.0.1:5432` could get the response published.
+- **Every** resolved address must be public: one public plus one loopback is the attack, not a partial pass.
+- `httpFetch` uses `redirect: "manual"` and re-checks **each hop** — `redirect: "follow"` walked the chain inside `fetch`, where nothing could see it. Playwright follows redirects internally, so `fetchPage` checks document requests in its `page.route` handler instead.
+- It does **not** close DNS rebinding: the name is resolved, then `fetch` resolves it again. Pinning the address would mean connecting to the IP with a `Host` header, which `fetch` cannot express.
 
-### Server Layer (`src/server/`)
+**`browser.ts`** — `needsPlaywright(result)` decides when an HTTP fetch was insufficient (blocked, JS-rendered, or null). But **never for a `refused` result** — that is a policy answer a browser would get too.
 
-Eleven files, each with a single responsibility. Beyond the six described below: `catalog.ts` (the `/runs` query) and `rateLimit.ts` (per-client and global caps). Then `geocode.ts` (reverse geocoding at job creation) and `config.ts` (the search term, the summary prompt, key access). Also `retention.ts` — how long data lives, importing nothing so `scripts/db_cleanup.ts` can read it without loading the app.
+**`handler.ts`** — `SiteInfo.sellsOnline` and `fishingReport` are `boolean`; emoji conversion happens only at Excel output time. `isCanceled()` caches its answer for 1.5s because it is called per shop and per crawled page.
 
-- **`pipeline.ts`** — `runFlybox()` orchestrates the full job in two phases:
-  - *Shop phase*: fetches 5 SerpAPI pages (offsets 0–80), dedupes, concurrently scrapes each shop (robots check → HTTP → Playwright fallback → `scrapeShopDetails`)
-  - *Report phase*: filters shops where `fishingReport: true`, then dedupes by hostname. Crawls each site with a priority queue (BFS, depth-limited), then feeds the text to OpenAI
-  - **Each site gets a share of the prompt budget** (`TOKEN_CHAR_LIMIT / siteCount`, floored at 4k chars). Don't reintroduce a single global cap applied twice — that silently dropped every site after the first.
-  - OpenAI primary model: `gpt-5.6-luna`; fallback: `gpt-5.6-terra` (~10x the price, so it must only run after the primary has exhausted the SDK's retries). `max_output_tokens` is capped and `reasoning: { effort: "none" }` is pinned — this is structured extraction, and reasoning tokens bill at the output rate. The SDK's own `timeout` and `maxRetries` handle aborting and backoff; do NOT reintroduce a `Promise.race` timeout, which billed for abandoned requests. An **empty** response is treated as failure, not success.
-  - `summarize: false` skips the model entirely and returns the crawled text. The char budget is much larger (`RAW_CHAR_LIMIT`), since there is no prompt to fit.
-- **`handler.ts`** — `JobHandler` wraps all DB operations (log, save, complete, fail, isCanceled). Also owns `Payload`/`SiteInfo`, the `OUTPUT_FILES` allow-list, and `buildShopWorkbook()`. `SiteInfo.sellsOnline` and `fishingReport` are `boolean` — emoji conversion happens only at Excel output time. `isCanceled()` caches its answer for 1.5s because it's called per shop and per crawled page.
-- **`scraper.ts`** — HTTP fetching with retries, robots.txt parsing, shop detail detection, and URL utilities. Email extraction too, in order: mailto → Cloudflare data-cfemail → JSON-LD → visible-text regex → contact page fetch.
-  - **robots.txt**: directive *names* are lowercased, values are not — rule paths are case-sensitive and so is the URL path. Supports `*` wildcards, the `$` anchor, inline `#` comments, and consecutive `User-agent` lines as one group.
-  - **Report detection is token-based, not substring-based.** Substring matching made `/terms-and-conditions` and `/shop/hatchery-supply` read as fishing reports, which was true of nearly every commerce site. See `isReportPath()`.
-  - Email candidates are matched against the page's **visible text**, and asset lookalikes (`logo@2x.png`) are rejected.
-- **`browser.ts`** — Playwright stealth browser wrapper. `needsPlaywright(result)` determines when HTTP fetch is insufficient (blocked, JS-rendered, or null). But **never for a `refused` result** — that is a policy answer a browser would get too.
-- **`net.ts`** — `checkUrl()`, the guard on every outbound fetch. **Every URL the crawler visits is chosen by a third party** — SerpAPI hands it shop sites, and it then follows their links. The bytes land in `report_raw.txt`, which the public catalog serves. So a site redirecting to `http://169.254.169.254/` or `http://127.0.0.1:5432` could get the response published. It refuses non-HTTP schemes, local-only names, and any host resolving to a non-public address. And **every** resolved address must be public: one public plus one loopback is the attack, not a partial pass. `httpFetch` uses `redirect: "manual"` and re-checks **each hop** — `redirect: "follow"` walked the chain inside `fetch`, where nothing could see it. Playwright follows redirects internally, so `fetchPage` checks document requests in its `page.route` handler instead. Imports nothing from the app.
-  - It does **not** close DNS rebinding: the name is resolved, then `fetch` resolves it again. Pinning the address would mean connecting to the IP with a `Host` header, which `fetch` cannot express.
-- **`db.ts`** — Prisma client singleton with `@prisma/adapter-pg`.
+**Catalog and limits**
+- Readiness for the listed runs is answered with a raw `IS NOT NULL` query rather than by selecting the blobs; selecting them to render a list pulled megabytes. Only the newest `DETAILED_RUNS` have their body read, for the snippet.
+- `rawFile` holds the crawled source on summarized runs ONLY. Raw mode does not write it, because `primaryFile` already is that text there — storing it twice cost a second copy of up to 500 KB.
+- **`RunLedger` is pruned by `RATE_LIMIT_WINDOW_MS`, never by the catalog window.** That coupling is exactly what made every cap uncountable, monthly included.
+- `locationName` is reverse-geocoded once per run **in the pipeline**, never on render and never on the request path — up to 5s of Nominatim latency used to land on the POST.
+- `/api/flybox/[id]/updates` is deliberately **not** rate-capped: legitimate polling is 30 requests a minute per open panel, so a cap tight enough to matter would break it. The poll reads at most `MAX_LOG_LINES` (500) messages, where it had no ceiling at all.
+- **The catalog is public.** Anyone can see the location and download the outputs of any recent run. This is disclosed in the privacy policy; keep it that way if the retention or the listing changes.
 
-### Database Schema
+## Database Schema
 
 PostgreSQL via Prisma. Schema in `db/schema.prisma`, generated client in `generated/prisma/`.
 
 - **Job** — `id` (cuid), `status` (IN_PROGRESS | COMPLETED | CANCELED | FAILED), `createdAt`, `heartbeatAt` (last proof the pipeline was alive). Then what the run was for: `latitude`, `longitude`, `locationName`, `rivers`, `summarized`, `shopDirectory`. Then the outputs: `primaryFile` (report TXT), `secondaryFile` (shop directory XLSX), `rawFile` (crawled source, summarized runs only). **Nothing identifying lives here** — the rate limiter's IP hash is on `RunLedger` alone, because a Job outlives every window a cap counts over
 - **JobMessage** — progress messages attached to a job (`jobMessages` relation); cascades on delete
-- **RunLedger** — `id`, `createdAt`, `clientHash`. One row per admitted run and the only thing the rate limiter counts. Holds no location, payload, status or outcome, because the global caps need a timestamp and nothing more. **Pruned by `RATE_LIMIT_WINDOW_MS`, never by the catalog window** — that coupling is exactly what made every cap uncountable.
+- **RunLedger** — `id`, `createdAt`, `clientHash`. One row per admitted run and the only thing the rate limiter counts. Holds no location, payload, status or outcome, because the global caps need a timestamp and nothing more
 
 All file output is stored as `Bytes` in the DB, never written to disk.
 
@@ -154,46 +131,12 @@ Tailwind CSS v4 + DaisyUI v5. Dark mode is the `data-theme` attribute, so use `i
 
 ## Testing
 
-Vitest, node environment, `tests/**/*.test.ts` (see `vitest.config.ts`). The root `tsconfig.json` excludes `tests/`, so `tests/tsconfig.json` covers that tree — `npm run typecheck` runs both, or a type error in a test survives every check.
+Vitest, node environment, `tests/**/*.test.ts` (see `vitest.config.ts`).
 
-There is **no client-side test coverage** — the vitest environment is `node` only and the config's `include` glob does not match `.tsx`. Adding component tests means adding jsdom and widening that glob.
-
-`tests/server/scraper.regressions.test.ts` pins the specific defects fixed on this branch (substring report detection, robots.txt case and wildcard handling). Keep it green.
-
-## Environment Variables
-
-```
-DATABASE_URL=postgresql://...   # Prisma client at runtime (supports pooling)
-DIRECT_URL=postgresql://...     # Prisma migrations (must be a direct connection)
-SERP_API_KEY=...                # REQUIRED — every run needs it
-OPENAI_API_KEY=...              # Required only when summarize is true
-RUN_HEADLESS=true               # Set false to see the Playwright browser
-RATE_LIMIT_SALT=...             # Keeps client rate-limit hashes stable across restarts
-```
-
-Optional rate-limit overrides, with defaults: `RATE_LIMIT_CLIENT_HOUR` (3), `RATE_LIMIT_CLIENT_DAY` (10), `RATE_LIMIT_GLOBAL_DAY` (40), `RATE_LIMIT_GLOBAL_MONTH` (200). The monthly default is sized against a 1,000-search SerpAPI plan at 5 searches per run.
-
-`RATE_LIMIT_TRUSTED_PROXIES` (1) is not a tuning knob like the others. It is how many proxies sit in front of the app, and it decides which `x-forwarded-for` entry is believed. Too high and a caller can forge an identity per request, retiring the per-client caps; too low and every caller shares one limit. Both directions log a warning on the first request that shows them.
-
-## The run catalog
-
-`/runs` lists the newest `CATALOG_LIMIT` (15) COMPLETED runs, all downloadable; the newest `DETAILED_RUNS` (5) also show an inline snippet of the report. Both constants live in `src/server/catalog.ts` and are imported by `scripts/db_cleanup.ts`, so retention and display cannot drift apart.
-
-Every listed run offers downloads. Readiness for all 15 is therefore answered with a raw `IS NOT NULL` query rather than by selecting the blobs. Selecting them to render a list would pull megabytes. Only the newest 5 have their body read, for the snippet.
-
-`Job` stores the run's `latitude`/`longitude`/`rivers`/`summarized` so the catalog can describe a run after the fact; the payload used to live only in memory. `locationName` is reverse-geocoded **once per run, in the pipeline** (`src/server/geocode.ts`, Nominatim) — never on render, and never on the request path. It is started alongside the shop phase, since up to 5s of Nominatim latency used to land on the POST. It is best-effort and null on failure, in which case the page shows coordinates instead.
-
-`rawFile` holds the crawled source text on summarized runs ONLY, so such a run can still offer what it was built from. Raw mode does not write it, because `primaryFile` already is that text there. Storing it twice cost a second copy of up to 500 KB. `primaryFile` remains report_summary.txt — the summary when summarized, the raw text otherwise.
-
-**The catalog is public.** Anyone can see the location and download the outputs of any recent run. This is disclosed in the privacy policy; keep it that way if the retention or the listing changes.
-
-## Rate limiting and abuse
-
-`POST /api/flybox` is unauthenticated. Every run costs the operator 5 SerpAPI searches, an OpenAI call, and a headless browser crawling up to 100 third-party sites. `src/server/rateLimit.ts` counts and records a run in one locked transaction before the job is created. **Counts come from `RunLedger`, never from `Job`.** Retention deletes `Job` rows on the catalog's schedule. Counting them shortened every cap to whatever survived the last prune, monthly cap included. `RATE_LIMIT_WINDOW_MS` in `retention.ts` is read by both the count and the prune, so they cannot drift again. Admission holds `pg_advisory_xact_lock`: counting then inserting let a parallel burst bypass the caps entirely. The client is identified by a **salted SHA-256 of its IP** on `RunLedger.clientHash`; the raw address is never stored. That IP is read by **counting in from the right** of `x-forwarded-for`. Each proxy appends the peer it heard from, so the rightmost entries are infrastructure's; anything further left may have been typed by the caller. Reading the leftmost, the usual "client IP" convention, made the header a free identity. Without `RATE_LIMIT_SALT` a per-process salt is generated, so limits reset on redeploy. That is the right trade: an unsalted hash of an IPv4 address is trivially reversible.
-
-Downloads are capped too, but differently: `allowDownload()` is **in memory**, per client, 60/minute (`RATE_LIMIT_DOWNLOADS_MINUTE`). A run costs API credits and must be counted durably, or a restart refunds it. A download costs a blob read and bandwidth: worth bounding, not worth a DB write per request. `/runs` publishes the job ids that address the download route, so without a cap the blobs were an open pipe. The 2s poll also reads at most `MAX_LOG_LINES` (500) messages, newest first — it had no ceiling at all. `/api/flybox/[id]/updates` is deliberately **not** capped. Legitimate polling is 30 requests a minute per open panel, so a cap tight enough to matter would break it.
-
-`src/app/robots.ts` disallows all crawlers. There is nothing to index and real cost in being crawled.
+- The root `tsconfig.json` excludes `tests/`, so `tests/tsconfig.json` covers that tree and `npm run typecheck` runs both — otherwise a type error in a test survives every check.
+- There is **no client-side test coverage**: the environment is `node` only and the `include` glob does not match `.tsx`. Adding component tests means adding jsdom and widening that glob.
+- `tests/server/scraper.regressions.test.ts` pins the scraper defects that have been fixed (substring report detection, robots.txt case and wildcard handling). Keep it green.
+- `tests/hookmark.test.ts` reads `brand.tsx` and `app/icon.svg` as **text**, because the hook is drawn in both and they cannot be one file — the component needs `currentColor`, the favicon needs literal colors and `prefers-color-scheme`. It pins the geometry they share.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

@@ -35,7 +35,7 @@ npm run dev                 # start dev server at http://localhost:3000
 
 Without `RATE_LIMIT_SALT` a per-process salt is generated, so limits reset on every redeploy. Degrading to an unsalted hash is not an option — an unsalted hash of an IPv4 address is trivially reversible.
 
-Optional rate-limit overrides, with defaults: `RATE_LIMIT_CLIENT_HOUR` (3), `RATE_LIMIT_CLIENT_DAY` (10), `RATE_LIMIT_GLOBAL_DAY` (40), `RATE_LIMIT_GLOBAL_MONTH` (200).
+Optional rate-limit overrides, with defaults: `RATE_LIMIT_CLIENT_HOUR` (3), `RATE_LIMIT_CLIENT_DAY` (10), `RATE_LIMIT_GLOBAL_DAY` (40), `RATE_LIMIT_GLOBAL_MONTH` (200), `RATE_LIMIT_DOWNLOADS_MINUTE` (60). The monthly default is sized against a 1,000-search SerpAPI plan at 5 searches per run.
 
 `RATE_LIMIT_TRUSTED_PROXIES` (1) is not a tuning knob like the others. It is how many proxies sit in front of the app, and it decides which `x-forwarded-for` entry is believed. Too high and a caller can forge an identity per request, retiring the per-client caps; too low and every caller shares one limit. Both directions log a warning on the first request that shows them.
 
@@ -120,3 +120,9 @@ On a clean checkout `npm run typecheck` needs two generated files first: `npx pr
 `generated/prisma`, and one of `next build`, `next dev` or `npx next typegen` for `next-env.d.ts`.
 Both are gitignored and `tsconfig.json` includes the latter, so without them `tsc` fails on imports
 rather than on anything you changed.
+
+`.github/workflows/checks.yml` runs the same three on every pull request and every push to `main`,
+as separate steps so a red run says which one failed, and the later ones run even after an earlier
+one fails instead of hiding behind it. It needs no database: the `prisma generate` step is handed a
+placeholder `DIRECT_URL` because `prisma.config.ts` resolves one eagerly at load even though
+`generate` only reads the schema, and every test that touches Prisma mocks it.
