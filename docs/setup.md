@@ -115,3 +115,8 @@ npm run check   # lint + typecheck + tests
 ```
 
 `npm run lint` is Biome only and does not type-check. Run `npm run typecheck` too, or just `npm run check`.
+
+On a clean checkout `npm run typecheck` needs two generated files first: `npx prisma generate` for
+`generated/prisma`, and one of `next build`, `next dev` or `npx next typegen` for `next-env.d.ts`.
+Both are gitignored and `tsconfig.json` includes the latter, so without them `tsc` fails on imports
+rather than on anything you changed.

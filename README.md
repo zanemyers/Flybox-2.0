@@ -83,7 +83,8 @@ npm run check   # lint + typecheck + tests
 `.github/workflows/checks.yml` runs the same three on every pull request and every push to
 `main`, as separate steps so a red run says which one failed. It needs no database: `prisma
 generate` is given a placeholder `DIRECT_URL` because `prisma.config.ts` resolves one at load,
-and every test that touches Prisma mocks it.
+and every test that touches Prisma mocks it. It also runs `npx next typegen`, since `tsconfig.json`
+includes the gitignored `next-env.d.ts` and `tsc` cannot resolve the image imports without it.
 
 ## Docs
 

@@ -38,6 +38,8 @@ npx prisma generate
 
 The generated client outputs to `generated/prisma/`, which is gitignored. A fresh clone therefore needs this before `npm run typecheck` or `npm run build` will pass. Neither script regenerates it, which is why `npx prisma generate` is a step in the Render build command.
 
+`next-env.d.ts` is the same story: gitignored, included by `tsconfig.json`, and written only by `next build`, `next dev` or `npx next typegen`. A fresh clone needs one of those three before `npm run typecheck` will pass.
+
 ## Type Checking
 
 Biome does not type-check. `npm run typecheck` runs `tsc --noEmit` over `src/`; the test tree has its own `tests/tsconfig.json`, which the root config excludes.

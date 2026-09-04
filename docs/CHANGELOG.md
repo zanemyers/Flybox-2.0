@@ -24,7 +24,7 @@ later change superseded an earlier one, only the outcome is listed.
 - `tests/server/scraper.regressions.test.ts` pinning the scraper defects fixed below, plus `catalog.test.ts`, `rateLimit.test.ts`, and a `tests/tsconfig.json` that type-checks the test tree
 - `docker-compose.yml` running a local Postgres, and `npm run docker:up/down/reset` to drive it
 - `npm run check`
-- `.github/workflows/checks.yml` — lint, typecheck and test on every pull request and every push to `main`. Three steps rather than one `npm run check`, so a red run names the failure. The later two run even after an earlier one fails, instead of hiding behind it
+- `.github/workflows/checks.yml` — lint, typecheck and test on every pull request and every push to `main`. Separate steps rather than one `npm run check`, so a red run names the failure, and the later ones run even after an earlier one fails instead of hiding behind it. Two generate steps feed them: `prisma generate` for `generated/prisma`, and `next typegen` for `next-env.d.ts`
 - `npm run render:build`, `render:migrate` and `render:cleanup` — Render's build, pre-deploy and cron commands as scripts, so the dashboard holds names rather than chains. A change to any of them then shows up in a diff. `render:build` also adds the `prisma generate` step the dashboard command was missing. The cron is named here for one more reason. It enforces the retention the privacy policy promises, so it should not exist only in a dashboard
 - Migrations moved out of the build and into pre-deploy. A build that fails partway can no longer leave the database ahead of the code. The build also opens no database connection, which makes it safe to run locally
 - MIT `LICENSE`
