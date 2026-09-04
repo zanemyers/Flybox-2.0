@@ -1,7 +1,21 @@
 import * as cheerio from "cheerio";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { StealthBrowser } from "@/server/browser";
-import { extractAnchors, includesAny, isAllowedByRobots, normalizeUrl, sameDomain, scrapeShopDetails, scrapeVisibleText } from "@/server/scraper";
+
+/* Stubbed open: these tests use unresolvable hostnames, which the real guard refuses. See net.test.ts. */
+type Verdict = { ok: boolean; reason?: string };
+// Typed with the url parameter, so a test can branch on it and `mock.calls` is indexable.
+const checkUrl = vi.hoisted(() => vi.fn(async (_url: string): Promise<Verdict> => ({ ok: true })));
+vi.mock("@/server/net", () => ({ checkUrl }));
+
+const { extractAnchors, httpFetch, includesAny, isAllowedByRobots, normalizeUrl, sameDomain, scrapeShopDetails, scrapeVisibleText } = await import(
+  "@/server/scraper"
+);
+
+// mockReset, so each test reads its own call history rather than every earlier test's.
+beforeEach(() => {
+  checkUrl.mockReset().mockImplementation(async () => ({ ok: true }));
+});
 
 // ── includesAny ────────────────────────────────────────────────────────────────
 
@@ -188,20 +202,17 @@ describe("extractAnchors", () => {
 
 // ── isAllowedByRobots ──────────────────────────────────────────────────────────
 
+// robots.txt goes through httpFetch now, so the mock needs a status, headers and a body stream.
 function mockRobotsFetch(body: string, ok = true) {
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockResolvedValue({
-      ok,
-      text: () => Promise.resolve(body),
-    }),
+    vi.fn(() => Promise.resolve(streamResponse(body, { "content-type": "text/plain" }, ok ? 200 : 404))),
   );
 }
 
 describe("isAllowedByRobots", () => {
   beforeEach(() => {
-    // Each test needs a clean robots cache — reimport would work but resetting
-    // via a fresh origin per test is simpler and avoids module reload overhead.
+    // Each test needs a clean robots cache; a fresh origin per test is simpler than reimporting the module.
   });
 
   afterEach(() => {
@@ -473,5 +484,190 @@ describe("scrapeShopDetails — email extraction", () => {
     const $ = cheerio.load(html);
     const details = await scrapeShopDetails($, "https://prefer-mailto.test", makeMockBrowser());
     expect(details.email).toBe("preferred@flyshop.com");
+  });
+});
+
+// ── httpFetch: what it refuses to read ────────────────────────────────────────
+
+/** A real Response, so headers.get and the body stream behave as in production; no headers means no content-type at all. */
+function streamResponse(body: string, headers: Record<string, string> = {}, status = 200) {
+  const bytes = new TextEncoder().encode(body);
+  return new Response(
+    new ReadableStream({
+      start(c) {
+        c.enqueue(bytes);
+        c.close();
+      },
+    }),
+    { status, headers },
+  );
+}
+
+describe("httpFetch body guards", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("refuses a PDF served from an extensionless URL, which BINARY_EXT cannot catch", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(streamResponse("%PDF-1.4 endstream endobj", { "content-type": "application/pdf" })));
+    const result = await httpFetch("https://shop.test/pathfinder-infosheet");
+    expect(result.html).toBeNull();
+    expect(result.error).toContain("application/pdf");
+  });
+
+  it("refuses stylesheets and scripts even though they are text/*", async () => {
+    for (const type of ["text/css", "text/javascript", "image/png"]) {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(streamResponse("body{}", { "content-type": type })));
+      expect((await httpFetch("https://shop.test/asset")).html).toBeNull();
+    }
+  });
+
+  it("reads markup, and the declared charset is honored", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(streamResponse("<html><body>Caddis</body></html>", { "content-type": "text/html; charset=utf-8" })));
+    expect((await httpFetch("https://shop.test/report")).html).toContain("Caddis");
+  });
+
+  it("still reads a body when the server declares no content-type at all", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(streamResponse("<html><body>no type</body></html>")));
+    expect((await httpFetch("https://shop.test/")).html).toContain("no type");
+  });
+
+  it("caps an oversized body, including when it arrives as one chunk", async () => {
+    const huge = `<html>${"x".repeat(3_000_000)}</html>`;
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(streamResponse(huge, { "content-type": "text/html" })));
+    const result = await httpFetch("https://shop.test/huge");
+    expect(result.html).not.toBeNull();
+    expect(result.html?.length).toBeLessThanOrEqual(2_000_000);
+  });
+
+  it("treats a 403 as blocked without reading its body", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(streamResponse("Access Denied", { "content-type": "text/html" }, 403)));
+    const result = await httpFetch("https://shop.test/blocked");
+    expect(result.blocked).toBe(true);
+    expect(result.html).toBeNull();
+  });
+});
+
+// ── the address guard, as scraper.ts uses it ──────────────────────────────────
+
+// net.test.ts proves the guard decides right; these prove httpFetch asks it, on every hop.
+describe("httpFetch consults the address guard", () => {
+  const redirect = (to: string, status = 302) => streamResponse("", { location: to, "content-type": "text/html" }, status);
+  const page = (body: string) => streamResponse(body, { "content-type": "text/html" });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("refuses a declined URL without opening a connection", async () => {
+    const spy = vi.fn();
+    vi.stubGlobal("fetch", spy);
+    checkUrl.mockImplementation(async () => ({ ok: false, reason: "refused: 127.0.0.1 is not a public address" }));
+
+    const result = await httpFetch("http://127.0.0.1:5432/");
+
+    expect(spy).not.toHaveBeenCalled();
+    expect(result.refused).toBe(true);
+    expect(result.html).toBeNull();
+    expect(result.error).toContain("refused");
+  });
+
+  it("does not retry a refusal — it is a policy answer, not a transport failure", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    checkUrl.mockImplementation(async () => ({ ok: false, reason: "refused" }));
+    await httpFetch("http://10.0.0.1/");
+    // One verdict, not one per retry: httpFetch returns rather than throwing.
+    expect(checkUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it("checks each hop of a redirect chain, not just the URL it was given", async () => {
+    const spy = vi.fn().mockResolvedValueOnce(redirect("https://second.test/b")).mockResolvedValueOnce(page("<html><body>Caddis hatch</body></html>"));
+    vi.stubGlobal("fetch", spy);
+
+    const result = await httpFetch("https://first.test/a");
+
+    expect(result.html).toContain("Caddis hatch");
+    expect(checkUrl.mock.calls.map((c) => c[0])).toEqual(["https://first.test/a", "https://second.test/b"]);
+  });
+
+  it("stops a redirect that lands somewhere the guard declines", async () => {
+    const spy = vi.fn().mockResolvedValue(redirect("http://169.254.169.254/latest/meta-data/"));
+    vi.stubGlobal("fetch", spy);
+    checkUrl.mockImplementation(async (url: string) => ({ ok: !url.includes("169.254"), reason: "refused: metadata" }));
+
+    const result = await httpFetch("https://shop.test/start");
+
+    // The first hop was fetched; the metadata address never was.
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(result.refused).toBe(true);
+    expect(result.html).toBeNull();
+  });
+
+  it("resolves a relative Location against the URL that sent it", async () => {
+    const spy = vi.fn().mockResolvedValueOnce(redirect("/reports/june")).mockResolvedValueOnce(page("<html><body>June</body></html>"));
+    vi.stubGlobal("fetch", spy);
+
+    await httpFetch("https://shop.test/deep/page");
+
+    expect(checkUrl.mock.calls.map((c) => c[0])).toEqual(["https://shop.test/deep/page", "https://shop.test/reports/june"]);
+  });
+
+  it("gives up on a redirect loop rather than following it forever", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(redirect("https://loop.test/again")));
+    const result = await httpFetch("https://loop.test/again");
+    expect(result.html).toBeNull();
+    expect(result.error).toBe("too many redirects");
+  });
+
+  it("treats a redirect with no Location as a dead end", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(streamResponse("", { "content-type": "text/html" }, 301))),
+    );
+    const result = await httpFetch("https://shop.test/x");
+    expect(result.html).toBeNull();
+    expect(result.error).toContain("no location");
+  });
+
+  it("guards the robots.txt fetch too, since that is the first request to any origin", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    checkUrl.mockImplementation(async () => ({ ok: false, reason: "refused" }));
+    // No rules is still "allowed" — the guard stops the pages themselves at httpFetch.
+    await isAllowedByRobots("http://192.168.1.1/admin");
+    expect(checkUrl).toHaveBeenCalledWith("http://192.168.1.1/robots.txt");
+  });
+});
+
+// ── robots.txt fetching, not parsing ──────────────────────────────────────────
+
+describe("robots.txt is fetched once per origin", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("collapses concurrent misses on one origin into a single request", async () => {
+    const spy = vi.fn(() => Promise.resolve(streamResponse("User-agent: *\nDisallow: /admin\n", { "content-type": "text/plain" })));
+    vi.stubGlobal("fetch", spy);
+
+    const results = await Promise.all([
+      isAllowedByRobots("https://one-fetch.test/a"),
+      isAllowedByRobots("https://one-fetch.test/b"),
+      isAllowedByRobots("https://one-fetch.test/admin"),
+    ]);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(results.map((r) => r.allowed)).toEqual([true, true, false]);
+  });
+
+  it("serves later pages from cache rather than refetching per page", async () => {
+    const spy = vi.fn(() => Promise.resolve(streamResponse("User-agent: *\nCrawl-delay: 2\n", { "content-type": "text/plain" })));
+    vi.stubGlobal("fetch", spy);
+
+    const first = await isAllowedByRobots("https://cached-robots.test/page-1");
+    for (const n of [2, 3, 4, 5]) await isAllowedByRobots(`https://cached-robots.test/page-${n}`);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    // A robots.txt with only Crawl-delay has no rules but still asks for the delay.
+    expect(first.crawlDelay).toBe(2);
   });
 });

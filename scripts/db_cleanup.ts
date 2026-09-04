@@ -1,48 +1,42 @@
 import { JobStatus, prisma } from "@/server/db";
+import { CATALOG_LIMIT, clientHashCutoff, ledgerCutoff, staleCutoff } from "@/server/retention";
 
-async function cleanupOldJobs() {
-  try {
-    console.log("Starting cleanup...");
+// One pass over runs, then two over the ledger — its hash and its row go on different windows.
 
-    // Delete all FAILED or CANCELED jobs
-    console.log("Removing failed or canceled jobs...");
-    await prisma.job.deleteMany({
-      where: {
-        status: { in: [JobStatus.FAILED, JobStatus.CANCELED] },
-      },
-    });
+async function cleanup() {
+  console.log("Starting cleanup...");
 
-    // Keep 5 most recent COMPLETED jobs, delete the rest
-    const recentCompleted = await prisma.job.findMany({
-      where: { status: JobStatus.COMPLETED },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      select: { id: true },
-    });
+  // Three disjoint reasons, so the OFFSET subquery reads the pre-delete snapshot. Abandoned runs go outright, not FAILED first.
+  const deleted = await prisma.$executeRaw`
+    DELETE FROM "Job"
+    WHERE "status" IN (${JobStatus.FAILED}::"JobStatus", ${JobStatus.CANCELED}::"JobStatus")
+       OR ("status" = ${JobStatus.IN_PROGRESS}::"JobStatus" AND "heartbeatAt" < ${staleCutoff()})
+       OR "id" IN (
+            SELECT "id" FROM "Job"
+            WHERE "status" = ${JobStatus.COMPLETED}::"JobStatus"
+            ORDER BY "createdAt" DESC, "id" DESC
+            OFFSET ${CATALOG_LIMIT}
+          )
+  `;
+  console.log(`  deleted ${deleted} run(s) — failed, canceled, abandoned, or past the ${CATALOG_LIMIT}-run catalog`);
 
-    const keepIds = recentCompleted.map((job) => job.id);
+  // Pruned by its own window, never the catalog's — these rows are the only evidence a cap can count.
+  const ledgerHashes = await prisma.runLedger.updateMany({
+    where: { clientHash: { not: null }, createdAt: { lt: clientHashCutoff() } },
+    data: { clientHash: null },
+  });
+  console.log(`  cleared the client hash on ${ledgerHashes.count} ledger row(s) past the per-client window`);
 
-    console.log("Removing old completed jobs...");
-    await prisma.job.deleteMany({
-      where: {
-        status: JobStatus.COMPLETED,
-        id: { notIn: keepIds },
-      },
-    });
-
-    console.log("Finished!");
-  } catch (err) {
-    console.error("Error during cleanup:", err);
-  } finally {
-    await prisma.$disconnect();
-  }
+  const ledgerRows = await prisma.runLedger.deleteMany({ where: { createdAt: { lt: ledgerCutoff() } } });
+  console.log(`  deleted ${ledgerRows.count} ledger row(s) past the longest rate-limit window`);
 }
 
-cleanupOldJobs()
+cleanup()
   .catch((err) => {
     console.error("Cleanup failed:", err);
-    process.exit(1);
+    process.exitCode = 1;
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    // A disconnect that fails on the way out is not worth changing the exit code for.
+    await prisma.$disconnect().catch(() => {});
   });

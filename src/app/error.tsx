@@ -1,23 +1,51 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect } from "react";
+import { ContourField } from "@/client/components/brand";
 
 export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error(error);
   }, [error]);
 
+  // Set imperatively because a client component cannot export metadata, so the tab would keep the failed page's title.
+  useEffect(() => {
+    document.title = "Something went wrong — Flybox";
+  }, []);
+
   return (
-    <div className="w-[85%] text-center mx-auto py-12">
-      <h1 className="mb-3 text-secondary">
-        <b>500</b>
-      </h1>
-      <h2 className="text-primary">Something Went Wrong</h2>
-      <p className="lead">An unexpected error occurred. Try refreshing the page or heading back home.</p>
-      <div className="flex justify-center gap-4 mt-6">
-        <button type="button" className="btn btn-primary btn-lg px-4" onClick={reset}>
-          Try Again
-        </button>
+    <div className="shell relative overflow-hidden py-16">
+      <div className="pointer-events-none absolute inset-0">
+        <ContourField />
+      </div>
+
+      {/* The watermark is a sibling column, not an absolute overlay, so it can never sit behind the copy. */}
+      <div className="relative grid items-center gap-10 md:grid-cols-[minmax(0,46ch)_1fr]">
+        <div>
+          <span className="eyebrow">Error 500 · Unexpected error</span>
+          <h1 className="mt-2">Instrument fault</h1>
+          <p className="mt-4">An unexpected error occurred. Try refreshing the page or heading back home.</p>
+
+          {/* The digest was previously console-only, so a user had nothing to quote in a bug report. */}
+          <div className="well mt-5 flex items-center gap-3">
+            <span className="eyebrow">Digest</span>
+            <code className="readout select-all text-xs">{error.digest ?? "—"}</code>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-2">
+            <button type="button" className="btn btn-primary h-10" onClick={reset}>
+              Try again
+            </button>
+            <Link href="/" className="btn btn-ghost h-10 border border-stroke">
+              Back to home
+            </Link>
+          </div>
+        </div>
+
+        <span aria-hidden="true" className="readout hidden select-none justify-self-end text-[7rem] leading-none text-base-content/10 md:block">
+          500
+        </span>
       </div>
     </div>
   );

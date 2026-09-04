@@ -3,21 +3,48 @@ import * as cheerio from "cheerio";
 import { getJson } from "serpapi";
 import TinyQueue from "tinyqueue";
 import { StealthBrowser as Browser, needsPlaywright, type StealthBrowser } from "@/server/browser";
+import { requireKey, SEARCH_TERM, SUMMARY_PROMPT } from "@/server/config";
 import type { JobHandler, SiteInfo } from "@/server/handler";
 import { extractAnchors, httpFetch, includesAny, isAllowedByRobots, normalizeUrl, sameDomain, scrapeShopDetails, scrapeVisibleText } from "@/server/scraper";
 
-const BLANK: Pick<SiteInfo, "email" | "sellsOnline" | "fishingReport" | "socialMedia"> = {
-  email: "",
-  sellsOnline: false,
-  fishingReport: false,
-  socialMedia: [],
-};
-
 // ── Shop phase ────────────────────────────────────────────────────────────────
-async function fetchShopsPage(job: JobHandler, start: number): Promise<SiteInfo[]> {
+
+/* SerpAPI bills per page and returns at most 20 with no `num` to raise it, so 100 listings costs 5 searches; the only lever is stopping early, and a short page is the last one. */
+export const SERP_PAGE_SIZE = 20;
+export const SERP_MAX_PAGES = 5;
+
+/** Walks SerpAPI pages until one comes back short. `fetchPage` returns null for "request failed", which is NOT "no more results" — on failure we stop rather than assume the end. */
+export async function paginateShops(
+  fetchPage: (start: number) => Promise<SiteInfo[] | null>,
+  maxPages = SERP_MAX_PAGES,
+  pageSize = SERP_PAGE_SIZE,
+): Promise<{ shops: SiteInfo[]; searchesSpent: number; stoppedEarly: boolean }> {
+  const shops: SiteInfo[] = [];
+  let searchesSpent = 0;
+
+  for (let page = 0; page < maxPages; page++) {
+    const batch = await fetchPage(page * pageSize);
+    if (batch === null) return { shops, searchesSpent, stoppedEarly: true };
+
+    searchesSpent++;
+    shops.push(...batch);
+    if (batch.length < pageSize) return { shops, searchesSpent, stoppedEarly: true };
+  }
+
+  return { shops, searchesSpent, stoppedEarly: false };
+}
+
+async function fetchShopsPage(job: JobHandler, start: number): Promise<SiteInfo[] | null> {
   try {
-    const { serpApiKey, searchTerm, latitude, longitude } = job.payload;
-    const data = await getJson({ engine: "google_maps", api_key: serpApiKey, q: searchTerm, ll: `@${latitude},${longitude},8z`, type: "search", start });
+    const { latitude, longitude } = job.payload;
+    const data = await getJson({
+      engine: "google_maps",
+      api_key: requireKey("SERP_API_KEY"),
+      q: SEARCH_TERM,
+      ll: `@${latitude},${longitude},8z`,
+      type: "search",
+      start,
+    });
     return ((data.local_results ?? []) as Record<string, unknown>[]).map((r) => ({
       name: String(r.title ?? ""),
       website: String(r.website ?? ""),
@@ -32,8 +59,8 @@ async function fetchShopsPage(job: JobHandler, start: number): Promise<SiteInfo[
       socialMedia: [] as string[],
     }));
   } catch (err) {
-    await job.log(`  ⚠️ Failed to fetch results at offset ${start}: ${String(err)}`);
-    return [];
+    await job.log(`[!!] Failed to fetch results at offset ${start}: ${String(err)}`);
+    return null;
   }
 }
 
@@ -42,48 +69,59 @@ async function scrapeShop(shop: SiteInfo, browser: StealthBrowser, job: JobHandl
 
   const { allowed } = await isAllowedByRobots(shop.website);
   if (!allowed) {
-    await job.log(`  🤖 Skipping ${shop.name} — disallowed by robots.txt`);
+    await job.log(`[??] Skipping ${shop.name} — disallowed by robots.txt`);
     return shop;
   }
 
   let result = await httpFetch(shop.website);
   if (needsPlaywright(result)) {
-    await job.log(`  ↩ Playwright fallback: ${shop.name}`);
+    await job.log(`[->] Playwright fallback: ${shop.name}`);
     result = await browser.fetchPage(shop.website);
   }
 
-  if (!result.html || result.blocked) return { ...shop, ...BLANK };
+  // A site the address guard declined otherwise looks identical to one that simply failed.
+  if (result.refused) {
+    await job.log(`[??] Skipping ${shop.name} — ${result.error}`);
+    return shop;
+  }
+
+  if (!result.html || result.blocked) return shop;
 
   try {
     const $ = cheerio.load(result.html);
     const details = await scrapeShopDetails($, shop.website, browser);
     return { ...shop, ...details };
   } catch (err) {
-    await job.log(`  ⚠️ Failed to scrape ${shop.name}: ${String(err)}`);
-    return { ...shop, ...BLANK };
+    await job.log(`[!!] Failed to scrape ${shop.name}: ${String(err)}`);
+    return shop;
   }
 }
 
 async function shopPhase(job: JobHandler, browser: StealthBrowser): Promise<SiteInfo[]> {
-  await job.log("🔍 Searching for shops via SerpAPI…");
+  await job.log("[..] Searching for shops via SerpAPI…");
 
-  const pages = await Promise.all([0, 20, 40, 60, 80].map((start) => fetchShopsPage(job, start)));
-  const deduped = [...new Map(pages.flat().map((s) => [s.website || s.name, s])).values()].slice(0, 100);
-  await job.log(`📋 Found ${deduped.length} shops. Scraping websites…`);
+  const { shops, searchesSpent } = await paginateShops((start) => fetchShopsPage(job, start));
+  const deduped = [...new Map(shops.map((s) => [s.website || s.name, s])).values()];
+  await job.log(`[..] Found ${deduped.length} shops using ${searchesSpent} of ${SERP_MAX_PAGES} SerpAPI searches. Scraping websites…`);
 
   const results: SiteInfo[] = [];
   let scraped = 0;
 
-  await PromisePool.withConcurrency(10)
+  const { errors } = await PromisePool.withConcurrency(10)
     .for(deduped)
     .process(async (shop) => {
       if (await job.isCanceled()) return;
       results.push(await scrapeShop(shop, browser, job));
       scraped++;
-      if (scraped % 10 === 0) await job.log(`  … scraped ${scraped}/${deduped.length}`);
+      if (scraped % 10 === 0) await job.log(`[->] scraped ${scraped}/${deduped.length}`);
     });
 
-  await job.log(`✅ Shop phase complete. ${results.filter((s) => s.fishingReport).length} shops publish fishing reports.`);
+  // PromisePool collects rejections instead of throwing, and discarding them dropped shops from the spreadsheet with no trace.
+  for (const err of errors) {
+    await job.log(`[!!] Shop scrape failed for ${err.item?.name ?? "unknown"}: ${String(err)}`);
+  }
+
+  await job.log(`[OK] Shop phase complete. ${results.filter((s) => s.fishingReport).length} of ${results.length} shops publish fishing reports.`);
   return results;
 }
 
@@ -91,19 +129,75 @@ async function shopPhase(job: JobHandler, browser: StealthBrowser): Promise<Site
 
 const MAX_DEPTH = 20;
 const TOKEN_CHAR_LIMIT = 50_000;
-const GEMINI_MODEL = "gemini-2.5-flash";
-const GEMINI_FALLBACK_MODEL = "gemini-2.5-flash-lite";
-const GEMINI_TIMEOUT_MS = 60_000;
+/* Raw mode has no prompt, so the only bound is a sane download size. */
+const RAW_CHAR_LIMIT = 500_000;
+const MIN_SITE_CHAR_BUDGET = 4_000;
+const MAX_CRAWL_DELAY_SEC = 5;
+/* Reasoning pinned OFF: this is structured extraction, and reasoning tokens bill at the output rate. Terra costs ~10x and runs only after Luna exhausts every SDK retry. */
+const OPENAI_MODEL = "gpt-5.6-luna";
+const OPENAI_FALLBACK_MODEL = "gpt-5.6-terra";
+const OPENAI_REASONING_EFFORT = "none" as const;
 
-const CRAWL_KEYWORDS = ["report", "fishing", "fish", "conditions", "hatch", "fly"];
+/* Output is most of the per-call cost, and an unbounded digest on a pathological run is the one way this gets expensive. */
+const MAX_OUTPUT_TOKENS = 6_000;
+
+/* Report content is not always filed under a fishing word — on northplatteflyfishing.com the reports lived at /news. */
+const CRAWL_KEYWORDS = ["report", "fishing", "fish", "conditions", "hatch", "fly", "river", "stream", "creek", "water", "news", "blog", "journal", "update"];
 const CRAWL_JUNK_WORDS = ["/page/", "/tag/", "/category/", "?page=", "wp-admin", "/feed/"];
 const CRAWL_CLICK_PHRASES = ["read more", "view report", "see report", "full report", "more info", "learn more"];
 
-function getPriority(currentUrl: string, href: string, text: string): number {
-  const hasKeyword = includesAny(href, CRAWL_KEYWORDS);
-  const hasJunk = includesAny(href, CRAWL_JUNK_WORDS);
+/* Paths that never carry a report however the site is organized. The privacy policy alone was 20% of one real 50,000-char payload. */
+const CRAWL_EXCLUDE = [
+  "privacy",
+  "terms",
+  "policy",
+  "legal",
+  "disclaimer",
+  "cart",
+  "checkout",
+  "account",
+  "login",
+  "register",
+  "wp-content",
+  "wp-json",
+  "returns",
+  "shipping",
+  "gift-card",
+];
+
+/* Non-HTML assets. A PDF handed to cheerio comes back as binary noise — one real payload was 39% a single PDF, %PDF/endstream markers and all. */
+const BINARY_EXT = /\.(pdf|docx?|xlsx?|pptx?|zip|rar|gz|tar|jpe?g|png|gif|webp|svg|ico|mp4|mp3|wav|avi|mov|css|js)$/i;
+
+/** Path + query, or the input unchanged if it will not parse. Keyword matching must not see the hostname: on flyshop.com every link contains "fly". */
+function urlPath(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.pathname}${u.search}`;
+  } catch {
+    return url;
+  }
+}
+
+/** Pathname alone, with no query — for extension tests. */
+function urlPathname(url: string): string {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return url;
+  }
+}
+
+export function getPriority(currentUrl: string, href: string, text: string): number {
+  const hrefPath = urlPath(href);
+
+  // Cheap, absolute exclusions first — these are never worth a fetch.
+  if (BINARY_EXT.test(urlPathname(href))) return Infinity;
+  if (includesAny(hrefPath, CRAWL_EXCLUDE)) return Infinity;
+
+  const hasKeyword = includesAny(hrefPath, CRAWL_KEYWORDS);
+  const hasJunk = includesAny(hrefPath, CRAWL_JUNK_WORDS);
   const hasClickPhrase = includesAny(text, CRAWL_CLICK_PHRASES);
-  const currentHasKeyword = includesAny(currentUrl, CRAWL_KEYWORDS);
+  const currentHasKeyword = includesAny(urlPath(currentUrl), CRAWL_KEYWORDS);
 
   if (hasKeyword && !hasJunk) return 0;
   if (currentHasKeyword && hasClickPhrase) return 1;
@@ -111,7 +205,7 @@ function getPriority(currentUrl: string, href: string, text: string): number {
   return Infinity;
 }
 
-async function crawlSite(baseUrl: string, browser: StealthBrowser): Promise<string> {
+async function crawlSite(baseUrl: string, browser: StealthBrowser, charBudget: number, isCanceled: () => Promise<boolean>): Promise<string> {
   const visited = new Set<string>();
   const queue = new TinyQueue<{ url: string; depth: number; priority: number }>(
     [{ url: normalizeUrl(baseUrl), depth: 0, priority: 0 }],
@@ -120,16 +214,21 @@ async function crawlSite(baseUrl: string, browser: StealthBrowser): Promise<stri
   const chunks: string[] = [];
   let totalChars = 0;
 
-  while (queue.length > 0 && totalChars < TOKEN_CHAR_LIMIT) {
+  while (queue.length > 0 && totalChars < charBudget) {
+    // Cancellation used to be checked only between whole sites, so a canceled job kept crawling the site already in flight.
+    if (await isCanceled()) break;
+
     const item = queue.pop();
     if (!item) break;
     const { url, depth } = item;
 
     if (visited.has(url)) continue;
+    visited.add(url);
+
     const { allowed, crawlDelay } = await isAllowedByRobots(url);
     if (!allowed) continue;
-    if (crawlDelay > 0) await new Promise((r) => setTimeout(r, crawlDelay * 1000));
-    visited.add(url);
+    // Clamped: a site advertising Crawl-delay: 3600 would otherwise stall the job.
+    if (crawlDelay > 0) await new Promise((r) => setTimeout(r, Math.min(crawlDelay, MAX_CRAWL_DELAY_SEC) * 1000));
 
     let result = await httpFetch(url);
     if (needsPlaywright(result)) result = await browser.fetchPage(url);
@@ -138,14 +237,25 @@ async function crawlSite(baseUrl: string, browser: StealthBrowser): Promise<stri
     const $ = cheerio.load(result.html);
     const text = scrapeVisibleText($);
     if (text) {
-      chunks.push(`--- ${url} ---\n${text}`);
-      totalChars += text.length;
+      /* Whole pages only. Slicing the joined result cut the last page mid-sentence; if even the first overflows we keep a word-boundary prefix, because some content beats none. */
+      const chunk = `--- ${url} ---\n${text}`;
+      if (totalChars + chunk.length <= charBudget) {
+        chunks.push(chunk);
+        totalChars += chunk.length;
+      } else if (chunks.length === 0) {
+        const room = charBudget - `--- ${url} ---\n`.length;
+        const cut = text.slice(0, Math.max(0, room));
+        chunks.push(`--- ${url} ---\n${cut.slice(0, cut.lastIndexOf(" ") + 1 || cut.length).trimEnd()}`);
+        break;
+      } else {
+        break;
+      }
     }
 
     if (depth < MAX_DEPTH) {
-      for (const { href, text } of extractAnchors($, url)) {
+      for (const { href, text: linkText } of extractAnchors($, url)) {
         const normalized = normalizeUrl(href);
-        const priority = getPriority(url, href, text);
+        const priority = getPriority(url, href, linkText);
         if (!visited.has(normalized) && sameDomain(baseUrl, normalized) && priority < Infinity) {
           queue.push({ url: normalized, depth: depth + 1, priority });
         }
@@ -153,43 +263,54 @@ async function crawlSite(baseUrl: string, browser: StealthBrowser): Promise<stri
     }
   }
 
-  return chunks.join("\n\n").slice(0, TOKEN_CHAR_LIMIT);
+  return chunks.join("\n\n");
 }
 
-function getRetryDelay(err: unknown): number | null {
-  const msg = String(err);
-  if (msg.includes("503") || msg.includes("UNAVAILABLE")) return 30_000;
-  if (!msg.includes("429") && !msg.includes("RESOURCE_EXHAUSTED")) return null;
-  const match = msg.match(/"retryDelay"\s*:\s*"(\d+)s"/);
-  return match ? Number(match[1]) * 1000 : 30_000;
+/* The SDK already retried 429s and 5xxs, so the only question left is whether a DIFFERENT model could succeed — which it cannot for auth, quota or a malformed request. */
+export function shouldTryFallback(err: unknown): boolean {
+  const status = (err as { status?: number })?.status;
+  if (typeof status === "number") {
+    if (status === 401 || status === 403) return false; // bad or unauthorized key
+    if (status === 400 || status === 422) return false; // malformed request
+    if (status === 404) return true; // model not available to this account
+    if (status === 429) return true; // rate/quota — a different model may have room
+    return status >= 500; // transient upstream
+  }
+  // No status: a connection error or an aborted timeout. Worth one other attempt.
+  return true;
 }
 
 async function summarize(prompt: string, job: JobHandler): Promise<string | null> {
-  async function tryModel(model: string): Promise<string | null> {
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const res = await Promise.race([
-          job.ai.models.generateContent({ model, contents: prompt }),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("503 Gemini request timed out")), GEMINI_TIMEOUT_MS)),
-        ]);
-        return res.text ?? "";
-      } catch (err) {
-        await job.log(`⚠️ Gemini error (${model}, attempt ${attempt}/2): ${String(err)}`);
-        const retryMs = getRetryDelay(err);
-        if (retryMs === null) throw err;
-        if (attempt < 2) {
-          await job.log(`⏳ Gemini unavailable — retrying in ${Math.ceil(retryMs / 1000)}s (attempt ${attempt}/2)…`);
-          await new Promise((r) => setTimeout(r, retryMs));
-        }
+  async function tryModel(model: string): Promise<{ text: string | null; err: unknown }> {
+    try {
+      const res = await job.ai.responses.create({
+        model,
+        input: prompt,
+        max_output_tokens: MAX_OUTPUT_TOKENS,
+        reasoning: { effort: OPENAI_REASONING_EFFORT },
+      });
+
+      if (res.status === "incomplete" && res.incomplete_details?.reason === "max_output_tokens") {
+        await job.log(`[!!] ${model} hit the ${MAX_OUTPUT_TOKENS}-token output cap; the summary may be truncated.`);
       }
+
+      // An empty body is not a summary — returning "" would skip the fallback.
+      const text = res.output_text?.trim();
+      if (text) return { text, err: null };
+      await job.log(`[!!] ${model} returned an empty response.`);
+      return { text: null, err: null };
+    } catch (err) {
+      await job.log(`[!!] ${model} failed: ${String(err)}`);
+      return { text: null, err };
     }
-    return null;
   }
 
-  const result = await tryModel(GEMINI_MODEL);
-  if (result !== null) return result;
-  await job.log(`⚠️ ${GEMINI_MODEL} unavailable — falling back to ${GEMINI_FALLBACK_MODEL}…`);
-  return tryModel(GEMINI_FALLBACK_MODEL);
+  const primary = await tryModel(OPENAI_MODEL);
+  if (primary.text) return primary.text;
+  if (primary.err !== null && !shouldTryFallback(primary.err)) return null;
+
+  await job.log(`[..] Falling back to ${OPENAI_FALLBACK_MODEL}…`);
+  return (await tryModel(OPENAI_FALLBACK_MODEL)).text;
 }
 
 async function reportPhase(reportShops: SiteInfo[], job: JobHandler, browser: StealthBrowser): Promise<string> {
@@ -205,35 +326,84 @@ async function reportPhase(reportShops: SiteInfo[], job: JobHandler, browser: St
     ).values(),
   ];
 
-  await job.log(`🕷️ Crawling ${uniqueSites.length} shop site(s) for fishing reports…`);
+  const { summarize: wantsSummary } = job.payload;
+  await job.log(`[..] Crawling ${uniqueSites.length} shop site(s) for fishing reports…`);
+
+  /* Each site gets a share of the budget: when every site could crawl to the full limit, the first to fill it left the rest nothing. Raw mode has no prompt, so it gets far more. */
+  const totalBudget = wantsSummary ? TOKEN_CHAR_LIMIT : RAW_CHAR_LIMIT;
+  const perSiteBudget = Math.max(MIN_SITE_CHAR_BUDGET, Math.floor(totalBudget / Math.max(1, uniqueSites.length)));
 
   const texts: string[] = [];
-  await PromisePool.withConcurrency(3)
+  const { errors } = await PromisePool.withConcurrency(3)
     .for(uniqueSites)
     .process(async (shop) => {
       if (await job.isCanceled()) return;
-      await job.log(`  🔗 Crawling: ${shop.name}`);
+      await job.log(`[->] Crawling: ${shop.name}`);
       try {
-        const text = await crawlSite(shop.website, browser);
+        const text = await crawlSite(shop.website, browser, perSiteBudget, () => job.isCanceled());
         if (text.trim()) texts.push(`==== ${shop.name} ====\n${text}`);
       } catch (err) {
-        await job.log(`  ⚠️ Failed to crawl ${shop.name}: ${String(err)}`);
+        await job.log(`[!!] Failed to crawl ${shop.name}: ${String(err)}`);
       }
     });
 
-  if (texts.length === 0) return "No fishing report content found.";
-
-  await job.log(`🤖 Summarizing ${texts.length} site(s) with Gemini…`);
-  const combined = texts.join("\n\n").slice(0, TOKEN_CHAR_LIMIT);
-  const summary = await summarize(`${job.payload.summaryPrompt}\n\n${combined}`, job);
-
-  if (!summary) {
-    await job.log("⚠️ Gemini unavailable — returning raw crawled text.");
-    return `[Gemini unavailable]\n\n${combined}`;
+  for (const err of errors) {
+    await job.log(`[!!] Crawl failed for ${err.item?.name ?? "unknown"}: ${String(err)}`);
   }
 
-  await job.log("✅ Summary complete.");
+  if (texts.length === 0) return "No fishing report content found.";
+
+  const { combined, included, cutShort } = packSites(texts, totalBudget);
+
+  if (included < texts.length) {
+    await job.log(`[!!] Budget reached — ${included} of ${texts.length} crawled site(s) fit in the output${cutShort ? ", and that one is cut short" : ""}.`);
+  } else if (cutShort) {
+    await job.log("[!!] Budget reached — the crawled site is cut short in the output.");
+  }
+
+  // Only when summarizing: in raw mode this text IS the report, and storing it twice cost a second copy of up to 500 KB.
+  if (wantsSummary) await job.saveRawText(combined);
+
+  // Raw mode: hand back what was crawled and never call the model at all.
+  if (!wantsSummary) {
+    await job.log(`[OK] Raw text from ${included} site(s) ready — summarization skipped.`);
+    return combined;
+  }
+
+  await job.log(`[..] Summarizing ${included} site(s) with ${OPENAI_MODEL}…`);
+  const summary = await summarize(`${SUMMARY_PROMPT}\n\n${combined}`, job);
+
+  if (!summary) {
+    await job.log("[!!] Summarization unavailable — returning raw crawled text.");
+    return `[Summarization unavailable]\n\n${combined}`;
+  }
+
+  await job.log("[OK] Summary complete.");
   return summary;
+}
+
+/** Fits whole site blocks into a budget, in order, and says what it left out. `cutShort` is the one case a whole block cannot be kept: one site larger than the budget. */
+export function packSites(texts: string[], budget: number): { combined: string; included: number; cutShort: boolean } {
+  const blocks: string[] = [];
+  let used = 0;
+
+  for (const text of texts) {
+    const cost = (blocks.length > 0 ? 2 : 0) + text.length; // 2 for the "\n\n" join
+    if (used + cost > budget) break;
+    blocks.push(text);
+    used += cost;
+  }
+
+  if (blocks.length > 0) return { combined: blocks.join("\n\n"), included: blocks.length, cutShort: false };
+  if (texts.length === 0) return { combined: "", included: 0, cutShort: false };
+  return { combined: texts[0].slice(0, budget), included: 1, cutShort: true };
+}
+
+/** Keeps shops whose name, website or address mentions a river term. Callers must skip this when `rivers` is empty: an empty list matches nothing and would drop every shop. */
+export function filterShopsByRivers<T extends Pick<SiteInfo, "name" | "website" | "address">>(shops: T[], rivers: string[]): T[] {
+  const riverTerms = rivers.map((r) => r.toLowerCase().trim()).filter(Boolean);
+  if (riverTerms.length === 0) return shops;
+  return shops.filter((s) => includesAny(`${s.name} ${s.website} ${s.address}`, riverTerms));
 }
 
 // ── Pipeline ──────────────────────────────────────────────────────────────────
@@ -244,20 +414,25 @@ export async function runFlybox(job: JobHandler): Promise<void> {
   try {
     await browser.launch();
 
+    /* Started, not awaited: naming the coordinates put up to 5s on the front of the POST, and the catalog needs the label only once the run is listed. */
+    const naming = job.resolveLocationName();
+
     const allShops = await shopPhase(job, browser);
+    await naming;
     if (await job.isCanceled()) return;
 
-    await job.saveShops(allShops);
+    // The phase above still had to run: the report phase filters on the fishingReport flags it sets.
+    if (job.payload.shopDirectory) await job.saveShops(allShops);
+    else await job.log("[..] Shop directory not requested — skipping the workbook.");
 
     let reportShops = allShops.filter((s) => s.fishingReport);
     if (job.payload.rivers.length > 0) {
-      const riverTerms = job.payload.rivers.map((r) => r.toLowerCase().trim());
-      reportShops = reportShops.filter((s) => includesAny(`${s.name} ${s.website} ${s.address}`, riverTerms));
-      await job.log(`🏞️ Filtered to ${reportShops.length} shop(s) matching rivers: ${job.payload.rivers.join(", ")}`);
+      reportShops = filterShopsByRivers(reportShops, job.payload.rivers);
+      await job.log(`[..] Filtered to ${reportShops.length} shop(s) matching rivers: ${job.payload.rivers.join(", ")}`);
     }
 
     if (reportShops.length === 0) {
-      await job.log("ℹ️ No shops with fishing reports found. Try a broader search.");
+      await job.log("[..] No shops with fishing reports found. Try a broader search.");
       await job.complete();
       return;
     }
@@ -270,6 +445,7 @@ export async function runFlybox(job: JobHandler): Promise<void> {
     await job.saveSummary(summary);
     await job.complete();
   } catch (err) {
+    // fail() only moves an IN_PROGRESS job, so a cancellation surfacing as a thrown error is not relabeled FAILED.
     await job.fail(String(err));
   } finally {
     await browser.close();

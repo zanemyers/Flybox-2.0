@@ -1,43 +1,41 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Payload } from "@/server/handler";
 
-export function useForm<T extends object>(route: string) {
-  const storageKey = `${route}-jobId`;
+const STORAGE_KEY = "flybox-jobId";
+
+/** Tracks the in-flight job id across reloads and posts the run payload. */
+export function useForm() {
   const [jobId, setJobId] = useState<string | null>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem(storageKey)?.trim() || null;
-    setJobId(stored);
-  }, [storageKey]);
+    setJobId(localStorage.getItem(STORAGE_KEY)?.trim() || null);
+  }, []);
 
-  const submit = async (payload: T | File) => {
-    const formData = new FormData();
-
-    Object.entries(payload).forEach(([key, value]) => {
-      if (value instanceof File) {
-        formData.append(key, value);
-      } else if (Array.isArray(value)) {
-        formData.append(key, JSON.stringify(value));
-      } else {
-        formData.append(key, String(value ?? ""));
-      }
-    });
-
-    const res = await fetch(`/api/${route}`, {
+  const submit = async (payload: Payload) => {
+    const res = await fetch("/api/flybox", {
       method: "POST",
-      body: formData,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error("Submit failed");
 
-    const data = (await res.json()) as { jobId: string };
-    localStorage.setItem(storageKey, data.jobId);
-    setJobId(data.jobId);
-    return data.jobId;
+    if (!res.ok) {
+      const detail = await res
+        .json()
+        .then((d: { error?: string }) => d.error)
+        .catch(() => null);
+      throw new Error(detail ?? "Could not start the job. Check your connection and try again.");
+    }
+
+    const { jobId: id } = (await res.json()) as { jobId: string };
+    localStorage.setItem(STORAGE_KEY, id);
+    setJobId(id);
+    return id;
   };
 
   const reset = () => {
-    localStorage.removeItem(storageKey);
+    localStorage.removeItem(STORAGE_KEY);
     setJobId(null);
   };
 

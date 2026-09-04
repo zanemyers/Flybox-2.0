@@ -1,78 +1,120 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { HookMark } from "@/client/components/brand";
 import TagInput from "@/client/components/inputs/tagInput";
-import TextareaInput from "@/client/components/inputs/textareaInput";
-import TextInput from "@/client/components/inputs/textInput";
 import StatusPanel from "@/client/components/statusPanel";
 import { useForm } from "@/client/hooks/useForm";
+// Type-only, so nothing from the server module reaches the bundle.
+import type { Payload } from "@/server/handler";
+import { MAX_RIVER_CHARS, MAX_RIVERS } from "@/shared/limits";
 
 const MapInput = dynamic(() => import("@/client/components/inputs/mapInput"), {
   ssr: false,
 });
 
-const DEFAULT_SUMMARY_PROMPT = `
-You are summarizing fly fishing reports. For each body of water, produce one entry using the template below.
+/* The four things a run varies: where, which rivers, whether to summarize, whether to build the workbook. Typed as Payload because it IS the request body, not a twin to keep in step. */
+type FormState = Payload;
 
-Rules:
-1. One entry per unique body of water — merge duplicates, keeping the 3 most recent dates.
-2. Most recent date first.
-3. If a date appears in the text but not a date field, move it to Date.
-4. If an article covers multiple bodies of water, create a separate entry for each.
-5. List all applicable water types next to the name (river, lake, reservoir, creek, fork, etc.).
-6. Omit any bullet point for which no information is available.
-7. List all sources used at the end of each entry.
+const DEFAULTS: FormState = {
+  latitude: 44.427963,
+  longitude: -110.588455,
+  rivers: [],
+  summarize: true,
+  shopDirectory: true,
+};
 
-# 1. Madison River (river)
-  * Date: June 19, 2025
-    * Fly Patterns: ...
-    * Colors: ...
-    * Hook Sizes: ...
-  * Date: June 13, 2025
-    * Fly Patterns: ...
-    * Colors: ...
-    * Hook Sizes: ...
-  * Sources: www.example.com
-`.trim();
+const STORAGE_KEY = "flybox-form";
 
-interface FormState {
-  serpApiKey: string;
-  geminiApiKey: string;
-  searchTerm: string;
-  latitude: number;
-  longitude: number;
-  rivers: string[];
-  summaryPrompt: string;
+/* `label` is optional: a section holding one already-labeled control does not need a header above its header. */
+function Section({ label, children }: { label?: string; children: ReactNode }) {
+  return (
+    <section className="not-first:mt-4 not-first:border-t not-first:border-rule not-first:pt-4">
+      {label && <span className="eyebrow mb-2.5 block">{label}</span>}
+      {children}
+    </section>
+  );
+}
+
+/* The description is aria-describedby, not part of the label: inside the <label> it became the accessible name, which then changed wholesale every time the toggle flipped. */
+function Toggle({
+  id,
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <input
+        id={id}
+        type="checkbox"
+        aria-describedby={`${id}-desc`}
+        className="toggle toggle-primary mt-0.5 shrink-0"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <div>
+        <label htmlFor={id} className="block cursor-pointer text-sm font-medium">
+          {label}
+        </label>
+        <span id={`${id}-desc`} className="block text-xs text-base-content/70">
+          {description}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 export default function FlyboxForm() {
-  const { jobId, submit, reset } = useForm("flybox");
+  const { jobId, submit, reset } = useForm();
 
-  const [form, setForm] = useState<FormState>({
-    serpApiKey: "",
-    geminiApiKey: "",
-    searchTerm: "Fly Fishing Shops",
-    latitude: 44.427963,
-    longitude: -110.588455,
-    rivers: [],
-    summaryPrompt: DEFAULT_SUMMARY_PROMPT,
-  });
-
+  const [form, setForm] = useState<FormState>(DEFAULTS);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  /* Closing the panel remounts this form, and without this focus lands on <body>. Gated on the close action so it never steals focus on a normal load. */
+  const [returnedFromRun, setReturnedFromRun] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("flybox-form");
-    if (!saved) return;
-    const parsed = JSON.parse(saved) as Partial<FormState>;
-    setForm((prev) => ({ ...prev, ...parsed }));
+    if (!returnedFromRun) return;
+    formRef.current?.focus();
+    setReturnedFromRun(false);
+  }, [returnedFromRun]);
+
+  useEffect(() => {
+    // Corrupt JSON here used to throw inside the effect and blank the whole page.
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) setForm((prev) => ({ ...prev, ...(JSON.parse(saved) as Partial<FormState>) }));
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+    setLoaded(true);
   }, []);
 
   useEffect(() => {
-    const { serpApiKey, geminiApiKey, ...rest } = form;
-    localStorage.setItem("flybox-form", JSON.stringify(rest));
-  }, [form]);
+    /* Not before the read above has landed. On the mount pass `form` is still DEFAULTS, and writing
+       that overwrites what was saved — which StrictMode's second pass then reads back as defaults. */
+    if (!loaded) return;
+    // Identity, not equality: every update replaces the object, so this is only the DEFAULTS the form
+    // started with — nothing was loaded and nothing was touched, so there is nothing to remember.
+    if (form === DEFAULTS) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(form));
+    } catch {
+      /* storage full or blocked — the form still works, it just won't persist */
+    }
+  }, [form, loaded]);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -82,24 +124,18 @@ export default function FlyboxForm() {
       return;
     }
     setConfirmReset(false);
-    localStorage.removeItem("flybox-form");
-    setForm((prev) => ({
-      serpApiKey: prev.serpApiKey,
-      geminiApiKey: prev.geminiApiKey,
-      searchTerm: "Fly Fishing Shops",
-      latitude: 44.427963,
-      longitude: -110.588455,
-      rivers: [],
-      summaryPrompt: DEFAULT_SUMMARY_PROMPT,
-    }));
+    localStorage.removeItem(STORAGE_KEY);
+    setForm(DEFAULTS);
   };
 
   const handleSubmit = async () => {
+    if (submitting) return;
     setSubmitting(true);
+    setSubmitError("");
     try {
       await submit(form);
-    } catch {
-      console.error("Submission failed.");
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Could not start the job. Check your connection and try again.");
       setSubmitting(false);
     }
   };
@@ -107,72 +143,119 @@ export default function FlyboxForm() {
   if (jobId) {
     return (
       <StatusPanel
-        route="flybox"
         jobId={jobId}
         onClose={() => {
           reset();
           setSubmitting(false);
+          setReturnedFromRun(true);
         }}
       />
     );
   }
 
   return (
-    <div className="app-panel flex flex-col">
+    <div className="flex flex-col gap-3">
       <form
+        ref={formRef}
         id="flybox-form"
+        aria-labelledby="run-config"
+        tabIndex={-1}
         noValidate
-        className="card bg-base-200 border border-base-300 shadow-sm"
+        className="panel focus:outline-none"
         onSubmit={(e) => {
           e.preventDefault();
-          if (e.currentTarget.checkValidity()) handleSubmit();
+          if (e.currentTarget.checkValidity()) void handleSubmit();
           else e.currentTarget.reportValidity();
         }}
       >
-        <div className="card-body">
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-4 sm:gap-y-0">
-              <TextInput
-                type="password"
-                label="SerpAPI Key"
-                placeholder="Enter your SerpAPI key"
-                value={form.serpApiKey}
-                onChange={(v) => update("serpApiKey", v)}
-              />
-              <TextInput
-                type="password"
-                label="Gemini API Key"
-                placeholder="Enter your Gemini API key"
-                value={form.geminiApiKey}
-                onChange={(v) => update("geminiApiKey", v)}
-              />
-            </div>
-            <TextInput label="Search Term" placeholder="e.g. Fly Fishing Shops" value={form.searchTerm} onChange={(v) => update("searchTerm", v)} />
+        <div className="panel-head">
+          <h2 id="run-config" className="eyebrow">
+            Run configuration
+          </h2>
+          {/* aria-hidden: instrument-panel decoration, not a job id or a version. */}
+          <span aria-hidden="true" className="readout text-micro uppercase tracking-[0.08em] text-base-content/70">
+            FB-01
+          </span>
+        </div>
+
+        <div className="panel-body">
+          <Section label="Position">
             <MapInput
               latitude={form.latitude}
               longitude={form.longitude}
-              onChange={(lat, lng) => {
-                update("latitude", lat);
-                update("longitude", lng);
-              }}
+              onChange={(lat, lng) => setForm((prev) => ({ ...prev, latitude: lat, longitude: lng }))}
             />
-            <TagInput label="Rivers" values={form.rivers} onChange={(v) => update("rivers", v)} placeholder="e.g. Madison, Snake, Yellowstone" optional />
-            <TextareaInput
-              label="Summary Prompt"
-              value={form.summaryPrompt}
-              onChange={(v) => update("summaryPrompt", v)}
-              defaultValue={DEFAULT_SUMMARY_PROMPT}
+          </Section>
+
+          <Section>
+            <TagInput
+              label="Rivers"
+              values={form.rivers}
+              onChange={(v) => update("rivers", v)}
+              placeholder="e.g. Madison, Snake, Yellowstone"
+              optional
+              max={MAX_RIVERS}
+              maxLength={MAX_RIVER_CHARS}
             />
-          </div>
+          </Section>
+
+          <Section>
+            <div className="flex flex-col gap-4">
+              <Toggle
+                id="shop-directory"
+                label="Shop directory"
+                checked={form.shopDirectory}
+                onChange={(v) => update("shopDirectory", v)}
+                description={
+                  form.shopDirectory
+                    ? "A spreadsheet of every shop found: contact details, socials, and whether it sells online."
+                    : "Only the report is produced. Shops are still searched — the report is built from their sites."
+                }
+              />
+              <Toggle
+                id="summarize"
+                label="Summarize with AI"
+                checked={form.summarize}
+                onChange={(v) => update("summarize", v)}
+                description={
+                  form.summarize
+                    ? "Reports are condensed into one structured document, grouped by body of water."
+                    : "Skips the model entirely and returns the raw crawled text — faster, and far more of it."
+                }
+              />
+            </div>
+          </Section>
         </div>
       </form>
 
-      <div className="flex gap-2 mt-3">
-        <button type="button" onClick={resetForm} onBlur={() => setConfirmReset(false)} className={`btn ${confirmReset ? "btn-warning" : "btn-ghost"}`}>
-          {confirmReset ? "Confirm Reset" : "Reset"}
+      {submitError && (
+        <p role="alert" className="text-xs text-error">
+          {submitError}
+        </p>
+      )}
+
+      {/* Sibling of the form, wired by `form=`, so it sits outside the card. */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={resetForm}
+          onBlur={() => setConfirmReset(false)}
+          className={`btn h-10 w-32 ${confirmReset ? "btn-outline btn-error" : "btn-ghost border border-stroke"}`}
+        >
+          {confirmReset ? "Confirm reset" : "Reset"}
         </button>
-        <button type="submit" form="flybox-form" disabled={submitting} className="btn btn-primary flex-1">
-          {submitting ? <span className="loading loading-spinner loading-sm" /> : "Run Flybox"}
+        <button type="submit" form="flybox-form" disabled={submitting} aria-busy={submitting} className="btn btn-primary h-10 flex-1 gap-2">
+          {submitting ? (
+            <>
+              <span className="run-bar w-24" />
+              <span className="sr-only">Submitting</span>
+            </>
+          ) : (
+            <>
+              <HookMark className="size-4" />
+              Run Flybox
+            </>
+          )}
         </button>
       </div>
     </div>

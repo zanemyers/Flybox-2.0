@@ -1,6 +1,9 @@
+import ExcelJS from "exceljs";
 import { describe, expect, it } from "vitest";
+import { JobStatus } from "@/server/db";
 import type { SiteInfo } from "@/server/handler";
-import { ExcelFileHandler, TXTFileHandler } from "@/server/handler";
+import { buildShopWorkbook, expectedOutputs, isOutputName, isStale, OUTPUT_FILES, SHOP_COLUMNS } from "@/server/handler";
+import { STALE_AFTER_MS } from "@/server/retention";
 
 const SAMPLE_SHOP: SiteInfo = {
   name: "Trout & About Fly Shop",
@@ -16,107 +19,176 @@ const SAMPLE_SHOP: SiteInfo = {
   socialMedia: ["Facebook", "Instagram"],
 };
 
-// ── TXTFileHandler ─────────────────────────────────────────────────────────────
+/** Reads a generated workbook back, so assertions inspect real cell values rather than buffer lengths. */
+async function loadSheet(buffer: Buffer) {
+  const wb = new ExcelJS.Workbook();
+  // exceljs globally augments `Buffer extends ArrayBuffer`, creating a phantom mismatch with real Node Buffers. Runtime is fine.
+  // biome-ignore lint/suspicious/noExplicitAny: exceljs type-declaration bug
+  await wb.xlsx.load(buffer as any);
+  return wb.worksheets[0];
+}
 
-describe("TXTFileHandler", () => {
-  it("returns empty buffer before any appends", () => {
-    const handler = new TXTFileHandler();
-    expect(handler.getBuffer().toString("utf-8")).toBe("");
+const cells = (row: ExcelJS.Row) => (row.values as unknown[]).slice(1); // ExcelJS pads index 0
+
+// ── buildShopWorkbook ──────────────────────────────────────────────────────────
+
+describe("buildShopWorkbook", () => {
+  it("writes the header row in the documented column order", async () => {
+    const sheet = await loadSheet(await buildShopWorkbook([]));
+    expect(cells(sheet.getRow(1))).toEqual([...SHOP_COLUMNS]);
   });
 
-  it("stores a single appended segment", () => {
-    const handler = new TXTFileHandler();
-    handler.append("Hello, world!");
-    expect(handler.getBuffer().toString("utf-8")).toBe("Hello, world!");
+  it("writes only a header row when there are no shops", async () => {
+    const sheet = await loadSheet(await buildShopWorkbook([]));
+    expect(sheet.rowCount).toBe(1);
   });
 
-  it("joins multiple segments with newline", () => {
-    const handler = new TXTFileHandler();
-    handler.append("First segment");
-    handler.append("Second segment");
-    expect(handler.getBuffer().toString("utf-8")).toBe("First segment\nSecond segment");
+  it("names the worksheet Shops", async () => {
+    const sheet = await loadSheet(await buildShopWorkbook([SAMPLE_SHOP]));
+    expect(sheet.name).toBe("Shops");
   });
 
-  it("returns a Buffer instance", () => {
-    const handler = new TXTFileHandler();
-    handler.append("test");
-    expect(handler.getBuffer()).toBeInstanceOf(Buffer);
+  it("bolds the header row", async () => {
+    const sheet = await loadSheet(await buildShopWorkbook([SAMPLE_SHOP]));
+    expect(sheet.getRow(1).font?.bold).toBe(true);
   });
 
-  it("encodes content as UTF-8 (preserves non-ASCII)", () => {
-    const handler = new TXTFileHandler();
-    handler.append("Trout 🎣 fishing");
-    expect(handler.getBuffer().toString("utf-8")).toBe("Trout 🎣 fishing");
-  });
-});
-
-// ── ExcelFileHandler ───────────────────────────────────────────────────────────
-
-describe("ExcelFileHandler", () => {
-  it("produces a non-empty buffer after adding a row", async () => {
-    const handler = new ExcelFileHandler();
-    handler.addRow(SAMPLE_SHOP);
-    const buf = await handler.getBuffer();
-    expect(buf.length).toBeGreaterThan(0);
+  it("writes every scalar field into its own column", async () => {
+    const sheet = await loadSheet(await buildShopWorkbook([SAMPLE_SHOP]));
+    const row = cells(sheet.getRow(2));
+    expect(row[0]).toBe(SAMPLE_SHOP.name);
+    expect(row[2]).toBe(SAMPLE_SHOP.address);
+    expect(row[3]).toBe(SAMPLE_SHOP.phone);
+    expect(row[4]).toBe(SAMPLE_SHOP.stars);
+    expect(row[5]).toBe(SAMPLE_SHOP.reviews);
+    expect(row[6]).toBe(SAMPLE_SHOP.category);
   });
 
-  it("returns a Buffer instance", async () => {
-    const handler = new ExcelFileHandler();
-    handler.addRow(SAMPLE_SHOP);
-    const buf = await handler.getBuffer();
-    expect(buf).toBeInstanceOf(Buffer);
+  it("converts true booleans to ✅ in the Sells Online and Fishing Report cells", async () => {
+    const sheet = await loadSheet(await buildShopWorkbook([SAMPLE_SHOP]));
+    const row = sheet.getRow(2);
+    expect(row.getCell(9).value).toBe("✅");
+    expect(row.getCell(10).value).toBe("✅");
   });
 
-  it("starts with a valid XLSX magic bytes signature", async () => {
-    const handler = new ExcelFileHandler();
-    handler.addRow(SAMPLE_SHOP);
-    const buf = await handler.getBuffer();
-    // XLSX files are ZIP archives; magic bytes are PK (0x50 0x4B)
-    expect(buf[0]).toBe(0x50);
-    expect(buf[1]).toBe(0x4b);
-  });
-
-  it("uses ✅/❌ emoji for boolean fields", async () => {
-    const handler = new ExcelFileHandler();
-    handler.addRow(SAMPLE_SHOP);
-
-    const offlineShop: SiteInfo = { ...SAMPLE_SHOP, sellsOnline: false, fishingReport: false };
-    handler.addRow(offlineShop);
-
-    // Both buffers just need to be produced; emoji encoding is verified by
-    // checking the workbook cells via a second ExcelJS parse would be heavy,
-    // so we confirm the buffer grew (two data rows > one data row).
-    const handler2 = new ExcelFileHandler();
-    handler2.addRow(SAMPLE_SHOP);
-
-    const twoRowsBuf = await handler.getBuffer();
-    const oneRowBuf = await handler2.getBuffer();
-    expect(twoRowsBuf.length).toBeGreaterThan(oneRowBuf.length);
-  });
-
-  it("produces a larger buffer for each additional row", async () => {
-    const handler = new ExcelFileHandler();
-    handler.addRow(SAMPLE_SHOP);
-    const buf1 = await handler.getBuffer();
-
-    handler.addRow({ ...SAMPLE_SHOP, name: "Another Shop" });
-    const buf2 = await handler.getBuffer();
-
-    expect(buf2.length).toBeGreaterThan(buf1.length);
+  it("converts false booleans to ❌", async () => {
+    const offline: SiteInfo = { ...SAMPLE_SHOP, sellsOnline: false, fishingReport: false };
+    const sheet = await loadSheet(await buildShopWorkbook([offline]));
+    const row = sheet.getRow(2);
+    expect(row.getCell(9).value).toBe("❌");
+    expect(row.getCell(10).value).toBe("❌");
   });
 
   it("serializes socialMedia as a comma-separated string", async () => {
-    // We verify by parsing the workbook with ExcelJS itself.
-    const ExcelJS = await import("exceljs");
-    const handler = new ExcelFileHandler();
-    handler.addRow(SAMPLE_SHOP);
-    const buf = await handler.getBuffer();
+    const sheet = await loadSheet(await buildShopWorkbook([SAMPLE_SHOP]));
+    expect(sheet.getRow(2).getCell(11).value).toBe("Facebook, Instagram");
+  });
 
-    const wb = new ExcelJS.default.Workbook();
-    await wb.xlsx.load(buf);
-    const sheet = wb.worksheets[0];
-    const dataRow = sheet.getRow(2); // row 1 is header
-    // Column 11 is Social Media
-    expect(dataRow.getCell(11).value).toBe("Facebook, Instagram");
+  it("writes an empty Social Media cell when there are no profiles", async () => {
+    const sheet = await loadSheet(await buildShopWorkbook([{ ...SAMPLE_SHOP, socialMedia: [] }]));
+    const value = sheet.getRow(2).getCell(11).value;
+    expect(value === null || value === "").toBe(true);
+  });
+
+  it("writes one row per shop, in order", async () => {
+    const shops = [SAMPLE_SHOP, { ...SAMPLE_SHOP, name: "Second Shop" }, { ...SAMPLE_SHOP, name: "Third Shop" }];
+    const sheet = await loadSheet(await buildShopWorkbook(shops));
+    expect(sheet.rowCount).toBe(4); // header + 3
+    expect(sheet.getRow(2).getCell(1).value).toBe("Trout & About Fly Shop");
+    expect(sheet.getRow(3).getCell(1).value).toBe("Second Shop");
+    expect(sheet.getRow(4).getCell(1).value).toBe("Third Shop");
+  });
+
+  it("preserves the website as a string rather than coercing it to a hyperlink object", async () => {
+    const sheet = await loadSheet(await buildShopWorkbook([SAMPLE_SHOP]));
+    expect(sheet.getRow(2).getCell(2).value).toBe(SAMPLE_SHOP.website);
+  });
+
+  it("returns a Buffer with XLSX (ZIP) magic bytes", async () => {
+    const buf = await buildShopWorkbook([SAMPLE_SHOP]);
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x50);
+    expect(buf[1]).toBe(0x4b);
+  });
+});
+
+// ── output file allow-list ─────────────────────────────────────────────────────
+
+describe("isOutputName", () => {
+  it("accepts every real output name", () => {
+    for (const name of ["report_summary.txt", "shop_details.xlsx", "report_raw.txt"]) {
+      expect(isOutputName(name)).toBe(true);
+    }
+  });
+
+  it("rejects anything else, including traversal attempts", () => {
+    for (const name of ["", "other.txt", "../../etc/passwd", "report_summary.txt.bak", "REPORT_SUMMARY.TXT", "__proto__"]) {
+      expect(isOutputName(name)).toBe(false);
+    }
+  });
+
+  it("maps each output to a distinct DB column and a sensible content type", () => {
+    expect(OUTPUT_FILES["report_summary.txt"].column).toBe("primaryFile");
+    expect(OUTPUT_FILES["shop_details.xlsx"].column).toBe("secondaryFile");
+    expect(OUTPUT_FILES["report_raw.txt"].column).toBe("rawFile");
+    expect(OUTPUT_FILES["report_summary.txt"].contentType).toContain("text/plain");
+    expect(OUTPUT_FILES["shop_details.xlsx"].contentType).toContain("spreadsheet");
+  });
+});
+
+// ── isStale ────────────────────────────────────────────────────────────────────
+
+describe("isStale", () => {
+  const NOW = Date.UTC(2026, 7, 21, 12, 0, 0);
+  const beat = (msAgo: number) => new Date(NOW - msAgo);
+
+  it("leaves a run alone while its heartbeat is current", () => {
+    expect(isStale({ status: JobStatus.IN_PROGRESS, heartbeatAt: beat(0) }, NOW)).toBe(false);
+    expect(isStale({ status: JobStatus.IN_PROGRESS, heartbeatAt: beat(60_000) }, NOW)).toBe(false);
+  });
+
+  it("holds off right up to the threshold", () => {
+    expect(isStale({ status: JobStatus.IN_PROGRESS, heartbeatAt: beat(STALE_AFTER_MS) }, NOW)).toBe(false);
+    expect(isStale({ status: JobStatus.IN_PROGRESS, heartbeatAt: beat(STALE_AFTER_MS + 1) }, NOW)).toBe(true);
+  });
+
+  it("clears the longest silence a live run can have — a full summarization retry sequence", () => {
+    // 90s timeout x 3 attempts, twice if the fallback model also has to run.
+    expect(isStale({ status: JobStatus.IN_PROGRESS, heartbeatAt: beat(2 * 3 * 90_000) }, NOW)).toBe(false);
+  });
+
+  /* The reaper must never touch a terminal job: COMPLETED runs sit in the catalog for as long as retention allows, and their heartbeat stops when they finish. */
+  it("never reaps a job that already finished, however old", () => {
+    const ancient = beat(400 * 24 * 3_600_000);
+    for (const status of [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELED]) {
+      expect(isStale({ status, heartbeatAt: ancient }, NOW)).toBe(false);
+    }
+  });
+});
+
+// ── expectedOutputs ────────────────────────────────────────────────────────────
+
+describe("expectedOutputs", () => {
+  it("promises the report either way", () => {
+    expect(expectedOutputs({ shopDirectory: true })).toContain("report_summary.txt");
+    expect(expectedOutputs({ shopDirectory: false })).toContain("report_summary.txt");
+  });
+
+  it("adds the workbook only when it was asked for", () => {
+    expect(expectedOutputs({ shopDirectory: true })).toEqual(["report_summary.txt", "shop_details.xlsx"]);
+    expect(expectedOutputs({ shopDirectory: false })).toEqual(["report_summary.txt"]);
+  });
+
+  /* report_raw.txt is the catalog's record of what a summary was built from, not something the caller asked for — auto-downloading it was the defect. */
+  it("never promises the raw source text", () => {
+    for (const shopDirectory of [true, false]) {
+      expect(expectedOutputs({ shopDirectory })).not.toContain("report_raw.txt");
+    }
+  });
+
+  it("names only real outputs, so every row can be downloaded", () => {
+    for (const shopDirectory of [true, false]) {
+      for (const name of expectedOutputs({ shopDirectory })) expect(isOutputName(name)).toBe(true);
+    }
   });
 });
