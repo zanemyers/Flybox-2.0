@@ -38,6 +38,13 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Same reason as Prisma: tsconfig.json includes next-env.d.ts, which is gitignored and
+      # written by next build/dev/typegen, so typecheck cannot resolve image imports without it.
+      # Carries the guard below too, or a failed Lint skips this and Typecheck fails on its own.
+      - name: Generate Next types
+        if: ${{ !cancelled() }}
+        run: npx next typegen
+
       # Biome is not a type checker; !cancelled() runs this even after Lint fails.
       - name: Typecheck
         if: ${{ !cancelled() }}

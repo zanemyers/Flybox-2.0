@@ -38,6 +38,14 @@ step is handed a placeholder `DIRECT_URL`: `prisma.config.ts` resolves the varia
 load and fails without one, even though `generate` only ever reads the schema. Typecheck and the
 tests need no database variables at all.
 
+It runs `npx next typegen` for the same reason: `tsconfig.json` includes `next-env.d.ts`, which is
+also gitignored and is written by `next build`, `next dev` or `next typegen`. Without it `tsc`
+cannot resolve the image imports in `src/client/images/*/index.ts` and fails with four
+`TS2307 Cannot find module './*.jpg'`. So **`npm run typecheck` needs one of those three to have
+run first** — on a clean checkout it cannot pass on its own. Both generate steps carry
+`if: ${{ !cancelled() }}` like the checks they feed, or a failed lint skips them and the later step
+fails for a reason that has nothing to do with its own code.
+
 **`biome.json` is strict JSON, so a comment in it is a parse error.** Biome answers a parse error by **silently falling back to its default config** rather than failing. The symptom is Biome suddenly checking 500+ files instead of 58, because every exclude in the file stopped applying.
 
 Local Postgres (the app itself runs on the host):
