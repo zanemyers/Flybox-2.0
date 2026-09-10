@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Flybox">
+  <!-- HookMark from brand.tsx. currentColor cannot resolve in a standalone file, so both primary values are inlined. -->
+  <style>
+    .hook { stroke: #0d667a }
+    @media (prefers-color-scheme: dark) { .hook { stroke: #6bbbd2 } }
+  </style>
+  <!-- Scaled 2x about the drawing's own center (9.525 8.375 in HookMark's space), which also thickens the strokes enough to hold at 16px. -->
+  <g class="hook" transform="translate(16 16) scale(2) translate(-9.525 -8.375)" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="6.6" cy="3.2" r="1.5" stroke-width="1.2" />
+    <path d="M6.6 4.7v6.6a3.6 3.6 0 0 0 7.2 0V8.9" />
+    <path d="M13.8 9 11.7 11.3" stroke-width="1.2" />
+  </g>
+</svg>

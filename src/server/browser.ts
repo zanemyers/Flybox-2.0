@@ -1,6 +1,7 @@
 import type { Browser, Page } from "playwright";
 import { chromium } from "playwright-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
+import { checkUrl } from "@/server/net";
 
 export interface FetchResult {
   html: string | null;
@@ -8,6 +9,8 @@ export interface FetchResult {
   blocked: boolean;
   jsRendered: boolean;
   error?: string;
+  /** Declined by net.ts. No transport will do better, so needsPlaywright() must not retry it. */
+  refused?: boolean;
 }
 
 const BLOCKED_RESOURCE_TYPES = ["image", "media", "font", "stylesheet"];
@@ -35,6 +38,10 @@ export class StealthBrowser {
 
   async fetchPage(url: string): Promise<FetchResult> {
     if (!this.browser) throw new Error("Browser not launched");
+
+    const verdict = await checkUrl(url);
+    if (!verdict.ok) return { html: null, status: 0, blocked: false, jsRendered: false, refused: true, error: verdict.reason };
+
     let page: Page | null = null;
     try {
       page = await this.browser.newPage();
@@ -46,8 +53,17 @@ export class StealthBrowser {
         "Accept-Encoding": "gzip, deflate, br",
       });
 
-      // Block unnecessary resources to speed up page loads
-      await page.route("**/*", (route) => (BLOCKED_RESOURCE_TYPES.includes(route.request().resourceType()) ? route.abort() : route.continue()));
+      await page.route("**/*", async (route) => {
+        // Block unnecessary resources to speed up page loads
+        if (BLOCKED_RESOURCE_TYPES.includes(route.request().resourceType())) return route.abort();
+
+        // Each redirect hop re-enters here as a fresh document request; page.goto follows them internally.
+        if (route.request().resourceType() === "document" && !(await checkUrl(route.request().url())).ok) {
+          return route.abort("blockedbyclient");
+        }
+
+        return route.continue();
+      });
 
       const response = await page.goto(url, {
         waitUntil: "domcontentloaded",
@@ -78,5 +94,7 @@ export class StealthBrowser {
 }
 
 export function needsPlaywright(result: FetchResult): boolean {
+  // A refusal is a policy decision, not a transport failure — a browser would be refused too.
+  if (result.refused) return false;
   return result.blocked || result.jsRendered || result.html === null;
 }

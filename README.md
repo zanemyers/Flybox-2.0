@@ -1,48 +1,49 @@
-# <img src="src/app/favicon.ico" alt="Flybox Logo" width="30" style="vertical-align: middle;"/> Flybox
+# <img src="src/app/icon.svg" alt="Flybox Logo" width="30" style="vertical-align: middle;"/> Flybox
 
-Tools built for **[Rescue River](https://rescueriver.com/)** to find fly-fishing shops, scrape their sites for fishing reports, and summarize them with Google Gemini. Live site: **https://flybox.zm1.org**
+Tools built for **[Rescue River](https://rescueriver.com/)** to find fly-fishing shops, scrape their sites for fishing reports, and summarize them with OpenAI. Live site: **https://flybox.zm1.org**
 
 ## What It Does
 
-Enter a location and your API keys — Flybox searches Google Maps for fly-fishing shops, scrapes contact info and fishing report links, and produces a summarized report plus a shop directory as downloadable files.
+Pick a location on the map, optionally filter by river, and press run. Flybox searches Google Maps for fly-fishing shops and scrapes contact info and fishing reports. You get a summarized report plus a shop directory, both downloadable. No API keys or account required — Flybox supplies its own, and runs are rate limited.
 
-## Requirements
+Recent runs are listed publicly at `/runs`, where anyone can download their outputs — see the [privacy policy](src/app/privacy-policy/page.tsx).
 
-- **SerpAPI key** — for Google Maps shop search
-- **Gemini API key** — for fishing report summarization
-- **PostgreSQL database** — for job tracking
+## Quick Start
 
-## Local Development
+You need Node 22+, a PostgreSQL database, a [SerpAPI key](https://serpapi.com/), and — only if you want summaries — an [OpenAI key](https://platform.openai.com/). Both keys are server-side.
 
 ```bash
 npm install
-npx ts-node scripts/setup.ts   # creates .env with default values
+npx tsx scripts/setup.ts       # add any missing .env settings
+npx prisma generate            # generate the Prisma client
 npx prisma migrate dev         # run DB migrations
 npm run dev                    # start dev server (Turbopack)
 ```
 
-## Docker (full-stack local)
+No Postgres handy? `npm run docker:up` starts one in a container, and the app still runs on the host.
 
-Spins up the app and a Postgres container with a persistent volume:
+[Setup](docs/setup.md) covers the environment variables, the local database and the Render
+deployment in full. This section is only meant to get a dev server up.
+
+## Checks
 
 ```bash
-npm run docker:up      # start Postgres + app
-npm run docker:down    # stop (keeps DB data)
-npm run docker:reset   # stop and wipe DB
+npm run check   # lint + typecheck + tests
 ```
 
-`SERP_API_KEY` and `GEMINI_API_KEY` are passed through from your `.env` file.  
-Run migrations against the local DB before starting: `npx prisma migrate deploy`
+Biome does not type-check, so `npm run lint` alone is not enough. On a clean checkout
+`npm run typecheck` also needs `npx prisma generate` and `npx next typegen` to have run — both
+write gitignored files that `tsconfig.json` depends on. See [Setup](docs/setup.md#checks).
 
-## Deployment (Render)
+## Docs
 
-1. Create a **Web Service** on Render pointed at this repo, with **Docker** as the environment
-2. Set environment variables in the Render dashboard:
-   - `DATABASE_URL` — supports a connection pooler
-   - `DIRECT_URL` — must be a direct connection (used by Prisma migrations)
-   - `SERP_API_KEY`
-   - `GEMINI_API_KEY`
-3. Add a **pre-deploy command**: `npx prisma migrate deploy`
+- [Overview](docs/overview.md) — pipeline, job system, rate limits, tech stack
+- [Setup](docs/setup.md) — local dev, environment variables, local Postgres, Render deployment
+- [IDE](docs/ide.md) — extensions and editor configuration
+- [Changelog](docs/CHANGELOG.md)
+
+`CLAUDE.md` is the agent-facing companion: the invariants and non-obvious patterns behind the
+code, rather than a second description of it.
 
 ## License
 

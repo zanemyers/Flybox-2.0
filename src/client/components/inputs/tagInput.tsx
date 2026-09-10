@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useState } from "react";
+import { type ChangeEvent, type KeyboardEvent, useId, useState } from "react";
+import { FiX } from "react-icons/fi";
 
 export default function TagInput({
   label,
@@ -8,25 +9,38 @@ export default function TagInput({
   onChange,
   placeholder,
   optional = false,
+  max = Number.POSITIVE_INFINITY,
+  maxLength,
 }: {
   label: string;
   values: string[];
   onChange: (values: string[]) => void;
   placeholder?: string;
   optional?: boolean;
+  /** Refused past this many. The server rejects the run otherwise, which the user only found out after pressing Run. */
+  max?: number;
+  /** slice(0, undefined) is the whole string, so leaving this off means no limit. */
+  maxLength?: number;
 }) {
   const inputId = useId();
   const [draft, setDraft] = useState("");
 
+  // Splits on commas so a pasted "Madison, Snake, Yellowstone" becomes three tags.
   const add = (raw: string) => {
-    const name = raw.trim().replace(/,+$/, "").trim();
-    if (name && !values.includes(name)) onChange([...values, name]);
+    const names = raw
+      .split(",")
+      .map((n) => n.trim().slice(0, maxLength))
+      .filter(Boolean);
+    const merged = [...values];
+    for (const name of names) if (!merged.includes(name) && merged.length < max) merged.push(name);
+    // Only when something landed: every name could be a duplicate or past the cap.
+    if (merged.length > values.length) onChange(merged);
     setDraft("");
   };
 
   const remove = (name: string) => onChange(values.filter((v) => v !== name));
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
       add(draft);
@@ -34,29 +48,46 @@ export default function TagInput({
     if (e.key === "Backspace" && draft === "" && values.length > 0) remove(values[values.length - 1]);
   };
 
-  const onChangeDraft = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onChangeDraft = (e: ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    if (val.endsWith(",")) add(val);
+    if (val.includes(",")) add(val);
     else setDraft(val);
   };
 
   return (
     <div className="w-full">
-      <label className="input-label" htmlFor={inputId}>
-        {label}
-        {optional && <span className="text-base-content/40 font-normal"> (optional)</span>}
-      </label>
+      <div className="mb-2.5 flex items-center gap-2">
+        <label className="eyebrow" htmlFor={inputId}>
+          {label}
+        </label>
+        {optional && (
+          <span id={`${inputId}-opt`} className="chip border-rule text-base-content/70">
+            Optional
+          </span>
+        )}
+        {values.length >= max && (
+          <span id={`${inputId}-max`} className="chip border-warning text-warning">
+            Max {max}
+          </span>
+        )}
+      </div>
+      {/* The ring lives on the wrapper, not the inner input: the wrapper is the perceived control, and the input's own outline is suppressed. */}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: click-to-focus wrapper for tag input */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: inner input handles keyboard interaction */}
       <div
-        className="flex flex-wrap gap-1.5 items-center px-3 py-2 rounded-lg border border-base-content/20 bg-base-100 min-h-10 cursor-text"
-        onClick={(e) => (e.currentTarget.querySelector("input") as HTMLInputElement)?.focus()}
+        className="field-shell flex cursor-text flex-wrap items-center gap-1.5 py-1.5 has-[input:focus-visible]:border-primary has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-primary"
+        onClick={(e) => e.currentTarget.querySelector("input")?.focus()}
       >
         {values.map((v) => (
-          <span key={v} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary text-sm font-medium">
+          <span key={v} className="tag">
             {v}
-            <button type="button" onClick={() => remove(v)} className="leading-none opacity-60 hover:opacity-100">
-              ×
+            <button
+              type="button"
+              onClick={() => remove(v)}
+              aria-label={`Remove ${v}`}
+              className="relative grid size-4 cursor-pointer place-items-center text-primary/70 transition-colors before:absolute before:left-1/2 before:top-1/2 before:size-6 before:-translate-x-1/2 before:-translate-y-1/2 hover:text-primary"
+            >
+              <FiX className="size-2.5" />
             </button>
           </span>
         ))}
@@ -70,7 +101,8 @@ export default function TagInput({
           }}
           placeholder={values.length === 0 ? placeholder : ""}
           id={inputId}
-          className="flex-1 min-w-32 bg-transparent outline-none text-sm"
+          aria-describedby={[optional ? `${inputId}-opt` : null, values.length >= max ? `${inputId}-max` : null].filter(Boolean).join(" ") || undefined}
+          className="min-w-32 flex-1 self-stretch bg-transparent text-base outline-none placeholder:text-base-content/70 sm:text-sm"
         />
       </div>
     </div>

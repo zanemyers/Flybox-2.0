@@ -45,3 +45,6 @@ next-env.d.ts
 ## Panda
 styled-system
 styled-system-studio
+
+# Claude
+.claude/settings.local.json

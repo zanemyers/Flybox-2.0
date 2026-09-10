@@ -9,12 +9,44 @@ datasource db {
 }
 
 model Job {
-  id            String       @id @default(cuid())
-  status        JobStatus    @default(IN_PROGRESS)
-  createdAt     DateTime     @default(now())
+  id        String    @id @default(cuid())
+  status    JobStatus @default(IN_PROGRESS)
+  createdAt DateTime  @default(now())
+
+  /// Last proof the pipeline was alive, stamped by the cancel check. Frozen means the process died.
+  heartbeatAt DateTime @default(now())
+
+  /// What the run was for, so the catalog can describe it after the fact.
+  latitude      Float?
+  longitude     Float?
+  /// Reverse-geocoded label, e.g. "Yellowstone National Park". Null on failure; the page shows coordinates.
+  locationName  String?
+  rivers        String[] @default([])
+  summarized    Boolean  @default(false)
+  /// Whether the xlsx is built. The shop phase runs either way — the report phase needs its fishingReport flags.
+  shopDirectory Boolean  @default(true)
+
+  /// report_summary.txt — the summary when summarized, the raw crawled text otherwise.
   primaryFile   Bytes?
   secondaryFile Bytes?
+  /// The crawled source. Written on summarized runs only: in raw mode primaryFile already is that text.
+  rawFile       Bytes?
   jobMessages   JobMessage[]
+
+  @@index([createdAt])
+  @@index([status, heartbeatAt])
+}
+
+/// One row per admitted run — the only thing the rate limiter counts. Never count Job rows: retention deletes them, shortening every cap.
+model RunLedger {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  /// Salted SHA-256 of the client IP. Null when no address was determined — then only global caps apply.
+  clientHash String?
+
+  @@index([createdAt])
+  @@index([clientHash, createdAt])
 }
 
 enum JobStatus {
