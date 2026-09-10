@@ -54,7 +54,7 @@ describe("the hook is drawn the same in brand.tsx and app/icon.svg", () => {
     expect(ICON).toContain("prefers-color-scheme: dark");
   });
 
-  /* The component is the opposite: it must NOT hardcode a color, or the submit button's hook stops
+  /* The component is the opposite: it must NOT hard-code a color, or the submit button's hook stops
      inheriting the cream primary-content and renders teal on a teal fill. */
   it("leaves the component's color to currentColor", () => {
     expect(hook).toContain('stroke="currentColor"');

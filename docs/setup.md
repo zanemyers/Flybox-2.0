@@ -24,14 +24,14 @@ npm run dev                 # start dev server at http://localhost:3000
 
 ## Environment Variables
 
-| Variable          | Required | Description                                                     |
-|-------------------|----------|-----------------------------------------------------------------|
-| `DATABASE_URL`    | Yes      | Prisma client at runtime — supports a pooler                    |
-| `DIRECT_URL`      | Yes      | Prisma migrations — must be a direct connection                 |
-| `SERP_API_KEY`    | Yes      | Every run needs it                                              |
-| `OPENAI_API_KEY`  | Sometimes| Only when `summarize` is true                                   |
-| `RATE_LIMIT_SALT` | Yes in prod | Keeps client rate-limit hashes stable across restarts        |
-| `RUN_HEADLESS`    | No       | Set `false` to watch the Playwright browser work                |
+| Variable           | Required    | Description                                                      |
+|--------------------|-------------|------------------------------------------------------------------|
+| `DATABASE_URL`     | Yes         | Prisma client at runtime — supports a pooler                     |
+| `DIRECT_URL`       | Yes         | Prisma migrations — must be a direct connection                  |
+| `SERP_API_KEY`     | Yes         | Every run needs it                                               |
+| `OPENAI_API_KEY`   | Sometimes   | Only when `summarize` is true                                    |
+| `RATE_LIMIT_SALT`  | Yes in prod | Keeps client rate-limit hashes stable across restarts            |
+| `RUN_HEADLESS`     | No          | Set `false` to watch the Playwright browser work                 |
 
 Without `RATE_LIMIT_SALT` a per-process salt is generated, so limits reset on every redeploy. Degrading to an unsalted hash is not an option — an unsalted hash of an IPv4 address is trivially reversible.
 
@@ -84,7 +84,7 @@ for, and the build opens no database connection at all, which makes
 > **`prisma generate` has to stay in it.** `generated/` is gitignored and nothing
 > else produces it, but `src/server/db.ts` imports from it. Leave it out and the
 > build fails on any clean checkout — it will appear to work for as long as
-> Render's build cache still holds a `generated/` from a previous deploy.
+> Render's build cache still holds a `generated/` from a previous deployment.
 
 > **`npm run render:migrate` and `npm run render:cleanup` are not local commands.**
 > They act on whatever `DIRECT_URL` and `DATABASE_URL` are in scope, and in a normal

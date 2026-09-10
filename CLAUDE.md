@@ -6,12 +6,12 @@ It is deliberately **not** a description of the app — `docs/overview.md` is th
 owns every setup, environment and deployment mechanic. What lives here is the part that cannot be
 recovered by reading the code: the constraints, and the things that were tried and broke.
 
-| Looking for | Read |
-|---|---|
+| Looking for                                                | Read               |
+|------------------------------------------------------------|--------------------|
 | How the pipeline, job system, catalog and rate limits work | `docs/overview.md` |
-| Env vars, local Postgres, Render deployment, checks | `docs/setup.md` |
-| Editor and extension configuration | `docs/ide.md` |
-| Why the code is the way it is, and what not to undo | this file |
+| Env vars, local Postgres, Render deployment, checks        | `docs/setup.md`    |
+| Editor and extension configuration                         | `docs/ide.md`      |
+| Why the code is the way it is, and what not to undo        | this file          |
 
 ## Project Overview
 
@@ -108,10 +108,10 @@ All file output is stored as `Bytes` in the DB, never written to disk.
 The whole visual language lives in `src/client/styles/globals.css`. Read it before styling anything; it is short and every value is deliberate.
 
 - **Two hand-built DaisyUI themes**, `light` and `dark`, declared with `@plugin "daisyui/theme"`. The stock themes are switched off. **The names must stay exactly `light` and `dark`** — the inline theme script in `layout.tsx` and the header toggle both write those strings.
-- **Blue leads, cream carries.** In light the ground is cream (hue 90) under deep blue ink (hue 225); in dark the ground is that same blue family (hue 222). `--color-primary` is the brand teal-blue `#0d667a`. `--color-secondary` is salmon and is **fills and marks only** — it measures 3.55:1 on cream, so use `text-mark` whenever salmon has to be text. `--color-accent` is olive. State uses `info` / `success` / `warning` / `error`; `success` means COMPLETED.
+- **Blue leads, cream carries.** In light the ground is cream (hue 90) under deep blue ink (hue 225); in dark the ground is that same blue family (hue 222). `--color-primary` is the brand teal-blue `#0d667a`. `--color-secondary` is salmon and is **fills and marks only** — it measures 3.55:1 on cream, so use `text-mark` whenever salmon has to be used for text. `--color-accent` is olive. State uses `info` / `success` / `warning` / `error`; `success` means COMPLETED.
 - **Contrast is verified, not guessed.** Ink clears 11:1 on every surface. The measured ratio sits beside each value in `globals.css` — read it there rather than restating it here. There is one alpha floor: **nothing below `/70` may carry information** (text or border). `base-content/60` measures 4.12:1 in light and fails AA. Never put alpha on the focus ring.
 - **Two hairline tokens, and they are not interchangeable.** `--color-rule` is decorative only (~1.3:1). `--color-stroke` carries every interactive boundary and clears WCAG 1.4.11's 3:1 on all four surfaces a control can sit on. Inputs use `.field`, never `border-base-content/20`.
-- **Primitives**: `.shell` (the one page container), `.panel` / `.panel-head` / `.panel-body` (the one card), `.field`, `.chip` (our labels, mono caps), `.tag` (a value the user typed). Then `.eyebrow` (11px tracked mono caps — our labels only, never prose or user data), `.readout` (tabular mono for every number), `.console`, `.well`, `.run-bar`, `.prose-measure`.
+- **Primitives**: `.shell` (the one-page container), `.panel` / `.panel-head` / `.panel-body` (the one card), `.field`, `.chip` (our labels, mono caps), `.tag` (a value the user typed). Then `.eyebrow` (11px tracked mono caps — our labels only, never prose or user data), `.readout` (tabular mono for every number), `.console`, `.well`, `.run-bar`, `.prose-measure`.
 - **Flat by construction**: `--depth: 0`, `--noise: 0`, 1px borders, 3–4px radii, no shadows anywhere.
 - **One animation app-wide**, `.run-bar`, removed under `prefers-reduced-motion`. It is indeterminate on purpose — the updates endpoint returns no phase or count, so any percentage would be invented.
 - Fonts are IBM Plex Sans + IBM Plex Mono via `next/font/google`, wired through `@theme`. Tailwind's preflight picks them up from `--font-sans`/`--font-mono`; don't add a `body { font-family }` override.
@@ -136,7 +136,7 @@ Vitest, node environment, `tests/**/*.test.ts` (see `vitest.config.ts`).
 - The root `tsconfig.json` excludes `tests/`, so `tests/tsconfig.json` covers that tree and `npm run typecheck` runs both — otherwise a type error in a test survives every check.
 - There is **no client-side test coverage**: the environment is `node` only and the `include` glob does not match `.tsx`. Adding component tests means adding jsdom and widening that glob.
 - `tests/server/scraper.regressions.test.ts` pins the scraper defects that have been fixed (substring report detection, robots.txt case and wildcard handling). Keep it green.
-- `tests/hookmark.test.ts` reads `brand.tsx` and `app/icon.svg` as **text**, because the hook is drawn in both and they cannot be one file — the component needs `currentColor`, the favicon needs literal colors and `prefers-color-scheme`. It pins the geometry they share.
+- `tests/hookmark.test.ts` reads `brand.tsx` and `app/icon.svg` as **text**, because the hook is drawn in both, and they cannot be one file — the component needs `currentColor`, the favicon needs literal colors and `prefers-color-scheme`. It pins the geometry they share.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

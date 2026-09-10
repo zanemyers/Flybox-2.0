@@ -632,7 +632,7 @@ describe("httpFetch consults the address guard", () => {
   it("guards the robots.txt fetch too, since that is the first request to any origin", async () => {
     vi.stubGlobal("fetch", vi.fn());
     checkUrl.mockImplementation(async () => ({ ok: false, reason: "refused" }));
-    // No rules is still "allowed" — the guard stops the pages themselves at httpFetch.
+    // No rules are still "allowed" — the guard stops the pages themselves at httpFetch.
     await isAllowedByRobots("http://192.168.1.1/admin");
     expect(checkUrl).toHaveBeenCalledWith("http://192.168.1.1/robots.txt");
   });

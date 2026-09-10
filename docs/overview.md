@@ -33,13 +33,13 @@ A single run of Flybox executes two sequential phases, both in `src/server/pipel
 
 ### Summarization
 
-| | |
-|---|---|
-| Primary model | `gpt-5.6-luna` |
-| Fallback model | `gpt-5.6-terra` — roughly 10x the price, so it runs only after the primary has exhausted the SDK's retries |
-| Reasoning effort | Pinned to `none` — this is structured extraction, and reasoning tokens bill at the output rate |
-| Output cap | 6,000 tokens |
-| Char budget | 50,000 total when summarizing; 500,000 in raw mode |
+|                  |                                                                                                            |
+|------------------|------------------------------------------------------------------------------------------------------------|
+| Primary model    | `gpt-5.6-luna`                                                                                             |
+| Fallback model   | `gpt-5.6-terra` — roughly 10x the price, so it runs only after the primary has exhausted the SDK's retries |
+| Reasoning effort | Pinned to `none` — this is structured extraction, and reasoning tokens bill at the output rate             |
+| Output cap       | 6,000 tokens                                                                                               |
+| Char budget      | 50,000 total when summarizing; 500,000 in raw mode                                                         |
 
 Aborting and backoff are left to the OpenAI SDK's own `timeout` and `maxRetries`; a `Promise.race` timeout billed for requests nobody read. An **empty** response counts as a failure, not a success.
 
@@ -68,12 +68,12 @@ Output files are stored as `Bytes` on the `Job` row and streamed to the client �
 
 `POST /api/flybox` is unauthenticated. Every run costs the operator 5 SerpAPI searches, an OpenAI call, and a headless browser crawling up to 100 third-party sites. `src/server/rateLimit.ts` counts and records a run in one transaction before the job is created:
 
-| Scope | Default |
-|-------|---------|
-| Per client, per hour | 3 |
-| Per client, per day | 10 |
-| Global, per day | 40 |
-| Global, per 30 days | 200 — sized against a 1,000-search SerpAPI plan at 5 searches per run |
+| Scope                | Default                                                               |
+|----------------------|-----------------------------------------------------------------------|
+| Per client, per hour | 3                                                                     |
+| Per client, per day  | 10                                                                    |
+| Global, per day      | 40                                                                    |
+| Global, per 30 days  | 200 — sized against a 1,000-search SerpAPI plan at 5 searches per run |
 
 Counts come from **`RunLedger`**, never from `Job`. Retention deletes `Job` rows on the catalog's schedule, so counting them made every window shorten to whatever survived the last prune. `RATE_LIMIT_WINDOW_MS` in `retention.ts` is now the one constant both the count and the prune read. Admission holds `pg_advisory_xact_lock` for the duration, because counting and inserting separately let a parallel burst read the same totals and all pass.
 
@@ -91,45 +91,45 @@ The nonce is why no page is prerendered: it cannot exist at build time. API rout
 
 ## Tech Stack
 
-| Layer       | Tech                                                          |
-|-------------|---------------------------------------------------------------|
-| Framework   | Next.js 16 (App Router) + React 19                            |
-| Database    | PostgreSQL via Prisma 7 (`@prisma/adapter-pg`)                |
-| Scraping    | Cheerio (HTML parsing) + Playwright (JS-rendered pages)        |
-| AI          | OpenAI (`gpt-5.6-luna`, fallback `gpt-5.6-terra`)             |
-| Shop search | SerpAPI (Google Maps engine)                                  |
-| Geocoding   | Nominatim (reverse only, once per run)                        |
-| Map         | Leaflet + react-leaflet, marker icons served from `public/`    |
-| Spreadsheet | ExcelJS                                                       |
-| Styling     | Tailwind CSS v4 + DaisyUI v5                                  |
-| Linting     | Biome                                                         |
-| Tests       | Vitest (server only — see below)                              |
+| Layer        | Tech                                                           |
+|--------------|----------------------------------------------------------------|
+| Framework    | Next.js 16 (App Router) + React 19                             |
+| Database     | PostgreSQL via Prisma 7 (`@prisma/adapter-pg`)                 |
+| Scraping     | Cheerio (HTML parsing) + Playwright (JS-rendered pages)        |
+| AI           | OpenAI (`gpt-5.6-luna`, fallback `gpt-5.6-terra`)              |
+| Shop search  | SerpAPI (Google Maps engine)                                   |
+| Geocoding    | Nominatim (reverse only, once per run)                         |
+| Map          | Leaflet + react-leaflet, marker icons served from `public/`    |
+| Spreadsheet  | ExcelJS                                                        |
+| Styling      | Tailwind CSS v4 + DaisyUI v5                                   |
+| Linting      | Biome                                                          |
+| Tests        | Vitest (server only — see below)                               |
 
 ## Server Layer
 
 `src/server/` is one responsibility per file:
 
-| File | Owns |
-|------|------|
-| `pipeline.ts`  | `runFlybox()` — both phases, the crawl, and the OpenAI calls |
-| `handler.ts`   | `JobHandler` — every DB write, plus `OUTPUT_FILES` and the workbook builder |
-| `scraper.ts`   | HTTP fetching, robots.txt, email extraction, shop detail detection |
-| `browser.ts`   | Playwright stealth wrapper and `needsPlaywright()` |
-| `net.ts`       | `checkUrl()` — the address guard on every outbound fetch |
-| `catalog.ts`   | The `/runs` query |
+| File           | Owns                                                                                    |
+|----------------|-----------------------------------------------------------------------------------------|
+| `pipeline.ts`  | `runFlybox()` — both phases, the crawl, and the OpenAI calls                            |
+| `handler.ts`   | `JobHandler` — every DB write, plus `OUTPUT_FILES` and the workbook builder             |
+| `scraper.ts`   | HTTP fetching, robots.txt, email extraction, shop detail detection                      |
+| `browser.ts`   | Playwright stealth wrapper and `needsPlaywright()`                                      |
+| `net.ts`       | `checkUrl()` — the address guard on every outbound fetch                                |
+| `catalog.ts`   | The `/runs` query                                                                       |
 | `retention.ts` | How long data lives. Imports nothing, so the pruner can read it without loading the app |
-| `rateLimit.ts` | Per-client and global caps |
-| `geocode.ts`   | Reverse geocoding at job creation |
-| `config.ts`    | The search term, the summary prompt, and key access |
-| `db.ts`        | Prisma client singleton |
+| `rateLimit.ts` | Per-client and global caps                                                              |
+| `geocode.ts`   | Reverse geocoding at job creation                                                       |
+| `config.ts`    | The search term, the summary prompt, and key access                                     |
+| `db.ts`        | Prisma client singleton                                                                 |
 
 ## Output Files
 
-| File                 | Column          | Contents                                                                                   |
-|----------------------|-----------------|--------------------------------------------------------------------------------------------|
-| `report_summary.txt` | `primaryFile`   | The summary when summarizing, the raw crawled text otherwise. If summarization fails, the raw text under a `[Summarization unavailable]` heading |
-| `shop_details.xlsx`  | `secondaryFile` | Shop directory: name, website, address, phone, rating, reviews, category, email, socials, online-store and report flags. Only when asked for |
-| `report_raw.txt`     | `rawFile`       | The crawled source text, written only on summarized runs — in raw mode `primaryFile` already is it. Offered by `/runs`, never auto-downloaded  |
+| File                  | Column           | Contents                                                                                                                                         |
+|-----------------------|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| `report_summary.txt`  | `primaryFile`    | The summary when summarizing, the raw crawled text otherwise. If summarization fails, the raw text under a `[Summarization unavailable]` heading |
+| `shop_details.xlsx`   | `secondaryFile`  | Shop directory: name, website, address, phone, rating, reviews, category, email, socials, online-store and report flags. Only when asked for     |
+| `report_raw.txt`      | `rawFile`        | The crawled source text, written only on summarized runs — in raw mode `primaryFile` already is it. Offered by `/runs`, never auto-downloaded    |
 
 A run promises `report_summary.txt`, plus `shop_details.xlsx` when the shop directory was requested. `GET /api/flybox/[id]/updates` reports that manifest as `expected`, and reports readiness only for what is on it. The panel can therefore render rows before the bytes exist, and never downloads a file the caller did not ask for.
 

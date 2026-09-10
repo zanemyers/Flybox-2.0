@@ -4,10 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const resolve4 = vi.hoisted(() => vi.fn());
 const resolve6 = vi.hoisted(() => vi.fn());
+// A constructor returning an object overrides `this`, so `new Resolver(...)` hands back the two spies.
 vi.mock("node:dns/promises", () => ({
   Resolver: class {
-    resolve4 = resolve4;
-    resolve6 = resolve6;
+    constructor() {
+      return { resolve4, resolve6 };
+    }
   },
 }));
 
